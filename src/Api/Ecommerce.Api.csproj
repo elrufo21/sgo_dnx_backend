@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net7.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**\bin\**;**\obj\**;**\artifacts\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="SharpZipLib" Version="1.4.2" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="7.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="7.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Core\Ecommerce.Application\Ecommerce.Application.csproj" />
+    <ProjectReference Include="..\Infrastructure\Ecommerce.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\CLASES_EF\*.cs"
+             Exclude="..\..\CLASES_EF\FrmNotaCV.cs;..\..\CLASES_EF\pdt.cs;..\..\CLASES_EF\pdt copy.cs;..\..\CLASES_EF\EnviarBaja.cs"
+             Link="Legacy\CLASES_EF\%(Filename)%(Extension)" />
+    <None Include="..\..\CLASES_EF\FrmNotaCV.cs" Link="Legacy\CLASES_EF\FrmNotaCV.cs" />
+    <None Include="..\..\CLASES_EF\pdt.cs" Link="Legacy\CLASES_EF\pdt.cs" />
+    <None Include="..\..\CLASES_EF\pdt copy.cs" Link="Legacy\CLASES_EF\pdt copy.cs" />
+    <None Include="..\..\CLASES_EF\EnviarBaja.cs" Link="Legacy\CLASES_EF\EnviarBaja.cs" />
+  </ItemGroup>
+
+</Project>

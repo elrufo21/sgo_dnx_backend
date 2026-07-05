@@ -1,0 +1,189 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Invoice xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:ccts="urn:un:unece:uncefact:documentation:2" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2" xmlns:qdt="urn:oasis:names:specification:ubl:schema:xsd:QualifiedDatatypes-2" xmlns:udt="urn:un:unece:uncefact:data:specification:UnqualifiedDataTypesSchemaModule:2" xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2">
+  <ext:UBLExtensions>
+    <ext:UBLExtension>
+      <ext:ExtensionContent><Signature Id="SignFacturacionElectronica" xmlns="http://www.w3.org/2000/09/xmldsig#"><SignedInfo><CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315" /><SignatureMethod Algorithm="http://www.w3.org/2000/09/xmldsig#rsa-sha1" /><Reference URI=""><Transforms><Transform Algorithm="http://www.w3.org/2000/09/xmldsig#enveloped-signature" /></Transforms><DigestMethod Algorithm="http://www.w3.org/2000/09/xmldsig#sha1" /><DigestValue>7LIhHMpncIPaOW45rSs24UwxtVQ=</DigestValue></Reference></SignedInfo><SignatureValue>Iy+MDodljLGtmUxLfkFQIrRUtQbsQoeECLl4vakrsxOVwr5M+jn4mTheA5fHuiBUnEiwX6jXq9SWKlqWfwR10ulVJHc4lEd6/mmw2YbL6yMO0HauvHmAHHVoDpcSdCgnn0/7+MMrwZluIoeCMNMmvHPp+zWaLuLK0oa03vnApmQWsd35Xq16KaoWRfCrNgKWNBWQQEY7lSRcQ8O4FnnZofAyNtoyIBjRraBb0XgpJkv+BhXI7YCNgbLvQqqroDwmB482bN9pEavJhFGjG83tY7uMyoktlFtDwNmrqkzieZRgJ6t5mpai6/hZvmkoXj4FM2Fa9SrG34SB53ec+mOVrw==</SignatureValue><KeyInfo><X509Data><X509SubjectName>CN=||USO TRIBUTARIO|| QUISPE PARI REGINA CDT 10464869978, OU=10464869978, OU=EREP_SUNAT_2026000779293, OID.2.5.4.97=NTRPE-10464869978, O=QUISPE PARI REGINA, L=CHARACATO, S=AREQUIPA-AREQUIPA, C=PE</X509SubjectName><X509Certificate>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</X509Certificate></X509Data></KeyInfo></Signature></ext:ExtensionContent>
+    </ext:UBLExtension>
+  </ext:UBLExtensions>
+  <cbc:UBLVersionID>2.1</cbc:UBLVersionID>
+  <cbc:CustomizationID schemeAgencyName="PE:SUNAT">2.0</cbc:CustomizationID>
+  <cbc:ProfileID schemeName="Tipo de Operacion" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo51">1001</cbc:ProfileID>
+  <cbc:ID>FA02-00000468</cbc:ID>
+  <cbc:IssueDate>2026-06-05</cbc:IssueDate>
+  <cbc:IssueTime>10:03:21</cbc:IssueTime>
+  <cbc:InvoiceTypeCode listAgencyName="PE:SUNAT" listName="Tipo de Documento" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo01" listID="1001" name="Tipo de Operacion" listSchemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo51">01</cbc:InvoiceTypeCode>
+  <cbc:Note languageLocaleID="1000">SETENTA Y UNO MIL QUINIENTOS SEIS CON 71/100  SOLES</cbc:Note>
+  <cbc:Note languageLocaleID="2006"><![CDATA[Operación sujeta a detracción]]></cbc:Note>
+  <cbc:DocumentCurrencyCode listID="ISO 4217 Alpha" listName="Currency" listAgencyName="United Nations Economic Commission for Europe">PEN</cbc:DocumentCurrencyCode>
+  <cbc:LineCountNumeric>1</cbc:LineCountNumeric>
+  <cac:Signature>
+    <cbc:ID>FA02-00000468</cbc:ID>
+    <cac:SignatoryParty>
+      <cac:PartyIdentification>
+        <cbc:ID>10464869978</cbc:ID>
+      </cac:PartyIdentification>
+      <cac:PartyName>
+        <cbc:Name>QUISPE PARI REGINA</cbc:Name>
+      </cac:PartyName>
+    </cac:SignatoryParty>
+    <cac:DigitalSignatureAttachment>
+      <cac:ExternalReference>
+        <cbc:URI>#FA02-00000468</cbc:URI>
+      </cac:ExternalReference>
+    </cac:DigitalSignatureAttachment>
+  </cac:Signature>
+  <cac:AccountingSupplierParty>
+    <cac:Party>
+      <cac:PartyIdentification>
+        <cbc:ID schemeID="6" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">10464869978</cbc:ID>
+      </cac:PartyIdentification>
+      <cac:PartyName>
+        <cbc:Name><![CDATA[QUISPE PARI REGINA]]></cbc:Name>
+      </cac:PartyName>
+      <cac:PartyTaxScheme>
+        <cbc:RegistrationName><![CDATA[QUISPE PARI REGINA]]></cbc:RegistrationName>
+        <cbc:CompanyID schemeID="6" schemeName="SUNAT:Identificador de Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">10464869978</cbc:CompanyID>
+        <cac:TaxScheme>
+          <cbc:ID schemeID="6" schemeName="SUNAT:Identificador de Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">10464869978</cbc:ID>
+        </cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName><![CDATA[QUISPE PARI REGINA]]></cbc:RegistrationName>
+        <cac:RegistrationAddress>
+          <cbc:ID schemeAgencyName="PE:INEI" schemeName="Ubigeos">040105</cbc:ID>
+          <cbc:AddressTypeCode listAgencyName="PE:SUNAT" listName="Establecimientos anexos">0000</cbc:AddressTypeCode>
+          <cbc:CityName><![CDATA[AREQUIPA]]></cbc:CityName>
+          <cbc:CountrySubentity><![CDATA[AREQUIPA]]></cbc:CountrySubentity>
+          <cbc:District><![CDATA[CHARACATO]]></cbc:District>
+          <cac:AddressLine>
+            <cbc:Line><![CDATA[A.V. LA VICTORIA DE COPACABANA MZ B LOTE 16]]></cbc:Line>
+          </cac:AddressLine>
+          <cac:Country>
+            <cbc:IdentificationCode listID="ISO 3166-1" listAgencyName="United Nations Economic Commission for Europe" listName="Country">PE</cbc:IdentificationCode>
+          </cac:Country>
+        </cac:RegistrationAddress>
+      </cac:PartyLegalEntity>
+      <cac:Contact>
+        <cbc:Name><![CDATA[]]></cbc:Name>
+      </cac:Contact>
+    </cac:Party>
+  </cac:AccountingSupplierParty>
+  <cac:AccountingCustomerParty>
+    <cac:Party>
+      <cac:PartyIdentification>
+        <cbc:ID schemeID="6" schemeName="Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">20522109178</cbc:ID>
+      </cac:PartyIdentification>
+      <cac:PartyName>
+        <cbc:Name><![CDATA[DXN INTERNATIONAL PERU S.A.C.]]></cbc:Name>
+      </cac:PartyName>
+      <cac:PartyTaxScheme>
+        <cbc:RegistrationName><![CDATA[DXN INTERNATIONAL PERU S.A.C.]]></cbc:RegistrationName>
+        <cbc:CompanyID schemeID="6" schemeName="SUNAT:Identificador de Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">20522109178</cbc:CompanyID>
+        <cac:TaxScheme>
+          <cbc:ID schemeID="6" schemeName="SUNAT:Identificador de Documento de Identidad" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo06">20522109178</cbc:ID>
+        </cac:TaxScheme>
+      </cac:PartyTaxScheme>
+      <cac:PartyLegalEntity>
+        <cbc:RegistrationName><![CDATA[DXN INTERNATIONAL PERU S.A.C.]]></cbc:RegistrationName>
+        <cac:RegistrationAddress>
+          <cbc:ID schemeName="Ubigeos" schemeAgencyName="PE:INEI">
+          </cbc:ID>
+          <cbc:CityName><![CDATA[]]></cbc:CityName>
+          <cbc:CountrySubentity><![CDATA[]]></cbc:CountrySubentity>
+          <cbc:District><![CDATA[]]></cbc:District>
+          <cac:AddressLine>
+            <cbc:Line><![CDATA[ANGAMOS OESTE NRO. 547  LIMA - LIMA - MIRAFLORES]]></cbc:Line>
+          </cac:AddressLine>
+          <cac:Country>
+            <cbc:IdentificationCode listID="ISO 3166-1" listAgencyName="United Nations Economic Commission for Europe" listName="Country">PE</cbc:IdentificationCode>
+          </cac:Country>
+        </cac:RegistrationAddress>
+      </cac:PartyLegalEntity>
+    </cac:Party>
+  </cac:AccountingCustomerParty>
+  <cac:PaymentMeans>
+    <cbc:ID>Detraccion</cbc:ID>
+    <cbc:PaymentMeansCode>001</cbc:PaymentMeansCode>
+    <cac:PayeeFinancialAccount>
+      <cbc:ID>00101449556</cbc:ID>
+    </cac:PayeeFinancialAccount>
+  </cac:PaymentMeans>
+  <cac:PaymentTerms>
+    <cbc:ID>Detraccion</cbc:ID>
+    <cbc:PaymentMeansID>024</cbc:PaymentMeansID>
+    <cbc:PaymentPercent>10</cbc:PaymentPercent>
+    <cbc:Amount currencyID="PEN">7151</cbc:Amount>
+  </cac:PaymentTerms>
+  <cac:PaymentTerms>
+    <cbc:ID>FormaPago</cbc:ID>
+    <cbc:PaymentMeansID>Credito</cbc:PaymentMeansID>
+    <cbc:Amount currencyID="PEN">64355.71</cbc:Amount>
+  </cac:PaymentTerms>
+  <cac:PaymentTerms>
+    <cbc:ID>FormaPago</cbc:ID>
+    <cbc:PaymentMeansID>Cuota001</cbc:PaymentMeansID>
+    <cbc:Amount currencyID="PEN">64355.71</cbc:Amount>
+    <cbc:PaymentDueDate>2026-06-09</cbc:PaymentDueDate>
+  </cac:PaymentTerms>
+  <cac:TaxTotal>
+    <cbc:TaxAmount currencyID="PEN">10907.80</cbc:TaxAmount>
+    <cac:TaxSubtotal>
+      <cbc:TaxableAmount currencyID="PEN">60598.91</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="PEN">10907.80</cbc:TaxAmount>
+      <cac:TaxCategory>
+        <cbc:ID schemeID="UN/ECE 5305" schemeName="Tax Category Identifier" schemeAgencyName="United Nations Economic Commission for Europe">S</cbc:ID>
+        <cac:TaxScheme>
+          <cbc:ID schemeID="UN/ECE 5153" schemeAgencyID="6">1000</cbc:ID>
+          <cbc:Name>IGV</cbc:Name>
+          <cbc:TaxTypeCode>VAT</cbc:TaxTypeCode>
+        </cac:TaxScheme>
+      </cac:TaxCategory>
+    </cac:TaxSubtotal>
+  </cac:TaxTotal>
+  <cac:LegalMonetaryTotal>
+    <cbc:LineExtensionAmount currencyID="PEN">60598.91</cbc:LineExtensionAmount>
+    <cbc:TaxInclusiveAmount currencyID="PEN">71506.71</cbc:TaxInclusiveAmount>
+    <cbc:PayableRoundingAmount currencyID="PEN">0.00</cbc:PayableRoundingAmount>
+    <cbc:PayableAmount currencyID="PEN">71506.71</cbc:PayableAmount>
+  </cac:LegalMonetaryTotal>
+  <cac:InvoiceLine>
+    <cbc:ID>1</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="ZZ" unitCodeListID="UN/ECE rec 20" unitCodeListAgencyName="United Nations Economic Commission for Europe">1.00</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="PEN">60598.91</cbc:LineExtensionAmount>
+    <cac:PricingReference>
+      <cac:AlternativeConditionPrice>
+        <cbc:PriceAmount currencyID="PEN">71506.71</cbc:PriceAmount>
+        <cbc:PriceTypeCode listName="Tipo de Precio" listAgencyName="PE:SUNAT" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo16">01</cbc:PriceTypeCode>
+      </cac:AlternativeConditionPrice>
+    </cac:PricingReference>
+    <cac:TaxTotal>
+      <cbc:TaxAmount currencyID="PEN">10907.80</cbc:TaxAmount>
+      <cac:TaxSubtotal>
+        <cbc:TaxableAmount currencyID="PEN">60598.91</cbc:TaxableAmount>
+        <cbc:TaxAmount currencyID="PEN">10907.80</cbc:TaxAmount>
+        <cac:TaxCategory>
+          <cbc:ID schemeID="UN/ECE 5305" schemeAgencyID="United Nations Economic Commission for Europe">S</cbc:ID>
+          <cbc:Percent>18</cbc:Percent>
+          <cbc:TaxExemptionReasonCode listAgencyName="PE:SUNAT" listName="Afectacion del IGV" listURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo07">10</cbc:TaxExemptionReasonCode>
+          <cac:TaxScheme>
+            <cbc:ID schemeName="Codigo de tributos" schemeAgencyName="PE:SUNAT" schemeURI="urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo05">1000</cbc:ID>
+            <cbc:Name>IGV</cbc:Name>
+            <cbc:TaxTypeCode>VAT</cbc:TaxTypeCode>
+          </cac:TaxScheme>
+        </cac:TaxCategory>
+      </cac:TaxSubtotal>
+    </cac:TaxTotal>
+    <cac:Item>
+      <cbc:Description><![CDATA[PAGO DE COMISION POR VENTAS DE PRODUCTO DE DXN INTERNACIONAL PERU SAC CORRESPONDIENTE A MAYO DEL 2026 NRO DE CUENTA BCP : 215-31193722-0-06 DETRACCION:00-101-449556 COD:360027347 DXN]]></cbc:Description>
+      <cac:SellersItemIdentification>
+        <cbc:ID><![CDATA[MRBONCEN]]></cbc:ID>
+      </cac:SellersItemIdentification>
+      <cac:CommodityClassification>
+        <cbc:ItemClassificationCode listID="UNSPSC" listAgencyName="GS1 US" listName="Item Classification">80161701</cbc:ItemClassificationCode>
+      </cac:CommodityClassification>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="PEN">60598.906779</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+</Invoice>
