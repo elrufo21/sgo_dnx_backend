@@ -31,7 +31,7 @@ public class UsuarioRepository : IUsuario
 
     public async Task<AuthResponseA> LoginAsync(EUser loginUser, CancellationToken cancellationToken = default)
     {
-        var data = $"{loginUser.Email}|{loginUser.Password}";
+        var data = $"{loginUser.Email}|{loginUser.Password}|WEB";
         try
         {
             var result = await _accesoDatos.EjecutarComandoAsync("uspValidaUsuario", "@Data", data, cancellationToken);
@@ -73,19 +73,19 @@ public class UsuarioRepository : IUsuario
             Usuario = GetPayloadValue(payload, 3),
             CompaniaId = GetPayloadValue(payload, 4),
             RazonSocial = GetPayloadValue(payload, 5),
-            FechaVencimientoClave = GetPayloadValue(payload, 6, null),
-            DescuentoMax = GetPayloadValue(payload, 7, "0"),
-            CompaniaRuc = GetPayloadValue(payload, 8),
-            CompaniaNomUbg = GetPayloadValue(payload, 9),
+            CompaniaRuc = GetPayloadValue(payload, 6),
+            FechaVencimientoClave = GetPayloadValue(payload, 20, null),
+            DescuentoMax = "0",
+            CompaniaNomUbg = "",
             CompaniaComercial = GetPayloadValue(payload, 10),
-            CompaniaDirecSunat = GetPayloadValue(payload, 11),
-            UsuarioSol = GetPayloadValue(payload, 12),
-            ClaveSol = GetPayloadValue(payload, 13),
-            CertificadoBase64 = GetPayloadValue(payload, 14),
-            ClaveCertificado = GetPayloadValue(payload, 15),
-            Entorno = GetPayloadValue(payload, 16, "3"),
-            CompaniaTelefono = GetPayloadValue(payload, 17),
-            BoletaPorLote = ParseBoolFlag(GetPayloadValue(payload, 18, "1")),
+            CompaniaDirecSunat = "",
+            UsuarioSol = "",
+            ClaveSol = "",
+            CertificadoBase64 = "",
+            ClaveCertificado = "",
+            Entorno = "3",
+            CompaniaTelefono = "",
+            BoletaPorLote = ParseBoolFlag(GetPayloadValue(payload, 8, "1")),
             Token = _authService.CreateTokenA(expiresAtUtc.ToString("O")),
             ExpiresAtUtc = expiresAtUtc,
             ExpiresInSeconds = expiresInSeconds

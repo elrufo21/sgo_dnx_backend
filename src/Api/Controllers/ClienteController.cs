@@ -34,14 +34,33 @@ public class ClienteController: ControllerBase
 
     [AllowAnonymous]
     [HttpGet("list", Name = "GetClienteList")]
-    [ProducesResponseType(typeof(IReadOnlyList<Cliente>), (int)HttpStatusCode.OK)]
-    public async Task<ActionResult<IReadOnlyList<Cliente>>> GetClienteList(
+    [ProducesResponseType(typeof(ClienteListResult), (int)HttpStatusCode.OK)]
+    public async Task<ActionResult<ClienteListResult>> GetClienteList(
         [FromQuery] string? estado = "ACTIVO",
+        [FromQuery] string? search = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        return Ok(await _mediator.ListarAsync(estado, page, pageSize, cancellationToken));
+        return Ok(await _mediator.ListarPaginadoAsync(estado, search, page, pageSize, cancellationToken));
+    }
+
+    [AllowAnonymous]
+    [HttpGet("{id:long}", Name = "GetClienteById")]
+    [ProducesResponseType(typeof(Cliente), (int)HttpStatusCode.OK)]
+    public async Task<ActionResult<Cliente>> GetClienteById(long id, CancellationToken cancellationToken = default)
+    {
+        var cliente = await _mediator.ObtenerPorIdAsync(id, cancellationToken);
+        return cliente is null ? NotFound() : Ok(cliente);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("by-codigo/{codigo}", Name = "GetClienteByCodigo")]
+    [ProducesResponseType(typeof(Cliente), (int)HttpStatusCode.OK)]
+    public async Task<ActionResult<Cliente>> GetClienteByCodigo(string codigo, CancellationToken cancellationToken = default)
+    {
+        var cliente = await _mediator.ObtenerPorCodigoAsync(codigo, cancellationToken);
+        return cliente is null ? NotFound() : Ok(cliente);
     }
 
     [AllowAnonymous]

@@ -15,3 +15,9 @@ public class Cliente
     public string? ClienteUsuario { get; set; }
     public DateTime? ClienteFecha { get; set; }
 }
+
+public class ClienteListResult
+{
+    public IReadOnlyList<Cliente> Items { get; set; } = Array.Empty<Cliente>();
+    public int Total { get; set; }
+}
