@@ -1413,6 +1413,7 @@ public class NotaController : ControllerBase
             : ", nc.DocuFechaPago";
 
         var sql = $"""
+            WITH Base AS (
             SELECT
                 d.DocuId,
                 d.NotaId,
@@ -1423,10 +1424,10 @@ public class NotaController : ControllerBase
                 d.DocuEmision,
                 {docuFechaPagoSelect}
                 d.ClienteId,
-                d.ClienteRazon,
-                d.ClienteRuc,
-                d.ClienteDni,
-                d.DireccionFiscal,
+                c.ClienteRazon AS ClienteRazon,
+                c.ClienteRuc AS ClienteRuc,
+                c.ClienteDni AS ClienteDni,
+                c.ClienteDireccion AS DireccionFiscal,
                 d.DocuSubTotal,
                 d.DocuIgv,
                 d.DocuTotal,
@@ -1436,9 +1437,9 @@ public class NotaController : ControllerBase
                 d.CodigoSunat,
                 d.MensajeSunat,
                 d.DocuHash,
-                d.DocuPdfUrl,
-                d.DocuXmlUrl,
-                d.DocuCdrUrl,
+                CAST('' AS VARCHAR(500)) AS DocuPdfUrl,
+                CAST('' AS VARCHAR(500)) AS DocuXmlUrl,
+                CAST('' AS VARCHAR(500)) AS DocuCdrUrl,
                 d.FormaPago,
                 d.DocuCondicion,
                 d.DocuConcepto,
@@ -1467,12 +1468,13 @@ public class NotaController : ControllerBase
                 WHERE n.TipoCodigo = '07'
                   AND (
                         LTRIM(RTRIM(ISNULL(n.DocuAsociado, ''))) = CONVERT(VARCHAR(30), d.DocuId)
-                        OR LTRIM(RTRIM(ISNULL(n.DocuNroGuia, ''))) = CONCAT(LTRIM(RTRIM(ISNULL(d.DocuSerie, ''))), '-', LTRIM(RTRIM(ISNULL(d.DocuNumero, ''))))
+                        OR LTRIM(RTRIM(ISNULL(n.DocuNroGuia, ''))) = LTRIM(RTRIM(ISNULL(d.DocuSerie, ''))) + '-' + LTRIM(RTRIM(ISNULL(d.DocuNumero, '')))
                       )
                 ORDER BY
                     CASE WHEN LTRIM(RTRIM(ISNULL(n.EstadoSunat, ''))) = 'ENVIADO' THEN 0 ELSE 1 END,
                     n.DocuId DESC
             ) nc
+            LEFT JOIN Cliente c ON c.ClienteId = d.ClienteId
             LEFT JOIN DetalleDocumento dd ON dd.DocuId = d.DocuId
             WHERE d.TipoCodigo = '01'
               AND LTRIM(RTRIM(ISNULL(d.DocuDocumento, ''))) = 'FACTURA'
@@ -1491,21 +1493,27 @@ public class NotaController : ControllerBase
                         WHERE ds.DocuId = d.DocuId
                           AND (
                                 UPPER(LTRIM(RTRIM(ISNULL(ds.DetalleUM, '')))) = 'ZZ'
-                                OR UPPER(LTRIM(RTRIM(ISNULL(p.AplicaINV, '')))) <> 'S'
+                                OR UPPER(LTRIM(RTRIM(ISNULL(p.ProductoINV, '')))) <> 'S'
                               )
                     )
                   )
             GROUP BY
                 d.DocuId, d.NotaId, d.CompaniaId, d.DocuDocumento, d.DocuSerie, d.DocuNumero,
-                d.DocuEmision, d.ClienteId, d.ClienteRazon, d.ClienteRuc, d.ClienteDni,
-                d.DireccionFiscal, d.DocuSubTotal, d.DocuIgv, d.DocuTotal, d.DocuSaldo,
+                d.DocuEmision, d.ClienteId, c.ClienteRazon, c.ClienteRuc, c.ClienteDni,
+                c.ClienteDireccion, d.DocuSubTotal, d.DocuIgv, d.DocuTotal, d.DocuSaldo,
                 d.DocuEstado, d.EstadoSunat, d.CodigoSunat, d.MensajeSunat, d.DocuHash,
-                d.DocuPdfUrl, d.DocuXmlUrl, d.DocuCdrUrl,
                 d.FormaPago, d.DocuCondicion, d.DocuConcepto, d.DocuAsociado,
                 nc.DocuId, nc.DocuDocumento, nc.DocuSerie, nc.DocuNumero, nc.TipoCodigo,
                 nc.DocuEstado, nc.EstadoSunat{groupByDocuFechaPago}
-            ORDER BY d.DocuEmision DESC, d.DocuId DESC
-            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+            ),
+            Ranked AS (
+                SELECT Base.*, ROW_NUMBER() OVER (ORDER BY DocuEmision DESC, DocuId DESC) AS RowNum
+                FROM Base
+            )
+            SELECT *
+            FROM Ranked
+            WHERE RowNum BETWEEN @Start AND @End
+            ORDER BY RowNum;
             """;
 
         await using var cmd = new SqlCommand(sql, con);
@@ -1516,8 +1524,8 @@ public class NotaController : ControllerBase
         cmd.Parameters.AddWithValue("@SoloServicio", soloServicio ? 1 : 0);
         cmd.Parameters.AddWithValue("@MarcaFacturaServicio", DocuAsociadoFacturaServicioOse);
         cmd.Parameters.AddWithValue("@CondicionFacturaServicio", DocuCondicionFacturaServicio);
-        cmd.Parameters.AddWithValue("@Offset", (page - 1) * pageSize);
-        cmd.Parameters.AddWithValue("@PageSize", pageSize);
+        cmd.Parameters.AddWithValue("@Start", ((page - 1) * pageSize) + 1);
+        cmd.Parameters.AddWithValue("@End", page * pageSize);
 
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
