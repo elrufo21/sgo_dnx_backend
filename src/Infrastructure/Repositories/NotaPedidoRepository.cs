@@ -528,14 +528,14 @@ public class NotaPedidoRepository : INotaPedido
     {
         const string sql = @"SELECT NotaId,
                                     NotaDocu,
-                                    ClienteId,
+                                    NotaPedido.ClienteId,
                                     NotaFecha,
                                     NotaUsuario,
                                     NotaFormaPago,
                                     NotaCondicion,
                                     NotaFechaPago,
                                     NotaDireccion,
-                                    NotaTelefono,
+                                    CAST('' AS varchar(50)) AS NotaTelefono,
                                     NotaSubtotal,
                                     NotaMovilidad,
                                     NotaDescuento,
@@ -560,6 +560,16 @@ public class NotaPedidoRepository : INotaPedido
                                     NroOperacion,
                                     Efectivo,
                                     Deposito,
+                                    NotaPedido.NotaTransaccion,
+                                    NotaPedido.ConceptoOBS,
+                                    NotaPedido.EstadoOBS,
+                                    c.ClienteRazon AS Miembro,
+                                    c.ClienteCodigo AS CodigoCliente,
+                                    (
+                                        SELECT ISNULL(SUM(ISNULL(dp.DetallePV, 0)), 0)
+                                        FROM DetallePedido dp
+                                        WHERE dp.NotaId = NotaPedido.NotaId
+                                    ) AS PV,
                                     (
                                         SELECT TOP (1) d.EstadoSunat
                                         FROM DocumentoVenta d
@@ -567,7 +577,8 @@ public class NotaPedidoRepository : INotaPedido
                                         ORDER BY d.DocuId DESC
                                     ) AS EstadoSunat
                              FROM NotaPedido
-                             WHERE NotaId = @Id";
+                             LEFT JOIN Cliente c ON c.ClienteId = NotaPedido.ClienteId
+                             WHERE NotaPedido.NotaId = @Id";
 
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sql, con);
@@ -588,19 +599,26 @@ public class NotaPedidoRepository : INotaPedido
         return string.IsNullOrWhiteSpace(result) ? "~" : result;
     }
 
-    public async Task<IReadOnlyList<NotaPedido>> ListarCrudAsync(string? estado = null, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<NotaPedido>> ListarCrudAsync(
+        string? estado = null,
+        DateTime? fechaInicio = null,
+        DateTime? fechaFin = null,
+        int page = 1,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default)
     {
         (page, pageSize) = NormalizePagination(page, pageSize);
-        const string sql = @"SELECT NotaId,
+        const string sql = @";WITH Notas AS (
+                             SELECT NotaId,
                                     NotaDocu,
-                                    ClienteId,
+                                    NotaPedido.ClienteId,
                                     NotaFecha,
                                     NotaUsuario,
                                     NotaFormaPago,
                                     NotaCondicion,
                                     NotaFechaPago,
                                     NotaDireccion,
-                                    NotaTelefono,
+                                    CAST('' AS varchar(50)) AS NotaTelefono,
                                     NotaSubtotal,
                                     NotaMovilidad,
                                     NotaDescuento,
@@ -625,20 +643,39 @@ public class NotaPedidoRepository : INotaPedido
                                     NroOperacion,
                                     Efectivo,
                                     Deposito,
+                                    NotaPedido.NotaTransaccion,
+                                    NotaPedido.ConceptoOBS,
+                                    NotaPedido.EstadoOBS,
+                                    c.ClienteRazon AS Miembro,
+                                    c.ClienteCodigo AS CodigoCliente,
+                                    (
+                                        SELECT ISNULL(SUM(ISNULL(dp.DetallePV, 0)), 0)
+                                        FROM DetallePedido dp
+                                        WHERE dp.NotaId = NotaPedido.NotaId
+                                    ) AS PV,
                                     (
                                         SELECT TOP (1) d.EstadoSunat
                                         FROM DocumentoVenta d
                                         WHERE d.NotaId = NotaPedido.NotaId
                                         ORDER BY d.DocuId DESC
-                                    ) AS EstadoSunat
+                                    ) AS EstadoSunat,
+                                    ROW_NUMBER() OVER (ORDER BY NotaPedido.NotaId DESC) AS RowNum
                              FROM NotaPedido
+                             LEFT JOIN Cliente c ON c.ClienteId = NotaPedido.ClienteId
                              WHERE (@Estado IS NULL OR NotaEstado = @Estado)
-                             ORDER BY NotaId DESC
-                             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
+                               AND (@FechaInicio IS NULL OR NotaFecha >= @FechaInicio)
+                               AND (@FechaFin IS NULL OR NotaFecha < DATEADD(day, 1, @FechaFin))
+                             )
+                             SELECT *
+                             FROM Notas
+                             WHERE RowNum BETWEEN @Offset + 1 AND @Offset + @PageSize
+                             ORDER BY RowNum;";
 
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sql, con);
         cmd.Parameters.AddWithValue("@Estado", (object?)estado ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@FechaInicio", (object?)fechaInicio?.Date ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@FechaFin", (object?)fechaFin?.Date ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@Offset", (page - 1) * pageSize);
         cmd.Parameters.AddWithValue("@PageSize", pageSize);
         await con.OpenAsync(cancellationToken);
@@ -932,7 +969,13 @@ public class NotaPedidoRepository : INotaPedido
             NroOperacion = reader["NroOperacion"].ToString(),
             Efectivo = reader["Efectivo"] == DBNull.Value ? null : Convert.ToDecimal(reader["Efectivo"]),
             Deposito = reader["Deposito"] == DBNull.Value ? null : Convert.ToDecimal(reader["Deposito"]),
-            EstadoSunat = reader["EstadoSunat"] == DBNull.Value ? null : reader["EstadoSunat"].ToString()
+            EstadoSunat = reader["EstadoSunat"] == DBNull.Value ? null : reader["EstadoSunat"].ToString(),
+            NotaTransaccion = reader["NotaTransaccion"] == DBNull.Value ? null : reader["NotaTransaccion"].ToString(),
+            Miembro = reader["Miembro"] == DBNull.Value ? null : reader["Miembro"].ToString(),
+            CodigoCliente = reader["CodigoCliente"] == DBNull.Value ? null : reader["CodigoCliente"].ToString(),
+            ConceptoOBS = reader["ConceptoOBS"] == DBNull.Value ? null : reader["ConceptoOBS"].ToString(),
+            EstadoOBS = reader["EstadoOBS"] == DBNull.Value ? null : reader["EstadoOBS"].ToString(),
+            PV = reader["PV"] == DBNull.Value ? null : reader["PV"].ToString()
         };
     }
 

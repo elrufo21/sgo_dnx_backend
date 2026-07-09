@@ -21,19 +21,78 @@ public class ClienteRepository : ICliente
 
     public async Task<string> InsertarAsync(Cliente cliente, CancellationToken cancellationToken = default)
     {
-        var data = $"{cliente.ClienteId}|{cliente.ClienteRazon?.Trim()}|{cliente.ClienteRuc?.Trim()}|{cliente.ClienteDni?.Trim()}|{cliente.ClienteDireccion?.Trim()}|{cliente.ClienteTelefono}|{cliente.ClienteCorreo?.Trim()}|{cliente.ClienteEstado}|{cliente.ClienteDespacho?.Trim()}|{cliente.ClienteUsuario}";
-        var result = await _accesoDatos.EjecutarComandoAsync("uspInsertarCliente", "@Data", data, cancellationToken);
-        if (!string.IsNullOrWhiteSpace(cliente.ClienteCodigo))
+        var id = cliente.ClienteId;
+        var razon = cliente.ClienteRazon?.Trim() ?? string.Empty;
+        var ruc = cliente.ClienteRuc?.Trim() ?? string.Empty;
+        var dni = cliente.ClienteDni?.Trim() ?? string.Empty;
+
+        await using var con = new SqlConnection(_connectionString);
+        await con.OpenAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(dni) && await ExisteDocumentoAsync(con, "ClienteDni", dni, id, cancellationToken))
+            return "existe DNI";
+
+        if (!string.IsNullOrWhiteSpace(ruc) && await ExisteDocumentoAsync(con, "ClienteRuc", ruc, id, cancellationToken))
+            return "existe RUC";
+
+        await using var cmd = new SqlCommand
         {
-            var id = cliente.ClienteId > 0
-                ? cliente.ClienteId
-                : long.TryParse((result ?? "").Split('|')[0].Trim(), out var parsedId)
-                    ? parsedId
-                    : 0;
-            if (id > 0) await ActualizarCodigoAsync(id, cliente.ClienteCodigo, cancellationToken);
-        }
+            Connection = con,
+            CommandTimeout = 300,
+            CommandType = CommandType.Text,
+            CommandText = id <= 0
+                ? """
+                  INSERT INTO Cliente
+                    (ClienteRazon, ClienteRuc, ClienteDni, ClienteDireccion, ClienteMovil, ClienteTelefono,
+                     ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteCodigo, ClienteUsuario, ClienteFecha)
+                  VALUES
+                    (@Razon, @Ruc, @Dni, @Direccion, '', @Telefono, @Correo, @Estado, @Despacho,
+                     @Codigo, @Usuario, GETDATE());
+                  SELECT CONVERT(varchar(20), SCOPE_IDENTITY()) + '|' + @Razon;
+                  """
+                : """
+                  UPDATE Cliente SET
+                    ClienteRazon = @Razon,
+                    ClienteRuc = @Ruc,
+                    ClienteDni = @Dni,
+                    ClienteDireccion = @Direccion,
+                    ClienteTelefono = @Telefono,
+                    ClienteCorreo = @Correo,
+                    ClienteEstado = @Estado,
+                    ClienteDespacho = @Despacho,
+                    ClienteCodigo = @Codigo,
+                    ClienteUsuario = @Usuario,
+                    ClienteFecha = GETDATE()
+                  WHERE ClienteId = @Id;
+                  SELECT CONVERT(varchar(20), @Id) + '|' + @Razon;
+                  """
+        };
+
+        cmd.Parameters.AddWithValue("@Id", id);
+        cmd.Parameters.AddWithValue("@Razon", razon);
+        cmd.Parameters.AddWithValue("@Ruc", ruc);
+        cmd.Parameters.AddWithValue("@Dni", dni);
+        cmd.Parameters.AddWithValue("@Direccion", cliente.ClienteDireccion?.Trim() ?? string.Empty);
+        cmd.Parameters.AddWithValue("@Telefono", cliente.ClienteTelefono?.Trim() ?? string.Empty);
+        cmd.Parameters.AddWithValue("@Correo", cliente.ClienteCorreo?.Trim() ?? string.Empty);
+        cmd.Parameters.AddWithValue("@Estado", cliente.ClienteEstado?.Trim() ?? "ACTIVO");
+        cmd.Parameters.AddWithValue("@Despacho", cliente.ClienteDespacho?.Trim() ?? string.Empty);
+        cmd.Parameters.AddWithValue("@Codigo", cliente.ClienteCodigo?.Trim() ?? string.Empty);
+        cmd.Parameters.AddWithValue("@Usuario", cliente.ClienteUsuario?.Trim() ?? string.Empty);
+
+        var result = (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString();
 
         return string.IsNullOrWhiteSpace(result) ? "error" : result;
+    }
+
+    private static async Task<bool> ExisteDocumentoAsync(SqlConnection con, string column, string value, long excludeId, CancellationToken cancellationToken)
+    {
+        await using var cmd = new SqlCommand(
+            $"SELECT TOP 1 1 FROM Cliente WHERE {column} = @Value AND ClienteId <> @Id;",
+            con);
+        cmd.Parameters.AddWithValue("@Value", value);
+        cmd.Parameters.AddWithValue("@Id", excludeId);
+        return await cmd.ExecuteScalarAsync(cancellationToken) is not null;
     }
 
     public async Task<bool> EliminarAsync(long id, CancellationToken cancellationToken = default)
@@ -129,6 +188,31 @@ public class ClienteRepository : ICliente
             """;
 
         return await ObtenerUnoAsync(sql, cmd => cmd.Parameters.AddWithValue("@Codigo", (codigo ?? string.Empty).Trim()), cancellationToken);
+    }
+
+    public async Task<decimal> ObtenerPvsMesAsync(long clienteId, CancellationToken cancellationToken = default)
+    {
+        if (clienteId <= 0) return 0m;
+
+        const string sql = """
+            DECLARE @InicioMes datetime;
+            SET @InicioMes = DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0);
+
+            SELECT ISNULL(SUM(ISNULL(d.DetallePV, 0)), 0)
+            FROM NotaPedido n
+            INNER JOIN DetallePedido d ON d.NotaId = n.NotaId
+            WHERE n.ClienteId = @ClienteId
+              AND n.NotaFecha >= @InicioMes
+              AND n.NotaFecha < DATEADD(month, 1, @InicioMes)
+              AND ISNULL(n.NotaEstado, '') <> 'ANULADO';
+            """;
+
+        await using var con = new SqlConnection(_connectionString);
+        await using var cmd = new SqlCommand(sql, con);
+        cmd.Parameters.AddWithValue("@ClienteId", clienteId);
+        await con.OpenAsync(cancellationToken);
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+        return result == null || result == DBNull.Value ? 0m : Convert.ToDecimal(result);
     }
 
     public async Task<string> ListarComboAsync(CancellationToken cancellationToken = default)

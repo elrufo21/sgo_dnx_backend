@@ -44,6 +44,8 @@ public interface INotaPedido
     Task<string> ObtenerNotaPedidoSpAsync(long id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<NotaPedidoEntity>> ListarCrudAsync(
         string? estado = null,
+        DateTime? fechaInicio = null,
+        DateTime? fechaFin = null,
         int page = 1,
         int pageSize = 50,
         CancellationToken cancellationToken = default);

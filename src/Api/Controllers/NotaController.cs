@@ -305,11 +305,13 @@ public class NotaController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<NotaPedido>), (int)HttpStatusCode.OK)]
     public async Task<ActionResult<IReadOnlyList<NotaPedido>>> ListarNotaCrud(
         [FromQuery] string? estado = null,
+        [FromQuery] DateTime? fechaInicio = null,
+        [FromQuery] DateTime? fechaFin = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        return Ok(await _mediator.ListarCrudAsync(estado, page, pageSize, cancellationToken));
+        return Ok(await _mediator.ListarCrudAsync(estado, fechaInicio, fechaFin, page, pageSize, cancellationToken));
     }
 
     [AllowAnonymous]
@@ -1369,6 +1371,55 @@ public class NotaController : ControllerBase
             ultimoNumero = correlativo.UltimoNumero,
             numero = correlativo.Numero,
             nroComprobante = $"{correlativo.Serie}-{correlativo.Numero}"
+        });
+    }
+
+    [AllowAnonymous]
+    [HttpGet("correlativo", Name = "GetCorrelativoNota")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> ObtenerCorrelativoNota(
+        [FromQuery] int companiaId,
+        [FromQuery] string serie,
+        CancellationToken cancellationToken = default)
+    {
+        var serieLimpia = (serie ?? string.Empty).Trim().ToUpperInvariant();
+        if (companiaId <= 0 || string.IsNullOrWhiteSpace(serieLimpia))
+            return BadRequest(new { ok = false, mensaje = "companiaId y serie son requeridos." });
+
+        await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await using var cmd = new SqlCommand("""
+            WITH Numeros AS (
+                SELECT CASE
+                    WHEN LTRIM(RTRIM(ISNULL(NotaNumero, ''))) <> ''
+                     AND LTRIM(RTRIM(ISNULL(NotaNumero, ''))) NOT LIKE '%[^0-9]%'
+                    THEN CONVERT(int, LTRIM(RTRIM(NotaNumero)))
+                    ELSE 0
+                END AS Numero
+                FROM NotaPedido
+                WHERE CompaniaId = @CompaniaId
+                  AND LTRIM(RTRIM(ISNULL(NotaSerie, ''))) = @Serie
+            )
+            SELECT
+                RIGHT('00000000' + CONVERT(varchar(8), ISNULL(MAX(Numero), 0)), 8) AS UltimoNumero,
+                RIGHT('00000000' + CONVERT(varchar(8), ISNULL(MAX(Numero), 0) + 1), 8) AS Numero
+            FROM Numeros;
+            """, con);
+        cmd.Parameters.AddWithValue("@CompaniaId", companiaId);
+        cmd.Parameters.AddWithValue("@Serie", serieLimpia);
+        await con.OpenAsync(cancellationToken);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        await reader.ReadAsync(cancellationToken);
+        var ultimoNumero = reader["UltimoNumero"]?.ToString()?.Trim() ?? "00000000";
+        var numero = reader["Numero"]?.ToString()?.Trim() ?? "00000001";
+
+        return Ok(new
+        {
+            ok = true,
+            companiaId,
+            serie = serieLimpia,
+            ultimoNumero,
+            numero,
+            nroComprobante = $"{serieLimpia}-{numero}"
         });
     }
 

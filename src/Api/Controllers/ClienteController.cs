@@ -64,6 +64,14 @@ public class ClienteController: ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("{id:long}/pvs-mes", Name = "GetClientePvsMes")]
+    [ProducesResponseType(typeof(object), (int)HttpStatusCode.OK)]
+    public async Task<IActionResult> GetClientePvsMes(long id, CancellationToken cancellationToken = default)
+    {
+        return Ok(new { total = await _mediator.ObtenerPvsMesAsync(id, cancellationToken) });
+    }
+
+    [AllowAnonymous]
     [HttpGet(Name = "GetListCombo")]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.OK)]
     public async Task<ActionResult<string>> ListarCombo(CancellationToken cancellationToken)
