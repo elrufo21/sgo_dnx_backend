@@ -217,8 +217,61 @@ public class ClienteRepository : ICliente
 
     public async Task<string> ListarComboAsync(CancellationToken cancellationToken = default)
     {
-        var result = await _accesoDatos.EjecutarComandoAsync("uspListaComboClienteWeb", cancellationToken: cancellationToken);
+        string result;
+        try
+        {
+            result = await _accesoDatos.EjecutarComandoAsync("uspListaComboClienteWeb", cancellationToken: cancellationToken);
+        }
+        catch (SqlException ex) when (ex.Number == 2812)
+        {
+            result = await ListarComboFallbackAsync(cancellationToken);
+        }
         return string.IsNullOrWhiteSpace(result) ? string.Empty : result;
+    }
+
+    private async Task<string> ListarComboFallbackAsync(CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT ClienteId, ClienteRazon, ClienteRuc, ClienteDni, ClienteDireccion, ClienteTelefono,
+                   ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteUsuario,
+                   CONVERT(varchar(10), ClienteFecha, 103) AS ClienteFecha, ClienteCodigo
+            FROM Cliente
+            ORDER BY ClienteRazon, ClienteId;
+            """;
+
+        await using var con = new SqlConnection(_connectionString);
+        await using var cmd = new SqlCommand(sql, con);
+        await con.OpenAsync(cancellationToken);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+
+        var rows = new List<string>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add(string.Join("|", new[]
+            {
+                CleanComboField(reader["ClienteId"]),
+                CleanComboField(reader["ClienteRazon"]),
+                CleanComboField(reader["ClienteRuc"]),
+                CleanComboField(reader["ClienteDni"]),
+                CleanComboField(reader["ClienteDireccion"]),
+                CleanComboField(reader["ClienteTelefono"]),
+                CleanComboField(reader["ClienteCorreo"]),
+                CleanComboField(reader["ClienteEstado"]),
+                CleanComboField(reader["ClienteDespacho"]),
+                CleanComboField(reader["ClienteUsuario"]),
+                CleanComboField(reader["ClienteFecha"]),
+                CleanComboField(reader["ClienteCodigo"])
+            }));
+        }
+
+        return string.Join("¬", rows);
+    }
+
+    private static string CleanComboField(object value)
+    {
+        return value == DBNull.Value
+            ? string.Empty
+            : (value.ToString() ?? string.Empty).Replace("|", " ").Replace("¬", " ").Trim();
     }
 
     private static (int page, int pageSize) NormalizePagination(int page, int pageSize)
