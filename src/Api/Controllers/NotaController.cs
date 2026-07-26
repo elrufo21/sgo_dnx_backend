@@ -6532,14 +6532,16 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             return null;
         }
 
-        var credenciales = await _mediator.ObtenerCredencialesSunatAsync(nota.CompaniaId.Value, cancellationToken);
-        if (credenciales is null)
+        var credenciales = AplicarFallbackCredencialesSunat(
+            await _mediator.ObtenerCredencialesSunatAsync(nota.CompaniaId.Value, cancellationToken));
+        if (!TieneCredencialesSunatMinimas(credenciales))
         {
-            _logger.LogWarning("No hay credenciales SUNAT configuradas para la compania {CompaniaId}. La FACTURA {NotaId} quedo pendiente.", nota.CompaniaId.Value, notaId);
+            _logger.LogWarning("No hay credenciales SUNAT/OSE completas para la compania {CompaniaId}. La FACTURA {NotaId} quedo pendiente.", nota.CompaniaId.Value, notaId);
             return null;
         }
+        var credencialesCpe = credenciales!;
 
-        var tipoProceso = ResolverTipoProcesoDesdeCredenciales(credenciales);
+        var tipoProceso = ResolverTipoProcesoDesdeCredenciales(credencialesCpe);
         var ubigeoEmpresa = await ObtenerUbigeoAsync(compania.CompaniaCodigoUBG, cancellationToken);
         var ubigeoCliente = ubigeoEmpresa;
 
@@ -6598,13 +6600,13 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             DISTRITO_EMPRESA = ubigeoEmpresa?.Distrito ?? compania.CompaniaDistrito?.Trim() ?? compania.CompaniaNomUBG?.Trim(),
             CODIGO_PAIS_EMPRESA = "PE",
             RAZON_SOCIAL_EMPRESA = compania.CompaniaRazonSocial?.Trim(),
-            USUARIO_SOL_EMPRESA = credenciales.UsuarioSOL?.Trim(),
-            PASS_SOL_EMPRESA = credenciales.ClaveSOL?.Trim(),
-            CONTRA_FIRMA = credenciales.ClaveCertificado?.Trim(),
+            USUARIO_SOL_EMPRESA = credencialesCpe.UsuarioSOL?.Trim(),
+            PASS_SOL_EMPRESA = credencialesCpe.ClaveSOL?.Trim(),
+            CONTRA_FIRMA = credencialesCpe.ClaveCertificado?.Trim(),
             TIPO_PROCESO = JsonSerializer.SerializeToElement(tipoProceso),
             FORMA_PAGO = ResolverFormaPagoFactura(nota),
             GLOSA = nota.NotaConcepto?.Trim() ?? string.Empty,
-            RUTA_PFX = credenciales.CertificadoPFX?.Trim(),
+            RUTA_PFX = credencialesCpe.CertificadoPFX?.Trim(),
             CODIGO_ANEXO = "0000"
         };
 
@@ -6809,11 +6811,13 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             return (null, (int)HttpStatusCode.NotFound, $"No se encontró la compañía {origen.CompaniaId} para construir la nota de crédito.");
         }
 
-        var credenciales = await _mediator.ObtenerCredencialesSunatAsync(origen.CompaniaId, cancellationToken);
-        if (credenciales is null)
+        var credenciales = AplicarFallbackCredencialesSunat(
+            await _mediator.ObtenerCredencialesSunatAsync(origen.CompaniaId, cancellationToken));
+        if (!TieneCredencialesSunatMinimas(credenciales))
         {
-            return (null, (int)HttpStatusCode.BadRequest, "La compañía no tiene credenciales SUNAT configuradas.");
+            return (null, (int)HttpStatusCode.BadRequest, "La compañía no tiene credenciales SUNAT/OSE completas.");
         }
+        var credencialesCpe = credenciales!;
 
         var seriePreferidaNc = ResolverSerieNcParaBoleta(origen.Serie);
         var (serieNc, numeroNc) = await ObtenerSerieNumeroNotaCreditoAsync(origen.CompaniaId, seriePreferidaNc, cancellationToken);
@@ -6831,7 +6835,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
 
         var ubigeoEmpresa = await ObtenerUbigeoAsync(compania.CompaniaCodigoUBG, cancellationToken);
         var ubigeoCliente = ubigeoEmpresa;
-        var tipoProceso = ResolverTipoProcesoDesdeCredenciales(credenciales);
+        var tipoProceso = ResolverTipoProcesoDesdeCredenciales(credencialesCpe);
 
         var nroDocumentoCliente = !string.IsNullOrWhiteSpace(origen.ClienteRuc)
             ? origen.ClienteRuc.Trim()
@@ -6946,13 +6950,13 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             DISTRITO_EMPRESA = ubigeoEmpresa?.Distrito ?? compania.CompaniaDistrito?.Trim() ?? compania.CompaniaNomUBG?.Trim(),
             CODIGO_PAIS_EMPRESA = "PE",
             RAZON_SOCIAL_EMPRESA = compania.CompaniaRazonSocial?.Trim(),
-            USUARIO_SOL_EMPRESA = credenciales.UsuarioSOL?.Trim(),
-            PASS_SOL_EMPRESA = credenciales.ClaveSOL?.Trim(),
-            CONTRA_FIRMA = credenciales.ClaveCertificado?.Trim(),
+            USUARIO_SOL_EMPRESA = credencialesCpe.UsuarioSOL?.Trim(),
+            PASS_SOL_EMPRESA = credencialesCpe.ClaveSOL?.Trim(),
+            CONTRA_FIRMA = credencialesCpe.ClaveCertificado?.Trim(),
             TIPO_PROCESO = JsonSerializer.SerializeToElement(tipoProceso),
             FORMA_PAGO = string.IsNullOrWhiteSpace(origen.FormaPago) ? "Contado" : origen.FormaPago.Trim(),
             GLOSA = descripcionMotivo,
-            RUTA_PFX = credenciales.CertificadoPFX?.Trim(),
+            RUTA_PFX = credencialesCpe.CertificadoPFX?.Trim(),
             CODIGO_ANEXO = "0000",
             TIPO_COMPROBANTE_MODIFICA = tipoComprobanteModifica,
             NRO_DOCUMENTO_MODIFICA = referenciaModifica,
@@ -7945,6 +7949,76 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         return int.TryParse((credenciales.Entorno ?? string.Empty).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var tipoProceso)
             ? tipoProceso
             : 3;
+    }
+
+    private CredencialesSunat? AplicarFallbackCredencialesSunat(CredencialesSunat? credenciales)
+    {
+        var resultado = credenciales ?? new CredencialesSunat();
+
+        resultado.UsuarioSOL = PrimerValor(
+            resultado.UsuarioSOL,
+            ObtenerConfigOEnv("Cpe:UsuarioSOL", "CPE_USUARIO_SOL", "CPE_USER_SOL"));
+        resultado.ClaveSOL = PrimerValor(
+            resultado.ClaveSOL,
+            ObtenerConfigOEnv("Cpe:ClaveSOL", "CPE_CLAVE_SOL", "CPE_PASS_SOL"));
+        resultado.CertificadoPFX = PrimerValor(
+            resultado.CertificadoPFX,
+            ObtenerConfigOEnv("Cpe:RutaPfx", "Cpe:CertificadoPFX", "CPE_RUTA_PFX", "CPE_PFX_PATH", "CPE_CERTIFICADO_PFX"));
+        resultado.ClaveCertificado = PrimerValor(
+            resultado.ClaveCertificado,
+            ObtenerConfigOEnv("Cpe:ClaveCertificado", "CPE_CLAVE_CERTIFICADO", "CPE_PFX_PASSWORD"));
+        resultado.Entorno = PrimerValor(
+            resultado.Entorno,
+            ObtenerConfigOEnv("Cpe:Entorno", "CPE_ENTORNO", "CPE_TIPO_PROCESO"));
+
+        return TieneAlgunaCredencialSunat(resultado) ? resultado : null;
+    }
+
+    private static bool TieneCredencialesSunatMinimas(CredencialesSunat? credenciales)
+    {
+        return credenciales is not null &&
+               !string.IsNullOrWhiteSpace(credenciales.UsuarioSOL) &&
+               !string.IsNullOrWhiteSpace(credenciales.ClaveSOL) &&
+               !string.IsNullOrWhiteSpace(credenciales.CertificadoPFX) &&
+               !string.IsNullOrWhiteSpace(credenciales.ClaveCertificado);
+    }
+
+    private static bool TieneAlgunaCredencialSunat(CredencialesSunat credenciales)
+    {
+        return !string.IsNullOrWhiteSpace(credenciales.UsuarioSOL) ||
+               !string.IsNullOrWhiteSpace(credenciales.ClaveSOL) ||
+               !string.IsNullOrWhiteSpace(credenciales.CertificadoPFX) ||
+               !string.IsNullOrWhiteSpace(credenciales.ClaveCertificado) ||
+               !string.IsNullOrWhiteSpace(credenciales.Entorno);
+    }
+
+    private string ObtenerConfigOEnv(params string[] keys)
+    {
+        foreach (var key in keys)
+        {
+            var value = key.Contains(':', StringComparison.Ordinal)
+                ? _configuration[key]
+                : Environment.GetEnvironmentVariable(key);
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string? PrimerValor(params string?[] values)
+    {
+        foreach (var value in values)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value.Trim();
+            }
+        }
+
+        return null;
     }
 
     private static string ObtenerDocumentoCliente(Cliente cliente)
@@ -9292,7 +9366,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
 
         if (!TryObtenerBytesDesdeBase64(valor, out var bytesPfx))
         {
-            return valor;
+            return ResolverRutaPfxDesdeArchivoOCarpeta(valor);
         }
 
         var directorioCertificados = ObtenerDirectorioCertificados();
@@ -9301,6 +9375,55 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         var rutaCompleta = Path.Combine(directorioCertificados, fileName);
         System.IO.File.WriteAllBytes(rutaCompleta, bytesPfx);
         return rutaCompleta;
+    }
+
+    private static string ResolverRutaPfxDesdeArchivoOCarpeta(string valor)
+    {
+        if (System.IO.File.Exists(valor))
+        {
+            return valor;
+        }
+
+        if (Directory.Exists(valor))
+        {
+            var certificado = BuscarCertificadoEnDirectorio(valor);
+            return string.IsNullOrWhiteSpace(certificado) ? valor : certificado;
+        }
+
+        if (Path.IsPathRooted(valor))
+        {
+            return valor;
+        }
+
+        var candidato = Path.Combine(ObtenerDirectorioCertificados(), valor);
+        if (System.IO.File.Exists(candidato))
+        {
+            return candidato;
+        }
+
+        if (Directory.Exists(candidato))
+        {
+            var certificado = BuscarCertificadoEnDirectorio(candidato);
+            return string.IsNullOrWhiteSpace(certificado) ? candidato : certificado;
+        }
+
+        return valor;
+    }
+
+    private static string BuscarCertificadoEnDirectorio(string directorio)
+    {
+        try
+        {
+            return Directory
+                .EnumerateFiles(directorio, "*.*", SearchOption.AllDirectories)
+                .FirstOrDefault(path =>
+                    path.EndsWith(".pfx", StringComparison.OrdinalIgnoreCase) ||
+                    path.EndsWith(".p12", StringComparison.OrdinalIgnoreCase)) ?? string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 
     private static bool TryObtenerBytesDesdeBase64(string valor, out byte[] bytes)
