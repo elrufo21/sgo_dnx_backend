@@ -981,6 +981,7 @@ namespace Xml
                     <cac:TaxSubtotal>
                     <cbc:TaxAmount currencyID='" + comprobante.detalle[x].COD_MONEDA + "'>" + F2(comprobante.detalle[x].IGV) + @"</cbc:TaxAmount>
                     <cac:TaxCategory>
+                    <cbc:Percent>18.00</cbc:Percent>
                     <cac:TaxScheme>
                     <cbc:ID>1000</cbc:ID>
                     <cbc:Name>IGV</cbc:Name>

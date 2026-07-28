@@ -54,6 +54,7 @@ public class NotaController : ControllerBase
 
     private const long MaxCertificateSizeBytes = 2 * 1024 * 1024; // 2 MB
     private const decimal PorcentajeIgvDefault = 18m;
+    private const int TipoProcesoPruebas = 3;
     private const int DecimalesSunatPrecioUnitario = 10;
     private const int DecimalesSunatMonto = 2;
     private const string CodigoSunatFacturaFallback = "50161509";
@@ -1000,7 +1001,7 @@ public class NotaController : ControllerBase
             });
         }
 
-        var tipoProceso = ParseTipoProceso(request.TIPO_PROCESO) ?? 3;
+        var tipoProceso = ParseTipoProceso(request.TIPO_PROCESO) ?? TipoProcesoPruebas;
         if (tipoProceso < 1 || tipoProceso > 3)
         {
             return BadRequest(new
@@ -2224,7 +2225,7 @@ public class NotaController : ControllerBase
         EnviarFacturaRequest request,
         CancellationToken cancellationToken)
     {
-        var tipoProceso = ParseTipoProceso(request.TIPO_PROCESO) ?? 3;
+        var tipoProceso = ParseTipoProceso(request.TIPO_PROCESO) ?? TipoProcesoPruebas;
         return await ObtenerCorrelativoNotaCreditoServicioAsync(request, tipoProceso, cancellationToken);
     }
 
@@ -6695,6 +6696,16 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 return CrearRespuestaFacturaPendiente("La orden se registró, pero no se pudo determinar el NotaId para emitir la boleta.");
             }
 
+            if (nota.CompaniaId.HasValue && nota.CompaniaId.Value > 0)
+            {
+                var companias = await _companias.ListarAsync(page: 1, pageSize: 1000, cancellationToken: cancellationToken);
+                var compania = companias.FirstOrDefault(x => x.CompaniaId == nota.CompaniaId.Value);
+                if (compania?.BoletaPorLote == true)
+                {
+                    return CrearRespuestaFacturaPendiente("La boleta se registró y quedó pendiente para resumen/lote.");
+                }
+            }
+
             var requestBoleta = await ConstruirRequestBoletaDesdeOrdenAsync(nota, detalles, notaId.Value, numeroComprobante, cancellationToken);
             if (requestBoleta is null)
             {
@@ -7948,7 +7959,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
     {
         return int.TryParse((credenciales.Entorno ?? string.Empty).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var tipoProceso)
             ? tipoProceso
-            : 3;
+            : TipoProcesoPruebas;
     }
 
     private CredencialesSunat? AplicarFallbackCredencialesSunat(CredencialesSunat? credenciales)
