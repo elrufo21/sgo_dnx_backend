@@ -34,7 +34,7 @@ public class UsuarioRepository : IUsuario
         var data = $"{loginUser.Email}|{loginUser.Password}|WEB";
         try
         {
-            var result = await _accesoDatos.EjecutarComandoAsync("uspValidaUsuario", "@Data", data, cancellationToken);
+            var result = await _accesoDatos.EjecutarComandoAsync("uspValidaUsuarioweb", "@Data", data, cancellationToken);
             return BuildLegacyResponse(result);
         }
         catch (SqlException ex) when (ex.Number == 2812)

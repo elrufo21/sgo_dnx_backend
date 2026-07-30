@@ -1061,7 +1061,7 @@ public class NotaController : ControllerBase
             {
                 ok = false,
                 accion = "actualizar_resumen_error",
-                mensaje = "No se pudo actualizar el resumen con uspEditarRB.",
+                mensaje = "No se pudo actualizar el resumen con uspEditarRBweb.",
                 cod_sunat = codSunat,
                 msj_sunat = msjSunat,
                 hash_cdr = hashCdr,
@@ -2803,7 +2803,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         var ganancia = nota.NotaGanancia ?? 0m;
         var xserie = nota.NotaSerie ?? string.Empty;
         var numero = nota.NotaNumero ?? string.Empty;
-        // Defaults for uspinsertarNotaB fields not present in NotaPedido payloads
+        // Defaults for uspinsertarNotaBweb fields not present in NotaPedido payloads
         var docuAdicional = 0m;
         var docuHash = string.Empty;
         var estadoSunat = "PENDIENTE";
@@ -7411,7 +7411,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 return new
                 {
                     ok = true,
-                    mensaje = "SUNAT respondió OK y se ejecutó uspinsertarRB, pero el SP no devolvió payload."
+                    mensaje = "SUNAT respondió OK y se ejecutó uspinsertarRBweb, pero el SP no devolvió payload."
                 };
             }
 
@@ -7420,7 +7420,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 return new
                 {
                     ok = true,
-                    mensaje = "SUNAT respondió OK y se ejecutó uspinsertarRB. El SP devolvió '~' en el SELECT final.",
+                    mensaje = "SUNAT respondió OK y se ejecutó uspinsertarRBweb. El SP devolvió '~' en el SELECT final.",
                     resultado
                 };
             }

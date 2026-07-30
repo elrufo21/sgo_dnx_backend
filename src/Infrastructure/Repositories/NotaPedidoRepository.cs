@@ -23,7 +23,7 @@ public class NotaPedidoRepository : INotaPedido
 
     public async Task<string> RegistrarOrdenAsync(string data, CancellationToken cancellationToken = default)
     {
-        var result = await _accesoDatos.EjecutarComandoAsync("uspinsertarNotaB", "@ListaOrden", data, cancellationToken);
+        var result = await _accesoDatos.EjecutarComandoAsync("uspinsertarNotaBweb", "@ListaOrden", data, cancellationToken);
         return string.IsNullOrWhiteSpace(result) ? "error" : result;
     }
 
@@ -130,13 +130,13 @@ public class NotaPedidoRepository : INotaPedido
 
     public async Task<string> RegistrarResumenBoletasAsync(string listaOrden, CancellationToken cancellationToken = default)
     {
-        var result = await _accesoDatos.EjecutarComandoAsync("uspinsertarRB", "@ListaOrden", listaOrden, cancellationToken);
+        var result = await _accesoDatos.EjecutarComandoAsync("uspinsertarRBweb", "@ListaOrden", listaOrden, cancellationToken);
         return string.IsNullOrWhiteSpace(result) ? "~" : result;
     }
 
     public async Task<string> EditarResumenBoletasAsync(string data, CancellationToken cancellationToken = default)
     {
-        var result = await _accesoDatos.EjecutarComandoAsync("uspEditarRB", "@Data", data, cancellationToken);
+        var result = await _accesoDatos.EjecutarComandoAsync("uspEditarRBweb", "@Data", data, cancellationToken);
         return string.IsNullOrWhiteSpace(result) ? string.Empty : result;
     }
 
@@ -400,14 +400,14 @@ public class NotaPedidoRepository : INotaPedido
     public async Task<string> ResumenPorFechaAsync(DateTime fechaInicio, DateTime fechaFin, CancellationToken cancellationToken = default)
     {
         var data = $"{fechaInicio:yyyy-MM-dd}|{fechaFin:yyyy-MM-dd}";
-        var result = await _accesoDatos.EjecutarComandoAsync("uspResumenFecha", "@Data", data, cancellationToken);
+        var result = await _accesoDatos.EjecutarComandoAsync("uspResumenFechaweb", "@Data", data, cancellationToken);
         return string.IsNullOrWhiteSpace(result) ? "~" : result;
     }
 
     public async Task<CredencialesSunat?> ObtenerCredencialesSunatAsync(int companiaId, CancellationToken cancellationToken = default)
     {
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand("uspObtenerCredencialesSunat", con)
+        await using var cmd = new SqlCommand("uspObtenerCredencialesSunatweb", con)
         {
             CommandTimeout = 300,
             CommandType = CommandType.StoredProcedure
@@ -441,7 +441,7 @@ public class NotaPedidoRepository : INotaPedido
         CancellationToken cancellationToken = default)
     {
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand("uspGuardarCredencialesSunat", con)
+        await using var cmd = new SqlCommand("uspGuardarCredencialesSunatweb", con)
         {
             CommandTimeout = 300,
             CommandType = CommandType.StoredProcedure
