@@ -24,6 +24,10 @@ public class NotaPedidoRepository : INotaPedido
     public async Task<string> RegistrarOrdenAsync(string data, CancellationToken cancellationToken = default)
     {
         var result = await _accesoDatos.EjecutarComandoAsync("uspinsertarNotaBweb", "@ListaOrden", data, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(result) && TryGetNotaId(result, out var notaId))
+        {
+            await ActualizarCamposRegistroAsync(notaId, GetUsuarioFromOrden(data), cancellationToken);
+        }
         return string.IsNullOrWhiteSpace(result) ? "error" : result;
     }
 
@@ -471,6 +475,7 @@ public class NotaPedidoRepository : INotaPedido
             return notaPedido.NotaId > 0 ? "NOT_FOUND" : "error";
         }
 
+        await ActualizarCamposRegistroAsync(notaId, notaPedido.NotaUsuario, con, tx, cancellationToken);
         await tx.CommitAsync(cancellationToken);
         return notaPedido.NotaId > 0 ? "UPDATED" : notaId.ToString();
     }
@@ -495,6 +500,7 @@ public class NotaPedidoRepository : INotaPedido
         }
         await MergeDetallesNotaAsync(notaId, detalleList, con, tx, cancellationToken);
 
+        await ActualizarCamposRegistroAsync(notaId, notaPedido.NotaUsuario, con, tx, cancellationToken);
         await tx.CommitAsync(cancellationToken);
         return notaId.ToString();
     }
@@ -929,6 +935,65 @@ public class NotaPedidoRepository : INotaPedido
     private static void AddParam(SqlCommand cmd, string name, object? value)
     {
         cmd.Parameters.AddWithValue(name, value ?? DBNull.Value);
+    }
+
+    private async Task ActualizarCamposRegistroAsync(long notaId, string? usuario, CancellationToken cancellationToken)
+    {
+        await using var con = new SqlConnection(_connectionString);
+        await con.OpenAsync(cancellationToken);
+        await ActualizarCamposRegistroAsync(notaId, usuario, con, null, cancellationToken);
+    }
+
+    private static async Task ActualizarCamposRegistroAsync(
+        long notaId,
+        string? usuario,
+        SqlConnection con,
+        SqlTransaction? tx,
+        CancellationToken cancellationToken)
+    {
+        var columnas = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        const string sqlColumnas = @"
+            SELECT name
+            FROM sys.columns
+            WHERE object_id = OBJECT_ID(N'dbo.NotaPedido')
+              AND name IN (N'Almacen', N'Hora', N'Entrega');";
+
+        await using (var cmdColumnas = new SqlCommand(sqlColumnas, con, tx))
+        await using (var reader = await cmdColumnas.ExecuteReaderAsync(cancellationToken))
+        {
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                columnas.Add(reader.GetString(0));
+            }
+        }
+
+        var sets = new List<string>();
+        if (columnas.Contains("Almacen")) sets.Add("Almacen = @Almacen");
+        if (columnas.Contains("Hora")) sets.Add("Hora = GETDATE()");
+        if (columnas.Contains("Entrega")) sets.Add("Entrega = @Entrega");
+        if (sets.Count == 0) return;
+
+        await using var cmd = new SqlCommand(
+            $"UPDATE NotaPedido SET {string.Join(", ", sets)} WHERE NotaId = @NotaId",
+            con,
+            tx);
+        cmd.Parameters.AddWithValue("@NotaId", notaId);
+        cmd.Parameters.AddWithValue("@Almacen", string.IsNullOrWhiteSpace(usuario) ? "USUARIO" : usuario.Trim());
+        cmd.Parameters.AddWithValue("@Entrega", "ENTREGADO");
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static bool TryGetNotaId(string result, out long notaId)
+    {
+        var first = result.Split('¬', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        return long.TryParse(first, NumberStyles.Integer, CultureInfo.InvariantCulture, out notaId);
+    }
+
+    private static string GetUsuarioFromOrden(string data)
+    {
+        var header = data.Split('[', 2)[0];
+        var fields = header.Split('|');
+        return fields.Length > 2 && !string.IsNullOrWhiteSpace(fields[2]) ? fields[2].Trim() : "USUARIO";
     }
 
     private static NotaPedido Map(SqlDataReader reader)
