@@ -1453,16 +1453,9 @@ public class NotaController : ControllerBase
         var items = new List<object>();
         await using var con = new SqlConnection(connectionString);
         await con.OpenAsync(cancellationToken);
-        var tieneDocuFechaPago = await TieneColumnaDocuFechaPagoAsync(con, cancellationToken);
-        var docuFechaPagoSelect = tieneDocuFechaPago
-            ? "d.DocuFechaPago,"
-            : "CAST(NULL AS date) AS DocuFechaPago,";
-        var ncDocuFechaPagoSelect = tieneDocuFechaPago
-            ? "n.DocuFechaPago,"
-            : "CAST(NULL AS date) AS DocuFechaPago,";
-        var groupByDocuFechaPago = tieneDocuFechaPago
-            ? ", d.DocuFechaPago, nc.DocuFechaPago"
-            : ", nc.DocuFechaPago";
+        const string docuFechaPagoSelect = "w.DocuFechaPago,";
+        const string ncDocuFechaPagoSelect = "nw.DocuFechaPago,";
+        const string groupByDocuFechaPago = ", w.DocuFechaPago, nc.DocuFechaPago";
 
         var sql = $"""
             WITH Base AS (
@@ -1489,9 +1482,9 @@ public class NotaController : ControllerBase
                 d.CodigoSunat,
                 d.MensajeSunat,
                 d.DocuHash,
-                CAST('' AS VARCHAR(500)) AS DocuPdfUrl,
-                CAST('' AS VARCHAR(500)) AS DocuXmlUrl,
-                CAST('' AS VARCHAR(500)) AS DocuCdrUrl,
+                MAX(ISNULL(w.DocuPdfUrl, '')) AS DocuPdfUrl,
+                MAX(ISNULL(w.DocuXmlUrl, '')) AS DocuXmlUrl,
+                MAX(ISNULL(w.DocuCdrUrl, '')) AS DocuCdrUrl,
                 d.FormaPago,
                 d.DocuCondicion,
                 d.DocuConcepto,
@@ -1517,6 +1510,7 @@ public class NotaController : ControllerBase
                     n.DocuEstado,
                     n.EstadoSunat
                 FROM DocumentoVenta n
+                LEFT JOIN DocumentoVentaCpeWeb nw ON nw.DocuId = n.DocuId
                 WHERE n.TipoCodigo = '07'
                   AND (
                         LTRIM(RTRIM(ISNULL(n.DocuAsociado, ''))) = CONVERT(VARCHAR(30), d.DocuId)
@@ -1527,6 +1521,7 @@ public class NotaController : ControllerBase
                     n.DocuId DESC
             ) nc
             LEFT JOIN Cliente c ON c.ClienteId = d.ClienteId
+            LEFT JOIN DocumentoVentaCpeWeb w ON w.DocuId = d.DocuId
             LEFT JOIN DetalleDocumento dd ON dd.DocuId = d.DocuId
             WHERE d.TipoCodigo = '01'
               AND LTRIM(RTRIM(ISNULL(d.DocuDocumento, ''))) = 'FACTURA'
@@ -1684,13 +1679,8 @@ public class NotaController : ControllerBase
 
         await using var con = new SqlConnection(connectionString);
         await con.OpenAsync(cancellationToken);
-        var tieneDocuFechaPago = await TieneColumnaDocuFechaPagoAsync(con, cancellationToken);
-        var docuFechaPagoSelect = tieneDocuFechaPago
-            ? "d.DocuFechaPago,"
-            : "CAST(NULL AS date) AS DocuFechaPago,";
-        var ncDocuFechaPagoSelect = tieneDocuFechaPago
-            ? "n.DocuFechaPago,"
-            : "CAST(NULL AS date) AS DocuFechaPago,";
+        const string docuFechaPagoSelect = "w.DocuFechaPago,";
+        const string ncDocuFechaPagoSelect = "nw.DocuFechaPago,";
 
         var sqlCabecera = $"""
             SELECT TOP (1)
@@ -1704,10 +1694,10 @@ public class NotaController : ControllerBase
                 d.DocuEmision,
                 {docuFechaPagoSelect}
                 d.ClienteId,
-                d.ClienteRazon,
-                d.ClienteRuc,
-                d.ClienteDni,
-                d.DireccionFiscal,
+                COALESCE(NULLIF(LTRIM(RTRIM(w.ClienteRazon)), ''), c.ClienteRazon, '') AS ClienteRazon,
+                COALESCE(NULLIF(LTRIM(RTRIM(w.ClienteRuc)), ''), c.ClienteRuc, '') AS ClienteRuc,
+                COALESCE(NULLIF(LTRIM(RTRIM(w.ClienteDni)), ''), c.ClienteDni, '') AS ClienteDni,
+                COALESCE(NULLIF(LTRIM(RTRIM(w.DireccionFiscal)), ''), c.ClienteDireccion, '') AS DireccionFiscal,
                 d.DocuCondicion,
                 d.DocuLetras,
                 d.DocuSubTotal,
@@ -1722,9 +1712,9 @@ public class NotaController : ControllerBase
                 d.DocuConcepto,
                 d.DocuNroGuia,
                 d.DocuHash,
-                d.DocuPdfUrl,
-                d.DocuXmlUrl,
-                d.DocuCdrUrl,
+                ISNULL(w.DocuPdfUrl, '') AS DocuPdfUrl,
+                ISNULL(w.DocuXmlUrl, '') AS DocuXmlUrl,
+                ISNULL(w.DocuCdrUrl, '') AS DocuCdrUrl,
                 d.EstadoSunat,
                 d.ICBPER,
                 d.CodigoSunat,
@@ -1756,6 +1746,7 @@ public class NotaController : ControllerBase
                     n.DocuEstado,
                     n.EstadoSunat
                 FROM DocumentoVenta n
+                LEFT JOIN DocumentoVentaCpeWeb nw ON nw.DocuId = n.DocuId
                 WHERE n.TipoCodigo = '07'
                   AND (
                         LTRIM(RTRIM(ISNULL(n.DocuAsociado, ''))) = CONVERT(VARCHAR(30), d.DocuId)
@@ -1765,6 +1756,8 @@ public class NotaController : ControllerBase
                     CASE WHEN LTRIM(RTRIM(ISNULL(n.EstadoSunat, ''))) = 'ENVIADO' THEN 0 ELSE 1 END,
                     n.DocuId DESC
             ) nc
+            LEFT JOIN DocumentoVentaCpeWeb w ON w.DocuId = d.DocuId
+            LEFT JOIN Cliente c ON c.ClienteId = d.ClienteId
             WHERE d.DocuId = @DocuId
               AND d.TipoCodigo = '01'
               AND LTRIM(RTRIM(ISNULL(d.DocuDocumento, ''))) = 'FACTURA'
@@ -1976,10 +1969,9 @@ public class NotaController : ControllerBase
         }
 
         const string sql = """
-            UPDATE d
-            SET DocuPdfUrl = CASE WHEN @DocuPdfUrl IS NULL THEN d.DocuPdfUrl ELSE @DocuPdfUrl END,
-                DocuXmlUrl = CASE WHEN @DocuXmlUrl IS NULL THEN d.DocuXmlUrl ELSE @DocuXmlUrl END,
-                DocuCdrUrl = CASE WHEN @DocuCdrUrl IS NULL THEN d.DocuCdrUrl ELSE @DocuCdrUrl END
+            DECLARE @Existe bit = 0;
+
+            SELECT TOP (1) @Existe = 1
             FROM DocumentoVenta d
             WHERE d.DocuId = @DocuId
               AND d.TipoCodigo = '01'
@@ -1999,7 +1991,22 @@ public class NotaController : ControllerBase
                     )
                   );
 
-            SELECT @@ROWCOUNT;
+            IF @Existe = 1
+            BEGIN
+                UPDATE DocumentoVentaCpeWeb
+                SET DocuPdfUrl = CASE WHEN @DocuPdfUrl IS NULL THEN DocuPdfUrl ELSE @DocuPdfUrl END,
+                    DocuXmlUrl = CASE WHEN @DocuXmlUrl IS NULL THEN DocuXmlUrl ELSE @DocuXmlUrl END,
+                    DocuCdrUrl = CASE WHEN @DocuCdrUrl IS NULL THEN DocuCdrUrl ELSE @DocuCdrUrl END
+                WHERE DocuId = @DocuId;
+
+                IF @@ROWCOUNT = 0
+                BEGIN
+                    INSERT INTO DocumentoVentaCpeWeb (DocuId, DocuPdfUrl, DocuXmlUrl, DocuCdrUrl)
+                    VALUES (@DocuId, @DocuPdfUrl, @DocuXmlUrl, @DocuCdrUrl);
+                END
+            END
+
+            SELECT CASE WHEN @Existe = 1 THEN 1 ELSE 0 END;
             """;
 
         await using var con = new SqlConnection(connectionString);
@@ -2088,10 +2095,16 @@ public class NotaController : ControllerBase
             """;
 
         const string sqlActualizar = """
-            UPDATE DocumentoVenta
+            UPDATE DocumentoVentaCpeWeb
             SET DocuXmlUrl = CASE WHEN NULLIF(@DocuXmlUrl, '') IS NULL THEN DocuXmlUrl ELSE @DocuXmlUrl END,
                 DocuCdrUrl = CASE WHEN NULLIF(@DocuCdrUrl, '') IS NULL THEN DocuCdrUrl ELSE @DocuCdrUrl END
             WHERE DocuId = @DocuId;
+
+            IF @@ROWCOUNT = 0
+            BEGIN
+                INSERT INTO DocumentoVentaCpeWeb (DocuId, DocuXmlUrl, DocuCdrUrl)
+                VALUES (@DocuId, @DocuXmlUrl, @DocuCdrUrl);
+            END
             """;
 
         await using var con = new SqlConnection(connectionString);
@@ -4738,32 +4751,45 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         }
 
         const string sqlActualizarDocumento = """
-            ;WITH DocumentoObjetivo AS (
-                SELECT TOP (1) d.DocuId
-                FROM DocumentoVenta d
-                WHERE d.TipoCodigo = @TipoCodigo
-                  AND d.EstadoSunat IN ('PENDIENTE', 'RECHAZADO')
-                  AND (
-                        (@DocuId > 0 AND d.DocuId = @DocuId)
-                        OR (@DocuId <= 0 AND @NotaId > 0 AND d.NotaId = @NotaId)
-                      )
-                ORDER BY CASE WHEN @DocuId > 0 AND d.DocuId = @DocuId THEN 0 ELSE 1 END,
-                         CASE WHEN d.EstadoSunat = 'PENDIENTE' THEN 0 ELSE 1 END,
-                         d.DocuId DESC
-            )
-            UPDATE d
-            SET d.EstadoSunat = 'ENVIADO',
+            DECLARE @DocuIdObjetivo numeric(38, 0);
+
+            SELECT TOP (1) @DocuIdObjetivo = d.DocuId
+            FROM DocumentoVenta d
+            WHERE d.TipoCodigo = @TipoCodigo
+              AND d.EstadoSunat IN ('PENDIENTE', 'RECHAZADO')
+              AND (
+                    (@DocuId > 0 AND d.DocuId = @DocuId)
+                    OR (@DocuId <= 0 AND @NotaId > 0 AND d.NotaId = @NotaId)
+                  )
+            ORDER BY CASE WHEN @DocuId > 0 AND d.DocuId = @DocuId THEN 0 ELSE 1 END,
+                     CASE WHEN d.EstadoSunat = 'PENDIENTE' THEN 0 ELSE 1 END,
+                     d.DocuId DESC;
+
+            IF @DocuIdObjetivo IS NOT NULL
+            BEGIN
+                UPDATE d
+                SET d.EstadoSunat = 'ENVIADO',
                 d.CodigoSunat = @CodigoSunat,
                 d.MensajeSunat = @MensajeSunat,
                 d.DocuHash = CASE WHEN NULLIF(@DocuHash, '') IS NULL THEN d.DocuHash ELSE @DocuHash END,
-                d.DocuPdfUrl = CASE WHEN NULLIF(@DocuPdfUrl, '') IS NULL THEN d.DocuPdfUrl ELSE @DocuPdfUrl END,
-                d.DocuXmlUrl = CASE WHEN NULLIF(@DocuXmlUrl, '') IS NULL THEN d.DocuXmlUrl ELSE @DocuXmlUrl END,
-                d.DocuCdrUrl = CASE WHEN NULLIF(@DocuCdrUrl, '') IS NULL THEN d.DocuCdrUrl ELSE @DocuCdrUrl END,
                 d.DocuEstado = CASE WHEN d.DocuEstado = 'RECHAZADO' THEN 'EMITIDO' ELSE d.DocuEstado END
-            FROM DocumentoVenta d
-            INNER JOIN DocumentoObjetivo o ON o.DocuId = d.DocuId;
+                FROM DocumentoVenta d
+                WHERE d.DocuId = @DocuIdObjetivo;
 
-            SELECT @@ROWCOUNT;
+                UPDATE DocumentoVentaCpeWeb
+                SET DocuPdfUrl = CASE WHEN NULLIF(@DocuPdfUrl, '') IS NULL THEN DocuPdfUrl ELSE @DocuPdfUrl END,
+                    DocuXmlUrl = CASE WHEN NULLIF(@DocuXmlUrl, '') IS NULL THEN DocuXmlUrl ELSE @DocuXmlUrl END,
+                    DocuCdrUrl = CASE WHEN NULLIF(@DocuCdrUrl, '') IS NULL THEN DocuCdrUrl ELSE @DocuCdrUrl END
+                WHERE DocuId = @DocuIdObjetivo;
+
+                IF @@ROWCOUNT = 0
+                BEGIN
+                    INSERT INTO DocumentoVentaCpeWeb (DocuId, DocuPdfUrl, DocuXmlUrl, DocuCdrUrl)
+                    VALUES (@DocuIdObjetivo, @DocuPdfUrl, @DocuXmlUrl, @DocuCdrUrl);
+                END
+            END
+
+            SELECT CASE WHEN @DocuIdObjetivo IS NULL THEN 0 ELSE 1 END;
             """;
 
         const string sqlActualizarDetalle = """
@@ -4896,8 +4922,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 DocuSaldo, DocuUsuario, DocuEstado, DocuSerie, TipoCodigo, DocuAdicional,
                 DocuAsociado, DocuConcepto, DocuNroGuia, DocuHash, EstadoSunat, ICBPER,
                 CodigoSunat, MensajeSunat, DocuGravada, DocuDescuento, EnvioCorreo,
-                FormaPago, EntidadBancaria, NroOperacion, Efectivo, Deposito, ClienteRazon,
-                ClienteRuc, ClienteDni, DireccionFiscal
+                FormaPago, EntidadBancaria, NroOperacion, Efectivo, Deposito
             )
             OUTPUT INSERTED.DocuId INTO @Nuevo
             VALUES
@@ -4907,8 +4932,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 0, @Usuario, 'EMITIDO', @DocuSerie, '07', 0,
                 @DocuAsociado, @Concepto, @NroReferencia, '', 'PENDIENTE', @Icbper,
                 '', '', @Gravada, @Descuento, '',
-                @FormaPago, @EntidadBancaria, @NroOperacion, @Efectivo, @Deposito, @ClienteRazon,
-                @ClienteRuc, @ClienteDni, @DireccionFiscal
+                @FormaPago, @EntidadBancaria, @NroOperacion, @Efectivo, @Deposito
             );
 
             SELECT TOP (1) DocuId FROM @Nuevo;
@@ -4941,11 +4965,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 EntidadBancaria = @EntidadBancaria,
                 NroOperacion = @NroOperacion,
                 Efectivo = @Efectivo,
-                Deposito = @Deposito,
-                ClienteRazon = @ClienteRazon,
-                ClienteRuc = @ClienteRuc,
-                ClienteDni = @ClienteDni,
-                DireccionFiscal = @DireccionFiscal
+                Deposito = @Deposito
             WHERE DocuId = @DocuId;
             """;
 
@@ -5055,6 +5075,20 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 await tx.RollbackAsync(cancellationToken);
                 return (false, 0, $"{serieNc}-{numeroNc}", "No se pudo registrar DocumentoVenta de nota de crédito.");
             }
+
+            await GuardarDocumentoVentaCpeWebAsync(
+                con,
+                (SqlTransaction)tx,
+                docuId,
+                string.IsNullOrWhiteSpace(request.RAZON_SOCIAL_CLIENTE) ? origen.ClienteRazon : request.RAZON_SOCIAL_CLIENTE!.Trim(),
+                string.Equals((request.TIPO_DOCUMENTO_CLIENTE ?? string.Empty).Trim(), "6", StringComparison.Ordinal)
+                    ? (request.NRO_DOCUMENTO_CLIENTE ?? string.Empty).Trim()
+                    : origen.ClienteRuc,
+                !string.Equals((request.TIPO_DOCUMENTO_CLIENTE ?? string.Empty).Trim(), "6", StringComparison.Ordinal)
+                    ? (request.NRO_DOCUMENTO_CLIENTE ?? string.Empty).Trim()
+                    : origen.ClienteDni,
+                string.IsNullOrWhiteSpace(request.DIRECCION_CLIENTE) ? origen.DireccionFiscal : request.DIRECCION_CLIENTE!.Trim(),
+                cancellationToken: cancellationToken);
 
             await ActualizarDocuFechaPagoSiExisteAsync(con, (SqlTransaction)tx, docuId, fechaPago, cancellationToken);
 
@@ -5206,9 +5240,6 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                     CodigoSunat = @CodigoSunat,
                     MensajeSunat = @MensajeSunat,
                     DocuHash = CASE WHEN NULLIF(@DocuHash, '') IS NULL THEN DocuHash ELSE @DocuHash END,
-                    DocuPdfUrl = CASE WHEN NULLIF(@DocuPdfUrl, '') IS NULL THEN DocuPdfUrl ELSE @DocuPdfUrl END,
-                    DocuXmlUrl = CASE WHEN NULLIF(@DocuXmlUrl, '') IS NULL THEN DocuXmlUrl ELSE @DocuXmlUrl END,
-                    DocuCdrUrl = CASE WHEN NULLIF(@DocuCdrUrl, '') IS NULL THEN DocuCdrUrl ELSE @DocuCdrUrl END,
                     DocuCondicion = @DocuCondicionServicio,
                     DocuAsociado = CASE
                         WHEN UPPER(LTRIM(RTRIM(ISNULL(DocuAsociado, '')))) = @DocuAsociadoServicio THEN ''
@@ -5230,8 +5261,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 DocuSaldo, DocuUsuario, DocuEstado, DocuSerie, TipoCodigo, DocuAdicional,
                 DocuAsociado, DocuConcepto, DocuNroGuia, DocuHash, EstadoSunat, ICBPER,
                 CodigoSunat, MensajeSunat, DocuGravada, DocuDescuento, EnvioCorreo,
-                FormaPago, EntidadBancaria, NroOperacion, Efectivo, Deposito, ClienteRazon,
-                ClienteRuc, ClienteDni, DireccionFiscal, DocuPdfUrl, DocuXmlUrl, DocuCdrUrl
+                FormaPago, EntidadBancaria, NroOperacion, Efectivo, Deposito
             )
             OUTPUT INSERTED.DocuId INTO @Nuevo
             VALUES
@@ -5241,8 +5271,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 @Saldo, @Usuario, 'EMITIDO', @DocuSerie, '01', 0,
                 '', @Concepto, '', @DocuHash, 'ENVIADO', @Icbper,
                 @CodigoSunat, @MensajeSunat, @Gravada, @Descuento, '',
-                @FormaPago, '', '', 0, 0, @ClienteRazon,
-                @ClienteRuc, @ClienteDni, @DireccionFiscal, @DocuPdfUrl, @DocuXmlUrl, @DocuCdrUrl
+                @FormaPago, '', '', 0, 0
             );
 
             SELECT TOP (1) DocuId, CAST(1 AS bit) AS Insertado FROM @Nuevo;
@@ -5327,6 +5356,23 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 docuId = Convert.ToInt64(reader["DocuId"], CultureInfo.InvariantCulture);
                 insertado = reader["Insertado"] != DBNull.Value && Convert.ToBoolean(reader["Insertado"], CultureInfo.InvariantCulture);
             }
+
+            await GuardarDocumentoVentaCpeWebAsync(
+                con,
+                (SqlTransaction)tx,
+                docuId,
+                request.RAZON_SOCIAL_CLIENTE?.Trim(),
+                string.Equals((request.TIPO_DOCUMENTO_CLIENTE ?? string.Empty).Trim(), "6", StringComparison.Ordinal)
+                    ? (request.NRO_DOCUMENTO_CLIENTE ?? string.Empty).Trim()
+                    : null,
+                !string.Equals((request.TIPO_DOCUMENTO_CLIENTE ?? string.Empty).Trim(), "6", StringComparison.Ordinal)
+                    ? (request.NRO_DOCUMENTO_CLIENTE ?? string.Empty).Trim()
+                    : null,
+                request.DIRECCION_CLIENTE?.Trim(),
+                NormalizarUrlDocumentoTexto(request.DOCU_PDF_URL ?? request.PdfUrl),
+                NormalizarUrlDocumentoTexto(request.DOCU_XML_URL ?? request.XmlUrl),
+                NormalizarUrlDocumentoTexto(request.DOCU_CDR_URL ?? request.CdrUrl),
+                cancellationToken: cancellationToken);
 
             await ActualizarDocuFechaPagoSiExisteAsync(con, (SqlTransaction)tx, docuId, fechaPago, cancellationToken);
 
@@ -5990,14 +6036,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                     EntidadBancaria = @EntidadBancaria,
                     NroOperacion = @NroOperacion,
                     Efectivo = @Efectivo,
-                    Deposito = @Deposito,
-                    ClienteRazon = @ClienteRazon,
-                    ClienteRuc = @ClienteRuc,
-                    ClienteDni = @ClienteDni,
-                    DireccionFiscal = @DireccionFiscal,
-                    DocuPdfUrl = CASE WHEN NULLIF(@DocuPdfUrl, '') IS NULL THEN DocuPdfUrl ELSE @DocuPdfUrl END,
-                    DocuXmlUrl = CASE WHEN NULLIF(@DocuXmlUrl, '') IS NULL THEN DocuXmlUrl ELSE @DocuXmlUrl END,
-                    DocuCdrUrl = CASE WHEN NULLIF(@DocuCdrUrl, '') IS NULL THEN DocuCdrUrl ELSE @DocuCdrUrl END
+                    Deposito = @Deposito
                 WHERE DocuId = @DocuIdExistente;
 
                 SELECT @DocuIdExistente AS DocuId, CAST(0 AS bit) AS Insertado;
@@ -6013,8 +6052,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 DocuSaldo, DocuUsuario, DocuEstado, DocuSerie, TipoCodigo, DocuAdicional,
                 DocuAsociado, DocuConcepto, DocuNroGuia, DocuHash, EstadoSunat, ICBPER,
                 CodigoSunat, MensajeSunat, DocuGravada, DocuDescuento, EnvioCorreo,
-                FormaPago, EntidadBancaria, NroOperacion, Efectivo, Deposito, ClienteRazon,
-                ClienteRuc, ClienteDni, DireccionFiscal, DocuPdfUrl, DocuXmlUrl, DocuCdrUrl
+                FormaPago, EntidadBancaria, NroOperacion, Efectivo, Deposito
             )
             OUTPUT INSERTED.DocuId INTO @Nuevo
             VALUES
@@ -6024,8 +6062,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 0, @Usuario, 'EMITIDO', @DocuSerie, '07', 0,
                 @DocuAsociado, @Concepto, @NroReferencia, @DocuHash, 'ENVIADO', @Icbper,
                 @CodigoSunat, @MensajeSunat, @Gravada, @Descuento, '',
-                @FormaPago, @EntidadBancaria, @NroOperacion, @Efectivo, @Deposito, @ClienteRazon,
-                @ClienteRuc, @ClienteDni, @DireccionFiscal, @DocuPdfUrl, @DocuXmlUrl, @DocuCdrUrl
+                @FormaPago, @EntidadBancaria, @NroOperacion, @Efectivo, @Deposito
             );
 
             SELECT TOP (1) DocuId, CAST(1 AS bit) AS Insertado FROM @Nuevo;
@@ -6118,6 +6155,19 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 docuId = Convert.ToInt64(reader["DocuId"], CultureInfo.InvariantCulture);
                 insertado = reader["Insertado"] != DBNull.Value && Convert.ToBoolean(reader["Insertado"], CultureInfo.InvariantCulture);
             }
+
+            await GuardarDocumentoVentaCpeWebAsync(
+                con,
+                (SqlTransaction)tx,
+                docuId,
+                string.IsNullOrWhiteSpace(request.RAZON_SOCIAL_CLIENTE) ? origen.ClienteRazon : request.RAZON_SOCIAL_CLIENTE!.Trim(),
+                clienteRuc,
+                clienteDni,
+                string.IsNullOrWhiteSpace(request.DIRECCION_CLIENTE) ? origen.DireccionFiscal : request.DIRECCION_CLIENTE!.Trim(),
+                NormalizarUrlDocumentoTexto(request.DOCU_PDF_URL ?? request.PdfUrl),
+                NormalizarUrlDocumentoTexto(request.DOCU_XML_URL ?? request.XmlUrl),
+                NormalizarUrlDocumentoTexto(request.DOCU_CDR_URL ?? request.CdrUrl),
+                cancellationToken: cancellationToken);
 
             await ActualizarDocuFechaPagoSiExisteAsync(con, (SqlTransaction)tx, docuId, fechaPago, cancellationToken);
 
@@ -8997,13 +9047,15 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 d.DocuGravada,
                 d.DocuDescuento,
                 d.ICBPER,
-                d.ClienteRazon,
-                d.ClienteRuc,
-                d.ClienteDni,
-                d.DireccionFiscal,
+                COALESCE(NULLIF(LTRIM(RTRIM(w.ClienteRazon)), ''), c.ClienteRazon, '') AS ClienteRazon,
+                COALESCE(NULLIF(LTRIM(RTRIM(w.ClienteRuc)), ''), c.ClienteRuc, '') AS ClienteRuc,
+                COALESCE(NULLIF(LTRIM(RTRIM(w.ClienteDni)), ''), c.ClienteDni, '') AS ClienteDni,
+                COALESCE(NULLIF(LTRIM(RTRIM(w.DireccionFiscal)), ''), c.ClienteDireccion, '') AS DireccionFiscal,
                 d.DocuSerie,
                 d.DocuNumero
             FROM DocumentoVenta d
+            LEFT JOIN DocumentoVentaCpeWeb w ON w.DocuId = d.DocuId
+            LEFT JOIN Cliente c ON c.ClienteId = d.ClienteId
             WHERE d.TipoCodigo IN ('01', '03')
               AND (
                     (@SerieRef <> '' AND @NumeroRef <> '' AND LTRIM(RTRIM(d.DocuSerie)) = @SerieRef AND LTRIM(RTRIM(d.DocuNumero)) = @NumeroRef)
@@ -9501,6 +9553,12 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         return string.IsNullOrWhiteSpace(valor) ? DBNull.Value : valor;
     }
 
+    private static string? NormalizarUrlDocumentoTexto(string? url)
+    {
+        var valor = url?.Trim();
+        return string.IsNullOrWhiteSpace(valor) ? null : valor;
+    }
+
     private static DateTime? ObtenerFechaVencimientoDocumento(EnviarFacturaRequest request, DateTime fechaEmision)
     {
         return DateTime.TryParseExact(
@@ -9532,29 +9590,71 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             return;
         }
 
+        await GuardarDocumentoVentaCpeWebAsync(
+            con,
+            tx,
+            docuId,
+            fechaPago: fechaPago.Value.Date,
+            cancellationToken: cancellationToken);
+    }
+
+    private static async Task GuardarDocumentoVentaCpeWebAsync(
+        SqlConnection con,
+        SqlTransaction tx,
+        long docuId,
+        string? clienteRazon = null,
+        string? clienteRuc = null,
+        string? clienteDni = null,
+        string? direccionFiscal = null,
+        string? docuPdfUrl = null,
+        string? docuXmlUrl = null,
+        string? docuCdrUrl = null,
+        DateTime? fechaPago = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (docuId <= 0)
+        {
+            return;
+        }
+
         const string sql = """
-            IF COL_LENGTH('dbo.DocumentoVenta', 'DocuFechaPago') IS NOT NULL
+            UPDATE DocumentoVentaCpeWeb
+            SET ClienteRazon = CASE WHEN @ClienteRazon IS NULL THEN ClienteRazon ELSE @ClienteRazon END,
+                ClienteRuc = CASE WHEN @ClienteRuc IS NULL THEN ClienteRuc ELSE @ClienteRuc END,
+                ClienteDni = CASE WHEN @ClienteDni IS NULL THEN ClienteDni ELSE @ClienteDni END,
+                DireccionFiscal = CASE WHEN @DireccionFiscal IS NULL THEN DireccionFiscal ELSE @DireccionFiscal END,
+                DocuPdfUrl = CASE WHEN @DocuPdfUrl IS NULL THEN DocuPdfUrl ELSE @DocuPdfUrl END,
+                DocuXmlUrl = CASE WHEN @DocuXmlUrl IS NULL THEN DocuXmlUrl ELSE @DocuXmlUrl END,
+                DocuCdrUrl = CASE WHEN @DocuCdrUrl IS NULL THEN DocuCdrUrl ELSE @DocuCdrUrl END,
+                DocuFechaPago = CASE WHEN @DocuFechaPago IS NULL THEN DocuFechaPago ELSE @DocuFechaPago END
+            WHERE DocuId = @DocuId;
+
+            IF @@ROWCOUNT = 0
             BEGIN
-                EXEC sp_executesql
-                    N'UPDATE DocumentoVenta SET DocuFechaPago = @FechaPago WHERE DocuId = @DocuId',
-                    N'@FechaPago date, @DocuId numeric(38, 0)',
-                    @FechaPago = @FechaPago,
-                    @DocuId = @DocuId;
-            END;
+                INSERT INTO DocumentoVentaCpeWeb
+                (
+                    DocuId, ClienteRazon, ClienteRuc, ClienteDni, DireccionFiscal,
+                    DocuPdfUrl, DocuXmlUrl, DocuCdrUrl, DocuFechaPago
+                )
+                VALUES
+                (
+                    @DocuId, @ClienteRazon, @ClienteRuc, @ClienteDni, @DireccionFiscal,
+                    @DocuPdfUrl, @DocuXmlUrl, @DocuCdrUrl, @DocuFechaPago
+                );
+            END
             """;
 
         await using var cmd = new SqlCommand(sql, con, tx);
         cmd.Parameters.AddWithValue("@DocuId", docuId);
-        cmd.Parameters.AddWithValue("@FechaPago", fechaPago.Value.Date);
+        cmd.Parameters.AddWithValue("@ClienteRazon", string.IsNullOrWhiteSpace(clienteRazon) ? DBNull.Value : clienteRazon.Trim());
+        cmd.Parameters.AddWithValue("@ClienteRuc", string.IsNullOrWhiteSpace(clienteRuc) ? DBNull.Value : clienteRuc.Trim());
+        cmd.Parameters.AddWithValue("@ClienteDni", string.IsNullOrWhiteSpace(clienteDni) ? DBNull.Value : clienteDni.Trim());
+        cmd.Parameters.AddWithValue("@DireccionFiscal", string.IsNullOrWhiteSpace(direccionFiscal) ? DBNull.Value : direccionFiscal.Trim());
+        cmd.Parameters.AddWithValue("@DocuPdfUrl", string.IsNullOrWhiteSpace(docuPdfUrl) ? DBNull.Value : docuPdfUrl.Trim());
+        cmd.Parameters.AddWithValue("@DocuXmlUrl", string.IsNullOrWhiteSpace(docuXmlUrl) ? DBNull.Value : docuXmlUrl.Trim());
+        cmd.Parameters.AddWithValue("@DocuCdrUrl", string.IsNullOrWhiteSpace(docuCdrUrl) ? DBNull.Value : docuCdrUrl.Trim());
+        cmd.Parameters.AddWithValue("@DocuFechaPago", fechaPago.HasValue ? fechaPago.Value.Date : DBNull.Value);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
-    }
-
-    private static async Task<bool> TieneColumnaDocuFechaPagoAsync(SqlConnection con, CancellationToken cancellationToken)
-    {
-        const string sql = "SELECT CASE WHEN COL_LENGTH('dbo.DocumentoVenta', 'DocuFechaPago') IS NULL THEN 0 ELSE 1 END;";
-        await using var cmd = new SqlCommand(sql, con);
-        var value = await cmd.ExecuteScalarAsync(cancellationToken);
-        return value != null && value != DBNull.Value && Convert.ToInt32(value, CultureInfo.InvariantCulture) == 1;
     }
 
     private static string ObtenerDirectorioCertificados()
