@@ -1425,6 +1425,246 @@ public class NotaController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("pago-varios", Name = "GetPagoVariosPendientes")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> ListarPagoVariosPendientes(
+        [FromQuery] int usuarioId,
+        [FromQuery] string? usuario = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (usuarioId <= 0)
+            return BadRequest(new { ok = false, mensaje = "usuarioId es requerido." });
+
+        await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await using var cmd = new SqlCommand("usplistarPagoVarios", con)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+        cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
+
+        await con.OpenAsync(cancellationToken);
+        var raw = (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString() ?? string.Empty;
+        var items = ParsePagoVariosItems(raw);
+        if (items.Count == 0)
+        {
+            items = await ListarPagoVariosPendientesDirectoAsync(con, usuario, cancellationToken);
+        }
+
+        return Ok(new { ok = true, count = items.Count, items });
+    }
+
+    [AllowAnonymous]
+    [HttpGet("pago-varios/count", Name = "GetPagoVariosPendientesCount")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> ContarPagoVariosPendientes(
+        [FromQuery] int usuarioId,
+        [FromQuery] string? usuario = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (usuarioId <= 0)
+            return Ok(new { ok = true, count = 0 });
+
+        await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await using var cmd = new SqlCommand("usplistarPagoVarios", con)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+        cmd.Parameters.AddWithValue("@UsuarioId", usuarioId);
+
+        await con.OpenAsync(cancellationToken);
+        var raw = (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString() ?? string.Empty;
+        var items = ParsePagoVariosItems(raw);
+        if (items.Count == 0)
+        {
+            items = await ListarPagoVariosPendientesDirectoAsync(con, usuario, cancellationToken);
+        }
+
+        return Ok(new { ok = true, count = items.Count });
+    }
+
+    [AllowAnonymous]
+    [HttpPost("pago-varios", Name = "RegisterPagoVarios")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> RegistrarPagoVarios(
+        [FromBody] RegistrarPagoVariosRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request is null || request.UsuarioId <= 0)
+            return BadRequest(new { ok = false, mensaje = "usuarioId es requerido." });
+        if (request.Detalles is null || request.Detalles.Count == 0)
+            return BadRequest(new { ok = false, mensaje = "Seleccione documentos para pagar." });
+
+        var concepto = (request.ConceptoOBS ?? string.Empty).Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(concepto))
+            concepto = (request.Detalles[0].ConceptoOBS ?? string.Empty).Trim().ToUpperInvariant();
+        if (request.Detalles.Any(x => !string.Equals((x.ConceptoOBS ?? string.Empty).Trim(), concepto, StringComparison.OrdinalIgnoreCase)))
+            return BadRequest(new { ok = false, mensaje = "Seleccione documentos con el mismo concepto OBS." });
+
+        var total = request.Detalles.Sum(x => x.Monto);
+        var formaPago = (request.FormaPago ?? "EFECTIVO").Trim().ToUpperInvariant();
+        var efectivo = formaPago == "EFECTIVO" ? total : Math.Max(0, request.Efectivo);
+        var deposito = formaPago == "EFECTIVO" ? 0 : Math.Max(0, request.Deposito);
+        if (formaPago != "EFECTIVO" && deposito <= 0)
+            deposito = total - efectivo;
+        if (Math.Round(efectivo + deposito, 2) != Math.Round(total, 2))
+            return BadRequest(new { ok = false, mensaje = "Efectivo + deposito debe cuadrar con el total." });
+
+        var header = string.Join("|", new[]
+        {
+            "0",
+            DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            formaPago,
+            (request.Entidad ?? "-").Trim(),
+            efectivo.ToString("0.00", CultureInfo.InvariantCulture),
+            deposito.ToString("0.00", CultureInfo.InvariantCulture),
+            (request.NroOperacion ?? string.Empty).Trim(),
+            (request.Descripcion ?? "PAGO VARIOS").Trim(),
+            (request.Usuario ?? "USUARIO").Trim(),
+            request.UsuarioId.ToString(CultureInfo.InvariantCulture),
+            concepto,
+            total.ToString("0.00", CultureInfo.InvariantCulture),
+            (request.Image ?? string.Empty).Trim()
+        });
+
+        var efectivoPendiente = efectivo;
+        var depositoPendiente = deposito;
+        var detalles = string.Join(";", request.Detalles.Select(d =>
+        {
+            var monto = d.Monto;
+            var efectivoDetalle = Math.Min(monto, efectivoPendiente);
+            var depositoDetalle = monto - efectivoDetalle;
+            efectivoPendiente -= efectivoDetalle;
+            depositoPendiente -= depositoDetalle;
+            if (depositoPendiente < 0) depositoPendiente = 0;
+            return string.Join("|", new[]
+            {
+                d.DocuId.ToString(CultureInfo.InvariantCulture),
+                d.NotaId.ToString(CultureInfo.InvariantCulture),
+                monto.ToString("0.00", CultureInfo.InvariantCulture),
+                concepto,
+                efectivoDetalle.ToString("0.00", CultureInfo.InvariantCulture),
+                depositoDetalle.ToString("0.00", CultureInfo.InvariantCulture)
+            });
+        }));
+
+        await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await using var cmd = new SqlCommand("uspInsertarPagoVarios", con)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+        cmd.Parameters.AddWithValue("@ListaOrden", $"{header}[{detalles};");
+
+        await con.OpenAsync(cancellationToken);
+        var raw = (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString()?.Trim() ?? string.Empty;
+        if (string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase))
+            return Ok(new { ok = true, resultado = raw });
+        if (string.Equals(raw, "false", StringComparison.OrdinalIgnoreCase))
+        {
+            var pagoId = await RegistrarPagoVariosSinCajaAsync(
+                con,
+                request,
+                concepto,
+                formaPago,
+                efectivo,
+                deposito,
+                total,
+                cancellationToken);
+            return Ok(new { ok = true, resultado = "true", pagoId, sinCaja = true });
+        }
+        if (string.Equals(raw, "OPERACION", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { ok = false, resultado = raw, mensaje = "El numero de operacion ya existe." });
+
+        return Ok(new { ok = false, resultado = raw, mensaje = raw });
+    }
+
+    private static async Task<long> RegistrarPagoVariosSinCajaAsync(
+        SqlConnection con,
+        RegistrarPagoVariosRequest request,
+        string concepto,
+        string formaPago,
+        decimal efectivo,
+        decimal deposito,
+        decimal total,
+        CancellationToken cancellationToken)
+    {
+        await using var tx = await con.BeginTransactionAsync(cancellationToken);
+        try
+        {
+            await using var insertPago = new SqlCommand("""
+                INSERT INTO PagoVarios
+                    (CajaId, FechaEmision, FormaPago, Entidad, Efectivo, Deposito,
+                     NroOperacion, Descripcion, Usuario, FehaRegistro, PagoTotal)
+                VALUES
+                    (NULL, CONVERT(date, GETDATE()), @FormaPago, @Entidad, @Efectivo, @Deposito,
+                     @NroOperacion, @Descripcion, @Usuario, GETDATE(), @PagoTotal);
+                SELECT CONVERT(bigint, SCOPE_IDENTITY());
+                """, con, (SqlTransaction)tx);
+            insertPago.Parameters.AddWithValue("@FormaPago", formaPago);
+            insertPago.Parameters.AddWithValue("@Entidad", (request.Entidad ?? "-").Trim());
+            insertPago.Parameters.AddWithValue("@Efectivo", efectivo);
+            insertPago.Parameters.AddWithValue("@Deposito", deposito);
+            insertPago.Parameters.AddWithValue("@NroOperacion", (request.NroOperacion ?? string.Empty).Trim());
+            insertPago.Parameters.AddWithValue("@Descripcion", (request.Descripcion ?? "PAGO VARIOS").Trim());
+            insertPago.Parameters.AddWithValue("@Usuario", (request.Usuario ?? "USUARIO").Trim());
+            insertPago.Parameters.AddWithValue("@PagoTotal", total);
+
+            var pagoId = Convert.ToInt64(await insertPago.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+            var efectivoPendiente = efectivo;
+
+            foreach (var detalle in request.Detalles)
+            {
+                var monto = detalle.Monto;
+                var efectivoDetalle = Math.Min(monto, efectivoPendiente);
+                var depositoDetalle = monto - efectivoDetalle;
+                efectivoPendiente -= efectivoDetalle;
+
+                await using var cmd = new SqlCommand("""
+                    INSERT INTO DetallePVarios
+                        (PagoId, DocuId, NotaId, Monto, ConceptoOBS, Efectivo, Deposito)
+                    VALUES
+                        (@PagoId, @DocuId, @NotaId, @Monto, @ConceptoOBS, @EfectivoD, @DepositoD);
+
+                    UPDATE NotaPedido
+                       SET Efectivo = @EfectivoD,
+                           Deposito = @DepositoD,
+                           NotaEstado = 'CANCELADO',
+                           NotaFormaPago = @FormaPago,
+                           EntidadBancaria = @Entidad,
+                           NroOperacion = @NroOperacion
+                     WHERE NotaId = @NotaId;
+
+                    UPDATE DocumentoVenta
+                       SET Efectivo = @EfectivoD,
+                           Deposito = @DepositoD,
+                           FormaPago = @FormaPago,
+                           EntidadBancaria = @Entidad,
+                           NroOperacion = @NroOperacion
+                     WHERE DocuId = @DocuId;
+                    """, con, (SqlTransaction)tx);
+                cmd.Parameters.AddWithValue("@PagoId", pagoId);
+                cmd.Parameters.AddWithValue("@DocuId", detalle.DocuId);
+                cmd.Parameters.AddWithValue("@NotaId", detalle.NotaId);
+                cmd.Parameters.AddWithValue("@Monto", monto);
+                cmd.Parameters.AddWithValue("@ConceptoOBS", concepto);
+                cmd.Parameters.AddWithValue("@EfectivoD", efectivoDetalle);
+                cmd.Parameters.AddWithValue("@DepositoD", depositoDetalle);
+                cmd.Parameters.AddWithValue("@FormaPago", formaPago);
+                cmd.Parameters.AddWithValue("@Entidad", (request.Entidad ?? "-").Trim());
+                cmd.Parameters.AddWithValue("@NroOperacion", (request.NroOperacion ?? string.Empty).Trim());
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await tx.CommitAsync(cancellationToken);
+            return pagoId;
+        }
+        catch
+        {
+            await tx.RollbackAsync(cancellationToken);
+            throw;
+        }
+    }
+
+    [AllowAnonymous]
     [HttpGet("facturas-servicio", Name = "GetFacturasServicioEmitidas")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     public async Task<IActionResult> ListarFacturasServicioEmitidas(
@@ -2653,6 +2893,10 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             var clienteDocumento = await ObtenerDatosClienteDocumentoConFallbackAsync(request.Nota.ClienteId, cancellationToken);
             var vdataNota = BuildOrdenPayload(request.Nota, detalles, clienteDocumento);
             var resultado = await _mediator.RegistrarOrdenAsync(vdataNota, cancellationToken);
+            if (EsPagoVarios(request.Nota))
+            {
+                await ForzarPendientePagoVariosAsync(resultado, cancellationToken);
+            }
             if (EsFactura(request.Nota.NotaDocu))
             {
                 var respuestaSunat = await IntentarEmitirFacturaDesdeOrdenAsync(request.Nota, detalles, resultado, cancellationToken);
@@ -2723,6 +2967,10 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             var clienteDocumento = await ObtenerDatosClienteDocumentoConFallbackAsync(request.Nota.ClienteId, cancellationToken);
             var vdataNota = BuildOrdenPayload(request.Nota, detalles, clienteDocumento);
             var resultado = await _mediator.RegistrarOrdenAsync(vdataNota, cancellationToken);
+            if (EsPagoVarios(request.Nota))
+            {
+                await ForzarPendientePagoVariosAsync(resultado, cancellationToken);
+            }
             if (EsFactura(request.Nota.NotaDocu))
             {
                 var respuestaSunat = await IntentarEmitirFacturaDesdeOrdenAsync(request.Nota, detalles, resultado, cancellationToken);
@@ -2816,18 +3064,23 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         var ganancia = nota.NotaGanancia ?? 0m;
         var xserie = nota.NotaSerie ?? string.Empty;
         var numero = nota.NotaNumero ?? string.Empty;
+        var condicion = (nota.NotaCondicion ?? string.Empty).Trim();
+        var esPagoVarios = string.Equals(condicion, "PAGO/VARIOS", StringComparison.OrdinalIgnoreCase);
+        var formaPago = esPagoVarios ? "-" : nota.NotaFormaPago;
+        var estadoNota = esPagoVarios ? "PENDIENTE" : (nota.NotaEstado ?? "PENDIENTE");
         // Defaults for uspinsertarNotaBweb fields not present in NotaPedido payloads
         var docuAdicional = 0m;
         var docuHash = string.Empty;
         var estadoSunat = "PENDIENTE";
         var docuSubtotal = calculoTributario.SubTotal;
         var docuIgv = calculoTributario.Igv;
-        var usuarioId = "7";
+        var usuarioId = (nota.UsuarioId.GetValueOrDefault() > 0 ? nota.UsuarioId.Value : 7)
+            .ToString(CultureInfo.InvariantCulture);
         var docuGravada = calculoTributario.Gravada;
-        var entidadBancaria = nota.EntidadBancaria ?? "-";
-        var nroOperacion = nota.NroOperacion ?? string.Empty;
-        var efectivo = nota.Efectivo ?? pagar;
-        var deposito = nota.Deposito ?? 0m;
+        var entidadBancaria = esPagoVarios ? "-" : (nota.EntidadBancaria ?? "-");
+        var nroOperacion = esPagoVarios ? string.Empty : (nota.NroOperacion ?? string.Empty);
+        var efectivo = esPagoVarios ? 0m : (nota.Efectivo ?? pagar);
+        var deposito = esPagoVarios ? 0m : (nota.Deposito ?? 0m);
         var esBoleta = string.Equals(xDocumento, "BOLETA", StringComparison.OrdinalIgnoreCase);
         var clienteRazon = clienteDocumento?.ClienteRazon ?? string.Empty;
         var clienteRuc = clienteDocumento?.ClienteRuc ?? string.Empty;
@@ -2868,8 +3121,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             xDocumento,
             nota.ClienteId?.ToString(),
             nota.NotaUsuario,
-            nota.NotaFormaPago,
-            nota.NotaCondicion,
+            formaPago,
+            condicion,
             nota.NotaDireccion,
             Format2(total),
             Format2(movilidad),
@@ -2880,7 +3133,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             Format2(adicional),
             Format2(tarjeta),
             Format2(pagar),
-            nota.NotaEstado ?? "PENDIENTE",
+            estadoNota,
             nota.CompaniaId?.ToString(),
             nota.NotaEntrega,
             nota.NotaConcepto,
@@ -2935,6 +3188,57 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         }
         return vdata;
     }
+
+    private async Task ForzarPendientePagoVariosAsync(string resultado, CancellationToken cancellationToken)
+    {
+        var notaId = ObtenerNotaIdResultadoOrden(resultado);
+        if (notaId <= 0)
+            return;
+
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return;
+
+        await using var con = new SqlConnection(connectionString);
+        await using var cmd = new SqlCommand("""
+            UPDATE NotaPedido
+               SET NotaEstado = 'PENDIENTE',
+                   NotaSaldo = NotaPagar,
+                   NotaAcuenta = 0,
+                   NotaFormaPago = '-',
+                   EntidadBancaria = '-',
+                   NroOperacion = '',
+                   Efectivo = 0,
+                   Deposito = 0
+             WHERE NotaId = @NotaId
+               AND LTRIM(RTRIM(ISNULL(NotaCondicion, ''))) = 'PAGO/VARIOS';
+
+            UPDATE DocumentoVenta
+               SET FormaPago = '-',
+                   EntidadBancaria = '-',
+                   NroOperacion = '',
+                   Efectivo = 0,
+                   Deposito = 0,
+                   DocuSaldo = DocuTotal
+             WHERE NotaId = @NotaId
+               AND LTRIM(RTRIM(ISNULL(DocuCondicion, ''))) = 'PAGO/VARIOS';
+            """, con);
+        cmd.Parameters.AddWithValue("@NotaId", notaId);
+
+        await con.OpenAsync(cancellationToken);
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+    }
+
+    private static long ObtenerNotaIdResultadoOrden(string resultado)
+    {
+        var first = (resultado ?? string.Empty).Split('¬')[0].Trim();
+        return long.TryParse(first, NumberStyles.Integer, CultureInfo.InvariantCulture, out var notaId)
+            ? notaId
+            : 0;
+    }
+
+    private static bool EsPagoVarios(NotaPedido nota)
+        => string.Equals((nota.NotaCondicion ?? string.Empty).Trim(), "PAGO/VARIOS", StringComparison.OrdinalIgnoreCase);
 
     private async Task<ClienteDocumentoInfo?> ObtenerDatosClienteDocumentoAsync(long? clienteId, CancellationToken cancellationToken)
     {
@@ -9739,6 +10043,89 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         public string CodigoSunat { get; set; } = string.Empty;
     }
 
+    private static IReadOnlyList<PagoVariosItemResponse> ParsePagoVariosItems(string raw)
+    {
+        var rows = (raw ?? string.Empty).Split('¬').Skip(3);
+        var items = new List<PagoVariosItemResponse>();
+
+        foreach (var row in rows)
+        {
+            if (string.IsNullOrWhiteSpace(row) || row.TrimStart().StartsWith("~", StringComparison.Ordinal))
+                break;
+
+            var values = row.Split('|');
+            static string Get(string[] values, int index)
+                => index >= 0 && index < values.Length ? values[index].Trim() : string.Empty;
+
+            if (!long.TryParse(Get(values, 0), NumberStyles.Any, CultureInfo.InvariantCulture, out var docuId))
+                continue;
+            if (!long.TryParse(Get(values, 1), NumberStyles.Any, CultureInfo.InvariantCulture, out var notaId))
+                continue;
+
+            decimal.TryParse(Get(values, 5).Replace(",", "."), NumberStyles.Any, CultureInfo.InvariantCulture, out var monto);
+            items.Add(new PagoVariosItemResponse
+            {
+                DocuId = docuId,
+                NotaId = notaId,
+                Documento = Get(values, 2),
+                Codigo = Get(values, 3),
+                RazonSocial = Get(values, 4),
+                Monto = monto,
+                ConceptoOBS = Get(values, 7)
+            });
+        }
+
+        return items;
+    }
+
+    private static async Task<IReadOnlyList<PagoVariosItemResponse>> ListarPagoVariosPendientesDirectoAsync(
+        SqlConnection con,
+        string? usuario,
+        CancellationToken cancellationToken)
+    {
+        var user = (usuario ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(user))
+            return Array.Empty<PagoVariosItemResponse>();
+
+        await using var cmd = new SqlCommand("""
+            SELECT
+                d.DocuId,
+                n.NotaId,
+                LTRIM(RTRIM(ISNULL(d.DocuSerie, ''))) + '-' + LTRIM(RTRIM(ISNULL(d.DocuNumero, ''))) AS Documento,
+                ISNULL(c.ClienteCodigo, '') AS Codigo,
+                ISNULL(c.ClienteRazon, '') AS RazonSocial,
+                ISNULL(n.NotaPagar, n.NotaTotal) AS Monto,
+                ISNULL(n.ConceptoOBS, '') AS ConceptoOBS
+            FROM NotaPedido n
+            INNER JOIN DocumentoVenta d ON d.NotaId = n.NotaId
+            INNER JOIN Cliente c ON c.ClienteId = n.ClienteId
+            WHERE LTRIM(RTRIM(ISNULL(n.NotaCondicion, ''))) = 'PAGO/VARIOS'
+              AND LTRIM(RTRIM(ISNULL(n.NotaEstado, ''))) NOT IN ('CANCELADO', 'ANULADO')
+              AND LTRIM(RTRIM(ISNULL(n.NotaUsuario, ''))) = @Usuario
+              AND NOT EXISTS (SELECT 1 FROM DetallePVarios dp WHERE dp.NotaId = n.NotaId)
+            ORDER BY n.NotaId DESC;
+            """, con);
+        cmd.Parameters.AddWithValue("@Usuario", user);
+
+        var items = new List<PagoVariosItemResponse>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            items.Add(new PagoVariosItemResponse
+            {
+                DocuId = Convert.ToInt64(reader["DocuId"], CultureInfo.InvariantCulture),
+                NotaId = Convert.ToInt64(reader["NotaId"], CultureInfo.InvariantCulture),
+                Documento = reader["Documento"]?.ToString()?.Trim() ?? string.Empty,
+                Codigo = reader["Codigo"]?.ToString()?.Trim() ?? string.Empty,
+                RazonSocial = reader["RazonSocial"]?.ToString()?.Trim() ?? string.Empty,
+                Monto = Convert.ToDecimal(reader["Monto"], CultureInfo.InvariantCulture),
+                ConceptoOBS = reader["ConceptoOBS"]?.ToString()?.Trim() ?? string.Empty
+            });
+        }
+
+        return items;
+    }
+
     private sealed record UbigeoInfo(string Codigo, string Departamento, string Provincia, string Distrito);
 
     private static bool TryObtenerRangoDesdeData(string data, out DateTime fechaInicio, out DateTime fechaFin, out string? error)
@@ -9938,6 +10325,40 @@ public class AnularBoletaIndividualRequest
 public class ListaDocumentosRequest
 {
     public string Data { get; set; } = string.Empty;
+}
+
+public class PagoVariosItemResponse
+{
+    public long DocuId { get; set; }
+    public long NotaId { get; set; }
+    public string Documento { get; set; } = string.Empty;
+    public string Codigo { get; set; } = string.Empty;
+    public string RazonSocial { get; set; } = string.Empty;
+    public decimal Monto { get; set; }
+    public string ConceptoOBS { get; set; } = string.Empty;
+}
+
+public class RegistrarPagoVariosRequest
+{
+    public int UsuarioId { get; set; }
+    public string? Usuario { get; set; }
+    public string? FormaPago { get; set; }
+    public string? Entidad { get; set; }
+    public decimal Efectivo { get; set; }
+    public decimal Deposito { get; set; }
+    public string? NroOperacion { get; set; }
+    public string? Descripcion { get; set; }
+    public string? ConceptoOBS { get; set; }
+    public string? Image { get; set; }
+    public List<RegistrarPagoVariosDetalleRequest> Detalles { get; set; } = new();
+}
+
+public class RegistrarPagoVariosDetalleRequest
+{
+    public long DocuId { get; set; }
+    public long NotaId { get; set; }
+    public decimal Monto { get; set; }
+    public string? ConceptoOBS { get; set; }
 }
 
 public class ListaBajasRequest

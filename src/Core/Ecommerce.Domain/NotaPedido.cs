@@ -7,6 +7,7 @@ public class NotaPedido
     public long? ClienteId { get; set; }
     public DateTime? NotaFecha { get; set; }
     public string? NotaUsuario { get; set; }
+    public int? UsuarioId { get; set; }
     public string? NotaFormaPago { get; set; }
     public string? NotaCondicion { get; set; }
     public DateTime? NotaFechaPago { get; set; }
