@@ -39,48 +39,13 @@ public class NotaPedidoRepository : INotaPedido
 
     public async Task<string> AnularDocumentoAsync(string listaOrden, CancellationToken cancellationToken = default)
     {
-        var attempts = new (string Sp, string Param)[]
-        {
-            ("anularOrden", "@ListaOrden"),
-            ("anularOrden", "@Data"),
-            ("anularDocumento", "@ListaOrden"),
-            ("anularDocumento", "@Data")
-        };
+        var result = await _accesoDatos.EjecutarComandoAsync(
+            "anularDocumento",
+            "@ListaOrden",
+            listaOrden,
+            cancellationToken);
 
-        SqlException? lastFallbackException = null;
-
-        foreach (var attempt in attempts)
-        {
-            try
-            {
-                var result = await _accesoDatos.EjecutarComandoAsync(
-                    attempt.Sp,
-                    attempt.Param,
-                    listaOrden,
-                    cancellationToken);
-
-                return string.IsNullOrWhiteSpace(result) ? "error" : result;
-            }
-            catch (SqlException ex) when (IsMissingProcedureOrParameter(ex))
-            {
-                lastFallbackException = ex;
-            }
-        }
-
-        if (lastFallbackException is not null)
-        {
-            throw lastFallbackException;
-        }
-
-        return "error";
-    }
-
-    private static bool IsMissingProcedureOrParameter(SqlException ex)
-    {
-        // 2812: stored procedure not found
-        // 201 : expects parameter not supplied
-        // 8144: too many arguments
-        return ex.Number == 2812 || ex.Number == 201 || ex.Number == 8144;
+        return string.IsNullOrWhiteSpace(result) ? "error" : result;
     }
 
     public async Task<string> ListarDocumentosAsync(string data, CancellationToken cancellationToken = default)
@@ -576,15 +541,22 @@ public class NotaPedidoRepository : INotaPedido
                                         FROM DetallePedido dp
                                         WHERE dp.NotaId = NotaPedido.NotaId
                                     ) AS PV,
-                                    (
-                                        SELECT TOP (1) d.EstadoSunat
+                                     (
+                                         SELECT TOP (1) d.EstadoSunat
+                                         FROM DocumentoVenta d
+                                         WHERE d.NotaId = NotaPedido.NotaId
+                                         ORDER BY d.DocuId DESC
+                                     ) AS EstadoSunat,
+                                     (
+                                        SELECT TOP (1) d.DocuId
                                         FROM DocumentoVenta d
                                         WHERE d.NotaId = NotaPedido.NotaId
+                                          AND d.TipoCodigo IN ('01', '03')
                                         ORDER BY d.DocuId DESC
-                                    ) AS EstadoSunat
-                             FROM NotaPedido
-                             LEFT JOIN Cliente c ON c.ClienteId = NotaPedido.ClienteId
-                             WHERE NotaPedido.NotaId = @Id";
+                                     ) AS DocuId
+                              FROM NotaPedido
+                              LEFT JOIN Cliente c ON c.ClienteId = NotaPedido.ClienteId
+                              WHERE NotaPedido.NotaId = @Id";
 
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sql, con);
@@ -659,13 +631,20 @@ public class NotaPedidoRepository : INotaPedido
                                         FROM DetallePedido dp
                                         WHERE dp.NotaId = NotaPedido.NotaId
                                     ) AS PV,
-                                    (
-                                        SELECT TOP (1) d.EstadoSunat
+                                     (
+                                         SELECT TOP (1) d.EstadoSunat
+                                         FROM DocumentoVenta d
+                                         WHERE d.NotaId = NotaPedido.NotaId
+                                         ORDER BY d.DocuId DESC
+                                     ) AS EstadoSunat,
+                                     (
+                                        SELECT TOP (1) d.DocuId
                                         FROM DocumentoVenta d
                                         WHERE d.NotaId = NotaPedido.NotaId
+                                          AND d.TipoCodigo IN ('01', '03')
                                         ORDER BY d.DocuId DESC
-                                    ) AS EstadoSunat,
-                                    ROW_NUMBER() OVER (ORDER BY NotaPedido.NotaId DESC) AS RowNum
+                                    ) AS DocuId,
+                                     ROW_NUMBER() OVER (ORDER BY NotaPedido.NotaId DESC) AS RowNum
                              FROM NotaPedido
                              LEFT JOIN Cliente c ON c.ClienteId = NotaPedido.ClienteId
                              WHERE (@Estado IS NULL OR NotaEstado = @Estado)
@@ -698,22 +677,46 @@ public class NotaPedidoRepository : INotaPedido
     public async Task<IReadOnlyList<DetalleNota>> ListarDetalleAsync(long notaId, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
     {
         (page, pageSize) = NormalizePagination(page, pageSize);
-        const string sql = @"SELECT DetalleId,
-                                    NotaId,
-                                    IdProducto,
-                                    DetalleCantidad,
-                                    DetalleUm,
-                                    DetalleDescripcion,
-                                    DetalleCosto,
-                                    DetallePrecio,
-                                    DetalleImporte,
-                                    DetalleEstado,
-                                    CantidadSaldo,
-                                    ValorUM
-                             FROM DetallePedido
-                             WHERE NotaId = @NotaId
-                             ORDER BY DetalleId
-                             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
+        const string sql = @"
+            WITH Detalles AS (
+                SELECT d.DetalleId,
+                       d.NotaId,
+                       d.IdProducto,
+                       d.DetalleCantidad,
+                       d.DetalleUm,
+                       d.DetalleDescripcion,
+                       d.DetalleCosto,
+                       d.DetallePrecio,
+                       d.DetallePV,
+                       d.DetalleSV,
+                       d.DetalleImporte,
+                       d.DetalleEstado,
+                       d.CantidadSaldo,
+                       d.ValorUM,
+                       ISNULL(NULLIF(p.AplicaINV, ''), 'S') AS AplicaINV,
+                       ROW_NUMBER() OVER (ORDER BY d.DetalleId) AS RowNum
+                FROM DetallePedido d
+                LEFT JOIN Producto p ON p.IdProducto = d.IdProducto
+                WHERE d.NotaId = @NotaId
+            )
+            SELECT DetalleId,
+                   NotaId,
+                   IdProducto,
+                   DetalleCantidad,
+                   DetalleUm,
+                   DetalleDescripcion,
+                   DetalleCosto,
+                   DetallePrecio,
+                   DetallePV,
+                   DetalleSV,
+                   DetalleImporte,
+                   DetalleEstado,
+                   CantidadSaldo,
+                   ValorUM,
+                   AplicaINV
+            FROM Detalles
+            WHERE RowNum BETWEEN @Offset + 1 AND @Offset + @PageSize
+            ORDER BY RowNum;";
 
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sql, con);
@@ -1034,6 +1037,7 @@ public class NotaPedidoRepository : INotaPedido
             NroOperacion = reader["NroOperacion"].ToString(),
             Efectivo = reader["Efectivo"] == DBNull.Value ? null : Convert.ToDecimal(reader["Efectivo"]),
             Deposito = reader["Deposito"] == DBNull.Value ? null : Convert.ToDecimal(reader["Deposito"]),
+            DocuId = reader["DocuId"] == DBNull.Value ? null : Convert.ToInt64(reader["DocuId"]),
             EstadoSunat = reader["EstadoSunat"] == DBNull.Value ? null : reader["EstadoSunat"].ToString(),
             NotaTransaccion = reader["NotaTransaccion"] == DBNull.Value ? null : reader["NotaTransaccion"].ToString(),
             Miembro = reader["Miembro"] == DBNull.Value ? null : reader["Miembro"].ToString(),
@@ -1075,10 +1079,13 @@ public class NotaPedidoRepository : INotaPedido
             DetalleDescripcion = reader["DetalleDescripcion"].ToString(),
             DetalleCosto = reader["DetalleCosto"] == DBNull.Value ? null : Convert.ToDecimal(reader["DetalleCosto"]),
             DetallePrecio = reader["DetallePrecio"] == DBNull.Value ? null : Convert.ToDecimal(reader["DetallePrecio"]),
+            DetallePV = reader["DetallePV"] == DBNull.Value ? null : Convert.ToDecimal(reader["DetallePV"]),
+            DetalleSV = reader["DetalleSV"] == DBNull.Value ? null : Convert.ToDecimal(reader["DetalleSV"]),
             DetalleImporte = reader["DetalleImporte"] == DBNull.Value ? null : Convert.ToDecimal(reader["DetalleImporte"]),
             DetalleEstado = reader["DetalleEstado"].ToString(),
             CantidadSaldo = reader["CantidadSaldo"] == DBNull.Value ? null : Convert.ToDecimal(reader["CantidadSaldo"]),
-            ValorUM = reader["ValorUM"] == DBNull.Value ? null : Convert.ToDecimal(reader["ValorUM"])
+            ValorUM = reader["ValorUM"] == DBNull.Value ? null : Convert.ToDecimal(reader["ValorUM"]),
+            AplicaINV = reader["AplicaINV"].ToString()
         };
     }
 

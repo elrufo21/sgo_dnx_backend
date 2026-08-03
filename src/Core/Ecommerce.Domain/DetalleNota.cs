@@ -16,4 +16,5 @@ public class DetalleNota
     public string? DetalleEstado { get; set; }
     public decimal? CantidadSaldo { get; set; }
     public decimal? ValorUM { get; set; }
+    public string? AplicaINV { get; set; }
 }

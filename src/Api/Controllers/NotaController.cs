@@ -1557,7 +1557,10 @@ public class NotaController : ControllerBase
         await con.OpenAsync(cancellationToken);
         var raw = (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString()?.Trim() ?? string.Empty;
         if (string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            await CerrarSaldosPagoVariosAsync(con, null, request.Detalles, cancellationToken);
             return Ok(new { ok = true, resultado = raw });
+        }
         if (string.Equals(raw, "false", StringComparison.OrdinalIgnoreCase))
         {
             var pagoId = await RegistrarPagoVariosSinCajaAsync(
@@ -1575,6 +1578,40 @@ public class NotaController : ControllerBase
             return BadRequest(new { ok = false, resultado = raw, mensaje = "El numero de operacion ya existe." });
 
         return Ok(new { ok = false, resultado = raw, mensaje = raw });
+    }
+
+    private static async Task CerrarSaldosPagoVariosAsync(
+        SqlConnection con,
+        SqlTransaction? tx,
+        IEnumerable<RegistrarPagoVariosDetalleRequest> detalles,
+        CancellationToken cancellationToken)
+    {
+        foreach (var detalle in detalles)
+        {
+            await using var cmd = tx is null
+                ? new SqlCommand("""
+                    UPDATE NotaPedido
+                       SET NotaSaldo = 0
+                     WHERE NotaId = @NotaId;
+
+                    UPDATE DocumentoVenta
+                       SET DocuSaldo = 0
+                     WHERE DocuId = @DocuId;
+                    """, con)
+                : new SqlCommand("""
+                    UPDATE NotaPedido
+                       SET NotaSaldo = 0
+                     WHERE NotaId = @NotaId;
+
+                    UPDATE DocumentoVenta
+                       SET DocuSaldo = 0
+                     WHERE DocuId = @DocuId;
+                    """, con, tx);
+
+            cmd.Parameters.AddWithValue("@NotaId", detalle.NotaId);
+            cmd.Parameters.AddWithValue("@DocuId", detalle.DocuId);
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
     }
 
     private static async Task<long> RegistrarPagoVariosSinCajaAsync(
@@ -1630,16 +1667,18 @@ public class NotaController : ControllerBase
                            NotaEstado = 'CANCELADO',
                            NotaFormaPago = @FormaPago,
                            EntidadBancaria = @Entidad,
-                           NroOperacion = @NroOperacion
-                     WHERE NotaId = @NotaId;
+                           NroOperacion = @NroOperacion,
+                           NotaSaldo = 0
+                      WHERE NotaId = @NotaId;
 
                     UPDATE DocumentoVenta
                        SET Efectivo = @EfectivoD,
                            Deposito = @DepositoD,
                            FormaPago = @FormaPago,
                            EntidadBancaria = @Entidad,
-                           NroOperacion = @NroOperacion
-                     WHERE DocuId = @DocuId;
+                           NroOperacion = @NroOperacion,
+                           DocuSaldo = 0
+                      WHERE DocuId = @DocuId;
                     """, con, (SqlTransaction)tx);
                 cmd.Parameters.AddWithValue("@PagoId", pagoId);
                 cmd.Parameters.AddWithValue("@DocuId", detalle.DocuId);

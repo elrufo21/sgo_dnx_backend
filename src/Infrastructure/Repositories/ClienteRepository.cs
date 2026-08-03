@@ -97,6 +97,8 @@ public class ClienteRepository : ICliente
 
     public async Task<bool> EliminarAsync(long id, CancellationToken cancellationToken = default)
     {
+        if (id <= 0) return false;
+
         const string sql = "uspEliminarCliente";
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sql, con)
@@ -106,8 +108,17 @@ public class ClienteRepository : ICliente
         };
         cmd.Parameters.AddWithValue("@Id", id);
         await con.OpenAsync(cancellationToken);
-        var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
-        return rows > 0;
+        if (!await ExisteClienteAsync(con, id, cancellationToken)) return false;
+
+        await cmd.ExecuteNonQueryAsync(cancellationToken);
+        return !await ExisteClienteAsync(con, id, cancellationToken);
+    }
+
+    private static async Task<bool> ExisteClienteAsync(SqlConnection con, long id, CancellationToken cancellationToken)
+    {
+        await using var cmd = new SqlCommand("SELECT TOP 1 1 FROM Cliente WHERE ClienteId = @Id;", con);
+        cmd.Parameters.AddWithValue("@Id", id);
+        return await cmd.ExecuteScalarAsync(cancellationToken) is not null;
     }
 
     public async Task<IReadOnlyList<Cliente>> ListarAsync(string? estado = "ACTIVO", string? search = null, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
