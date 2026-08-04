@@ -39,13 +39,87 @@ public class NotaPedidoRepository : INotaPedido
 
     public async Task<string> AnularDocumentoAsync(string listaOrden, CancellationToken cancellationToken = default)
     {
-        var result = await _accesoDatos.EjecutarComandoAsync(
-            "anularDocumento",
-            "@ListaOrden",
-            listaOrden,
-            cancellationToken);
+        if (!TryParseAnularDocumento(listaOrden, out var anulacion, out var error))
+        {
+            return $"error: {error}";
+        }
 
-        return string.IsNullOrWhiteSpace(result) ? "error" : result;
+        await using var con = new SqlConnection(_connectionString);
+        await con.OpenAsync(cancellationToken);
+        await using var tx = await con.BeginTransactionAsync(cancellationToken);
+
+        try
+        {
+            await using (var cmd = new SqlCommand("""
+                UPDATE DocumentoVenta
+                   SET DocuEstado = 'ANULADO'
+                 WHERE DocuId = @DocuId;
+
+                UPDATE NotaPedido
+                   SET ModificadoPor = @Usuario,
+                       FechaEdita = CONVERT(varchar, GETDATE(), 103) + ' ' + SUBSTRING(CONVERT(varchar, GETDATE(), 114), 1, 8),
+                       NotaEstado = 'ANULADO',
+                       NotaSaldo = NotaPagar,
+                       NotaAcuenta = 0
+                 WHERE NotaId = @NotaId;
+
+                DELETE FROM CajaDetalle
+                 WHERE NotaId = @NotaId;
+                """, con, (SqlTransaction)tx))
+            {
+                cmd.Parameters.AddWithValue("@DocuId", anulacion.DocuId);
+                cmd.Parameters.AddWithValue("@NotaId", anulacion.NotaId);
+                cmd.Parameters.AddWithValue("@Usuario", anulacion.Usuario);
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            foreach (var item in anulacion.Detalles.Where(x => x.AplicaInv && x.IdProducto > 0))
+            {
+                await using var cmd = new SqlCommand("""
+                    DECLARE @IniciaStock decimal(18,2) =
+                        ISNULL((SELECT TOP 1 ProductoCantidad FROM Producto WHERE IdProducto = @IdProducto), 0);
+                    DECLARE @CantidadIngreso decimal(18,2) = @Cantidad * @ValorUM;
+                    DECLARE @StockFinal decimal(18,2) = @IniciaStock + @CantidadIngreso;
+
+                    INSERT INTO Kardex (
+                        IdProducto,
+                        KardexFecha,
+                        KardexMotivo,
+                        KardexDocumento,
+                        StockInicial,
+                        CantidadIngreso,
+                        CantidadSalida,
+                        PrecioCosto,
+                        StockFinal,
+                        KadexConcepto,
+                        Usuario
+                    )
+                    VALUES (@IdProducto, GETDATE(), 'Anulacion por Venta', @Documento,
+                            @IniciaStock, @CantidadIngreso, 0, @Costo, @StockFinal,
+                            'INGRESO', @Usuario);
+
+                    UPDATE Producto
+                       SET ProductoCantidad = ISNULL(ProductoCantidad, 0) + @CantidadIngreso
+                     WHERE IdProducto = @IdProducto;
+                    """, con, (SqlTransaction)tx);
+
+                cmd.Parameters.AddWithValue("@IdProducto", item.IdProducto);
+                cmd.Parameters.AddWithValue("@Cantidad", item.Cantidad);
+                cmd.Parameters.AddWithValue("@ValorUM", item.ValorUm);
+                cmd.Parameters.AddWithValue("@Costo", item.Costo);
+                cmd.Parameters.AddWithValue("@Documento", anulacion.Documento);
+                cmd.Parameters.AddWithValue("@Usuario", anulacion.Usuario);
+                await cmd.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await tx.CommitAsync(cancellationToken);
+            return "true";
+        }
+        catch (Exception ex)
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return $"error: {ex.Message}";
+        }
     }
 
     public async Task<string> ListarDocumentosAsync(string data, CancellationToken cancellationToken = default)
@@ -554,7 +628,14 @@ public class NotaPedidoRepository : INotaPedido
                                         WHERE d.NotaId = NotaPedido.NotaId
                                           AND d.TipoCodigo IN ('01', '03')
                                         ORDER BY d.DocuId DESC
-                                     ) AS DocuId
+                                     ) AS DocuId,
+                                     (
+                                        SELECT TOP (1) d.DocuEstado
+                                        FROM DocumentoVenta d
+                                        WHERE d.NotaId = NotaPedido.NotaId
+                                          AND d.TipoCodigo IN ('01', '03')
+                                        ORDER BY d.DocuId DESC
+                                     ) AS DocuEstado
                               FROM NotaPedido
                               LEFT JOIN Cliente c ON c.ClienteId = NotaPedido.ClienteId
                               WHERE NotaPedido.NotaId = @Id";
@@ -646,6 +727,13 @@ public class NotaPedidoRepository : INotaPedido
                                           AND d.TipoCodigo IN ('01', '03')
                                         ORDER BY d.DocuId DESC
                                     ) AS DocuId,
+                                     (
+                                        SELECT TOP (1) d.DocuEstado
+                                        FROM DocumentoVenta d
+                                        WHERE d.NotaId = NotaPedido.NotaId
+                                          AND d.TipoCodigo IN ('01', '03')
+                                        ORDER BY d.DocuId DESC
+                                    ) AS DocuEstado,
                                      ROW_NUMBER() OVER (ORDER BY NotaPedido.NotaId DESC) AS RowNum
                              FROM NotaPedido
                              LEFT JOIN Cliente c ON c.ClienteId = NotaPedido.ClienteId
@@ -1062,6 +1150,7 @@ public class NotaPedidoRepository : INotaPedido
             Efectivo = reader["Efectivo"] == DBNull.Value ? null : Convert.ToDecimal(reader["Efectivo"]),
             Deposito = reader["Deposito"] == DBNull.Value ? null : Convert.ToDecimal(reader["Deposito"]),
             DocuId = reader["DocuId"] == DBNull.Value ? null : Convert.ToInt64(reader["DocuId"]),
+            DocuEstado = reader["DocuEstado"] == DBNull.Value ? null : reader["DocuEstado"].ToString(),
             EstadoSunat = reader["EstadoSunat"] == DBNull.Value ? null : reader["EstadoSunat"].ToString(),
             NotaTransaccion = reader["NotaTransaccion"] == DBNull.Value ? null : reader["NotaTransaccion"].ToString(),
             Miembro = reader["Miembro"] == DBNull.Value ? null : reader["Miembro"].ToString(),
@@ -1119,4 +1208,113 @@ public class NotaPedidoRepository : INotaPedido
         var normalizedPageSize = pageSize < 1 ? 1 : Math.Min(pageSize, 100);
         return (normalizedPage, normalizedPageSize);
     }
+
+    private static bool TryParseAnularDocumento(string listaOrden, out AnulacionDocumento anulacion, out string error)
+    {
+        anulacion = new AnulacionDocumento(0, 0, string.Empty, string.Empty, Array.Empty<AnulacionDetalle>());
+        error = string.Empty;
+
+        var firstBracket = listaOrden.IndexOf('[', StringComparison.Ordinal);
+        if (firstBracket <= 0)
+        {
+            error = "ListaOrden no contiene detalle.";
+            return false;
+        }
+
+        var secondBracket = listaOrden.IndexOf('[', firstBracket + 1);
+        var orden = listaOrden[..firstBracket].Trim();
+        var detalle = secondBracket > firstBracket
+            ? listaOrden.Substring(firstBracket + 1, secondBracket - firstBracket - 1)
+            : listaOrden[(firstBracket + 1)..];
+
+        var header = orden.Split('|');
+        if (header.Length < 4 ||
+            !TryParseLong(header[0], out var docuId) ||
+            !TryParseLong(header[1], out var notaId))
+        {
+            error = "Cabecera de anulación inválida.";
+            return false;
+        }
+
+        var detalles = new List<AnulacionDetalle>();
+        foreach (var raw in detalle.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var parts = raw.Split('|');
+            if (parts.Length >= 7)
+            {
+                if (!TryParseLong(parts[0], out var idProducto) ||
+                    !TryParseDecimal(parts[2], out var cantidad) ||
+                    !TryParseDecimal(parts[4], out var costo))
+                {
+                    error = "Detalle de anulación inválido.";
+                    return false;
+                }
+
+                var valorUm = TryParseDecimal(parts[5], out var parsedValorUm) && parsedValorUm > 0
+                    ? parsedValorUm
+                    : 1;
+                detalles.Add(new AnulacionDetalle(
+                    idProducto,
+                    cantidad,
+                    costo,
+                    valorUm,
+                    string.Equals(parts[6].Trim(), "S", StringComparison.OrdinalIgnoreCase)));
+                continue;
+            }
+
+            if (parts.Length >= 3 &&
+                TryParseLong(parts[0], out var legacyIdProducto) &&
+                TryParseDecimal(parts[1], out var legacyCantidad))
+            {
+                var legacyCosto = TryParseDecimal(parts[2], out var parsedLegacyCosto) ? parsedLegacyCosto : 0;
+                detalles.Add(new AnulacionDetalle(legacyIdProducto, legacyCantidad, legacyCosto, 1, true));
+                continue;
+            }
+
+            error = "Detalle de anulación inválido.";
+            return false;
+        }
+
+        if (detalles.Count == 0)
+        {
+            error = "ListaOrden no contiene productos.";
+            return false;
+        }
+
+        anulacion = new AnulacionDocumento(
+            docuId,
+            notaId,
+            header[2].Trim(),
+            string.Join("|", header.Skip(3)).Trim(),
+            detalles);
+        return true;
+    }
+
+    private static bool TryParseLong(string value, out long result) =>
+        long.TryParse(value.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out result) ||
+        long.TryParse(value.Trim(), NumberStyles.Any, CultureInfo.CurrentCulture, out result);
+
+    private static bool TryParseDecimal(string value, out decimal result)
+    {
+        var text = value.Trim();
+        var normalized = text.Contains(',', StringComparison.Ordinal) && !text.Contains('.', StringComparison.Ordinal)
+            ? text.Replace(",", ".", StringComparison.Ordinal)
+            : text.Replace(",", "", StringComparison.Ordinal);
+        return decimal.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out result) ||
+               decimal.TryParse(text, NumberStyles.Any, CultureInfo.CurrentCulture, out result);
+    }
+
+    private sealed record AnulacionDocumento(
+        long DocuId,
+        long NotaId,
+        string Usuario,
+        string Documento,
+        IReadOnlyList<AnulacionDetalle> Detalles);
+
+    private sealed record AnulacionDetalle(
+        long IdProducto,
+        decimal Cantidad,
+        decimal Costo,
+        decimal ValorUm,
+        bool AplicaInv);
 }

@@ -43,7 +43,8 @@ public class CompaniaRepository : ICompania
                                 CorreoSGO,
                                 PasswordCorreo,
                                 CorreosAdmin,
-                                BoletaPorLote)
+                                BoletaPorLote,
+                                FlagCaptura)
                               VALUES (
                                 @CompaniaRazonSocial,
                                 @CompaniaRUC,
@@ -70,7 +71,8 @@ public class CompaniaRepository : ICompania
                                 @CorreoSGO,
                                 @PasswordCorreo,
                                 @CorreosAdmin,
-                                @BoletaPorLote)";
+                                @BoletaPorLote,
+                                @FlagCaptura)";
 
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sql, con);
@@ -108,7 +110,8 @@ public class CompaniaRepository : ICompania
                                 CorreoSGO = @CorreoSGO,
                                 PasswordCorreo = @PasswordCorreo,
                                 CorreosAdmin = @CorreosAdmin,
-                                BoletaPorLote = @BoletaPorLote
+                                BoletaPorLote = @BoletaPorLote,
+                                FlagCaptura = @FlagCaptura
                               WHERE CompaniaId = @Id";
 
         await using var con = new SqlConnection(_connectionString);
@@ -132,6 +135,23 @@ public class CompaniaRepository : ICompania
         await using var cmd = new SqlCommand(sql, con);
         cmd.Parameters.AddWithValue("@Id", id);
         cmd.Parameters.AddWithValue("@BoletaPorLote", boletaPorLote);
+        await con.OpenAsync(cancellationToken);
+        var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
+        return rows > 0;
+    }
+
+    public async Task<bool> ActualizarFlagCapturaAsync(int id, bool flagCaptura, CancellationToken cancellationToken = default)
+    {
+        const string sql = """
+            UPDATE Compania
+            SET FlagCaptura = @FlagCaptura
+            WHERE CompaniaId = @Id;
+            """;
+
+        await using var con = new SqlConnection(_connectionString);
+        await using var cmd = new SqlCommand(sql, con);
+        cmd.Parameters.AddWithValue("@Id", id);
+        cmd.Parameters.AddWithValue("@FlagCaptura", flagCaptura);
         await con.OpenAsync(cancellationToken);
         var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
         return rows > 0;
@@ -177,7 +197,8 @@ public class CompaniaRepository : ICompania
                                     CorreoSGO,
                                     PasswordCorreo,
                                     CorreosAdmin,
-                                    BoletaPorLote
+                                    BoletaPorLote,
+                                    FlagCaptura
                              FROM Compania
                              ORDER BY CompaniaId DESC
                              OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
@@ -220,7 +241,8 @@ public class CompaniaRepository : ICompania
                 CorreoSGO = reader["CorreoSGO"].ToString(),
                 PasswordCorreo = reader["PasswordCorreo"].ToString(),
                 CorreosAdmin = reader["CorreosAdmin"].ToString(),
-                BoletaPorLote = reader["BoletaPorLote"] != DBNull.Value && Convert.ToBoolean(reader["BoletaPorLote"])
+                BoletaPorLote = reader["BoletaPorLote"] != DBNull.Value && Convert.ToBoolean(reader["BoletaPorLote"]),
+                FlagCaptura = reader["FlagCaptura"] != DBNull.Value && Convert.ToBoolean(reader["FlagCaptura"])
             });
         }
 
@@ -295,6 +317,7 @@ public class CompaniaRepository : ICompania
         cmd.Parameters.AddWithValue("@PasswordCorreo", (object?)compania.PasswordCorreo ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@CorreosAdmin", (object?)compania.CorreosAdmin ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@BoletaPorLote", compania.BoletaPorLote);
+        cmd.Parameters.AddWithValue("@FlagCaptura", compania.FlagCaptura);
     }
 
     private static (int page, int pageSize) NormalizePagination(int page, int pageSize)

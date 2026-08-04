@@ -20,6 +20,7 @@ public class AuthResponseA
     public string? Entorno { get; set; }
     public string? CompaniaTelefono { get; set; }
     public bool BoletaPorLote { get; set; } = true;
+    public bool FlagCaptura { get; set; }
     //public string? RUC { get; set; }
     //public string? UsuarioSerie { get; set; }
     //public string? Avatar { get; set; }

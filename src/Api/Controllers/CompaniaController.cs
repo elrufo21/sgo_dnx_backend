@@ -72,6 +72,44 @@ public class CompaniaController : ControllerBase
     }
 
     [Authorize]
+    [HttpPatch("{id}/flag-captura", Name = "ActualizarFlagCaptura")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+    [ProducesResponseType((int)HttpStatusCode.NotFound)]
+    public async Task<IActionResult> ActualizarFlagCaptura(
+        int id,
+        [FromBody] ActualizarFlagCapturaRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (id <= 0)
+        {
+            return BadRequest("Id inválido.");
+        }
+
+        if (request is null)
+        {
+            return BadRequest("Payload requerido.");
+        }
+
+        var actualizado = await _mediator.ActualizarFlagCapturaAsync(id, request.FlagCaptura, cancellationToken);
+        if (!actualizado)
+        {
+            return NotFound(new
+            {
+                ok = false,
+                mensaje = $"No se encontró la compañía con id {id}."
+            });
+        }
+
+        return Ok(new
+        {
+            ok = true,
+            companiaId = id,
+            flagCaptura = request.FlagCaptura
+        });
+    }
+
+    [Authorize]
     [HttpDelete("{id}", Name = "EliminarCompania")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     public async Task<IActionResult> EliminarCompania(int id, CancellationToken cancellationToken)
@@ -105,4 +143,9 @@ public class CompaniaController : ControllerBase
 public class ActualizarBoletaPorLoteRequest
 {
     public bool BoletaPorLote { get; set; }
+}
+
+public class ActualizarFlagCapturaRequest
+{
+    public bool FlagCaptura { get; set; }
 }

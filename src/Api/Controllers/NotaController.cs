@@ -451,6 +451,15 @@ public class NotaController : ControllerBase
         }
 
         var resultado = await _mediator.AnularDocumentoAsync(listaOrden.Trim(), cancellationToken);
+        if (resultado.StartsWith("error", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                ok = false,
+                mensaje = resultado
+            });
+        }
+
         return Ok(new
         {
             ok = string.Equals(resultado, "true", StringComparison.OrdinalIgnoreCase),

@@ -85,7 +85,8 @@ public class UsuarioRepository : IUsuario
             ClaveCertificado = GetPayloadValue(payload, 15),
             Entorno = GetPayloadValue(payload, 16, "3"),
             CompaniaTelefono = GetPayloadValue(payload, 17),
-            BoletaPorLote = true,
+            BoletaPorLote = ParseBoolFlag(GetPayloadValue(payload, 18, "1"), true),
+            FlagCaptura = ParseBoolFlag(GetPayloadValue(payload, 19, "0"), false),
             Token = _authService.CreateTokenA(expiresAtUtc.ToString("O")),
             ExpiresAtUtc = expiresAtUtc,
             ExpiresInSeconds = expiresInSeconds
@@ -125,6 +126,7 @@ public class UsuarioRepository : IUsuario
             DescuentoMax = "0",
             Entorno = "3",
             BoletaPorLote = true,
+            FlagCaptura = false,
             Token = _authService.CreateTokenA(expiresAtUtc.ToString("O")),
             ExpiresAtUtc = expiresAtUtc,
             ExpiresInSeconds = expiresInSeconds
@@ -136,11 +138,11 @@ public class UsuarioRepository : IUsuario
         return payload.Length > index ? payload[index] : fallback;
     }
 
-    private static bool ParseBoolFlag(string? value)
+    private static bool ParseBoolFlag(string? value, bool fallback)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            return true;
+            return fallback;
         }
 
         var normalized = value.Trim();
@@ -156,6 +158,6 @@ public class UsuarioRepository : IUsuario
             return false;
         }
 
-        return true;
+        return fallback;
     }
 }

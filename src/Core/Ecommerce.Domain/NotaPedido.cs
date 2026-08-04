@@ -38,6 +38,7 @@ public class NotaPedido
     public decimal? Efectivo { get; set; }
     public decimal? Deposito { get; set; }
     public long? DocuId { get; set; }
+    public string? DocuEstado { get; set; }
     public string? EstadoSunat { get; set; }
     public string? NotaTransaccion { get; set; }
     public string? Miembro { get; set; }
