@@ -49,6 +49,11 @@ public interface INotaPedido
         int page = 1,
         int pageSize = 50,
         CancellationToken cancellationToken = default);
+    Task<int> ContarCrudAsync(
+        string? estado = null,
+        DateTime? fechaInicio = null,
+        DateTime? fechaFin = null,
+        CancellationToken cancellationToken = default);
     Task<IReadOnlyList<DetalleNota>> ListarDetalleAsync(
         long notaId,
         int page = 1,

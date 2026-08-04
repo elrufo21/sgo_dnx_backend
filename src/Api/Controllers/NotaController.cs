@@ -303,8 +303,8 @@ public class NotaController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet("crud", Name = "GetNotaPedidoCrud")]
-    [ProducesResponseType(typeof(IReadOnlyList<NotaPedido>), (int)HttpStatusCode.OK)]
-    public async Task<ActionResult<IReadOnlyList<NotaPedido>>> ListarNotaCrud(
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> ListarNotaCrud(
         [FromQuery] string? estado = null,
         [FromQuery] DateTime? fechaInicio = null,
         [FromQuery] DateTime? fechaFin = null,
@@ -312,7 +312,9 @@ public class NotaController : ControllerBase
         [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-        return Ok(await _mediator.ListarCrudAsync(estado, fechaInicio, fechaFin, page, pageSize, cancellationToken));
+        var items = await _mediator.ListarCrudAsync(estado, fechaInicio, fechaFin, page, pageSize, cancellationToken);
+        var total = await _mediator.ContarCrudAsync(estado, fechaInicio, fechaFin, cancellationToken);
+        return Ok(new { items, total });
     }
 
     [AllowAnonymous]
@@ -1591,7 +1593,13 @@ public class NotaController : ControllerBase
             await using var cmd = tx is null
                 ? new SqlCommand("""
                     UPDATE NotaPedido
-                       SET NotaSaldo = 0
+                       SET NotaAcuenta = CASE
+                               WHEN ISNULL(NotaTotal, 0) > 0
+                                AND ISNULL(NotaAcuenta, 0) + @Monto > ISNULL(NotaTotal, 0)
+                               THEN NotaTotal
+                               ELSE ISNULL(NotaAcuenta, 0) + @Monto
+                           END,
+                           NotaSaldo = 0
                      WHERE NotaId = @NotaId;
 
                     UPDATE DocumentoVenta
@@ -1600,7 +1608,13 @@ public class NotaController : ControllerBase
                     """, con)
                 : new SqlCommand("""
                     UPDATE NotaPedido
-                       SET NotaSaldo = 0
+                       SET NotaAcuenta = CASE
+                               WHEN ISNULL(NotaTotal, 0) > 0
+                                AND ISNULL(NotaAcuenta, 0) + @Monto > ISNULL(NotaTotal, 0)
+                               THEN NotaTotal
+                               ELSE ISNULL(NotaAcuenta, 0) + @Monto
+                           END,
+                           NotaSaldo = 0
                      WHERE NotaId = @NotaId;
 
                     UPDATE DocumentoVenta
@@ -1610,6 +1624,7 @@ public class NotaController : ControllerBase
 
             cmd.Parameters.AddWithValue("@NotaId", detalle.NotaId);
             cmd.Parameters.AddWithValue("@DocuId", detalle.DocuId);
+            cmd.Parameters.AddWithValue("@Monto", detalle.Monto);
             await cmd.ExecuteNonQueryAsync(cancellationToken);
         }
     }
@@ -1668,6 +1683,12 @@ public class NotaController : ControllerBase
                            NotaFormaPago = @FormaPago,
                            EntidadBancaria = @Entidad,
                            NroOperacion = @NroOperacion,
+                           NotaAcuenta = CASE
+                               WHEN ISNULL(NotaTotal, 0) > 0
+                                AND ISNULL(NotaAcuenta, 0) + @Monto > ISNULL(NotaTotal, 0)
+                               THEN NotaTotal
+                               ELSE ISNULL(NotaAcuenta, 0) + @Monto
+                           END,
                            NotaSaldo = 0
                       WHERE NotaId = @NotaId;
 

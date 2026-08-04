@@ -98,6 +98,7 @@ public class ClienteRepository : ICliente
     public async Task<bool> EliminarAsync(long id, CancellationToken cancellationToken = default)
     {
         if (id <= 0) return false;
+        if (id > int.MaxValue) return false;
 
         const string sql = "uspEliminarCliente";
         await using var con = new SqlConnection(_connectionString);
@@ -106,11 +107,19 @@ public class ClienteRepository : ICliente
             CommandTimeout = 300,
             CommandType = CommandType.StoredProcedure
         };
-        cmd.Parameters.AddWithValue("@Id", id);
+        cmd.Parameters.Add("@Id", SqlDbType.Int).Value = (int)id;
         await con.OpenAsync(cancellationToken);
         if (!await ExisteClienteAsync(con, id, cancellationToken)) return false;
 
-        await cmd.ExecuteNonQueryAsync(cancellationToken);
+        try
+        {
+            await cmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+        catch (SqlException)
+        {
+            return false;
+        }
+
         return !await ExisteClienteAsync(con, id, cancellationToken);
     }
 
@@ -209,9 +218,10 @@ public class ClienteRepository : ICliente
             DECLARE @InicioMes datetime;
             SET @InicioMes = DATEADD(month, DATEDIFF(month, 0, GETDATE()), 0);
 
-            SELECT ISNULL(SUM(ISNULL(d.DetallePV, 0)), 0)
+            SELECT ISNULL(SUM(ISNULL(d.DetalleCantidad, 0) * ISNULL(p.ProductoPV, 0)), 0)
             FROM NotaPedido n
             INNER JOIN DetallePedido d ON d.NotaId = n.NotaId
+            LEFT JOIN Producto p ON p.IdProducto = d.IdProducto
             WHERE n.ClienteId = @ClienteId
               AND n.NotaFecha >= @InicioMes
               AND n.NotaFecha < DATEADD(month, 1, @InicioMes)

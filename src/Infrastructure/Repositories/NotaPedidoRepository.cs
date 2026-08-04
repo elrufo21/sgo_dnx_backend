@@ -537,8 +537,9 @@ public class NotaPedidoRepository : INotaPedido
                                     c.ClienteRazon AS Miembro,
                                     c.ClienteCodigo AS CodigoCliente,
                                     (
-                                        SELECT ISNULL(SUM(ISNULL(dp.DetallePV, 0)), 0)
+                                        SELECT ISNULL(SUM(ISNULL(dp.DetalleCantidad, 0) * ISNULL(p.ProductoPV, 0)), 0)
                                         FROM DetallePedido dp
+                                        LEFT JOIN Producto p ON p.IdProducto = dp.IdProducto
                                         WHERE dp.NotaId = NotaPedido.NotaId
                                     ) AS PV,
                                      (
@@ -627,8 +628,9 @@ public class NotaPedidoRepository : INotaPedido
                                     c.ClienteRazon AS Miembro,
                                     c.ClienteCodigo AS CodigoCliente,
                                     (
-                                        SELECT ISNULL(SUM(ISNULL(dp.DetallePV, 0)), 0)
+                                        SELECT ISNULL(SUM(ISNULL(dp.DetalleCantidad, 0) * ISNULL(p.ProductoPV, 0)), 0)
                                         FROM DetallePedido dp
+                                        LEFT JOIN Producto p ON p.IdProducto = dp.IdProducto
                                         WHERE dp.NotaId = NotaPedido.NotaId
                                     ) AS PV,
                                      (
@@ -674,6 +676,28 @@ public class NotaPedidoRepository : INotaPedido
         return lista;
     }
 
+    public async Task<int> ContarCrudAsync(
+        string? estado = null,
+        DateTime? fechaInicio = null,
+        DateTime? fechaFin = null,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = @"
+            SELECT COUNT(1)
+            FROM NotaPedido
+            WHERE (@Estado IS NULL OR NotaEstado = @Estado)
+              AND (@FechaInicio IS NULL OR NotaFecha >= @FechaInicio)
+              AND (@FechaFin IS NULL OR NotaFecha < DATEADD(day, 1, @FechaFin));";
+
+        await using var con = new SqlConnection(_connectionString);
+        await using var cmd = new SqlCommand(sql, con);
+        cmd.Parameters.AddWithValue("@Estado", (object?)estado ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@FechaInicio", (object?)fechaInicio?.Date ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@FechaFin", (object?)fechaFin?.Date ?? DBNull.Value);
+        await con.OpenAsync(cancellationToken);
+        return Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+    }
+
     public async Task<IReadOnlyList<DetalleNota>> ListarDetalleAsync(long notaId, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
     {
         (page, pageSize) = NormalizePagination(page, pageSize);
@@ -687,13 +711,13 @@ public class NotaPedidoRepository : INotaPedido
                        d.DetalleDescripcion,
                        d.DetalleCosto,
                        d.DetallePrecio,
-                       d.DetallePV,
-                       d.DetalleSV,
+                       ISNULL(d.DetalleCantidad, 0) * ISNULL(p.ProductoPV, 0) AS DetallePV,
+                       ISNULL(d.DetalleCantidad, 0) * ISNULL(p.ProductoSV, 0) AS DetalleSV,
                        d.DetalleImporte,
                        d.DetalleEstado,
                        d.CantidadSaldo,
                        d.ValorUM,
-                       ISNULL(NULLIF(p.AplicaINV, ''), 'S') AS AplicaINV,
+                       ISNULL(NULLIF(p.ProductoINV, ''), 'S') AS AplicaINV,
                        ROW_NUMBER() OVER (ORDER BY d.DetalleId) AS RowNum
                 FROM DetallePedido d
                 LEFT JOIN Producto p ON p.IdProducto = d.IdProducto
