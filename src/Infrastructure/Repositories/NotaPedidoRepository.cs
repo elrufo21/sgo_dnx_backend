@@ -1205,7 +1205,7 @@ public class NotaPedidoRepository : INotaPedido
     private static (int page, int pageSize) NormalizePagination(int page, int pageSize)
     {
         var normalizedPage = page < 1 ? 1 : page;
-        var normalizedPageSize = pageSize < 1 ? 1 : Math.Min(pageSize, 100);
+        var normalizedPageSize = pageSize < 1 ? 1 : Math.Min(pageSize, 100000);
         return (normalizedPage, normalizedPageSize);
     }
 

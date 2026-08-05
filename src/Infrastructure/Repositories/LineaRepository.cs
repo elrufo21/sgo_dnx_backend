@@ -43,19 +43,15 @@ public class LineaRepository : ILinea
 
     public async Task<IReadOnlyList<EGeneral>> ListarAsync(int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
     {
-        (page, pageSize) = NormalizePagination(page, pageSize);
-
         const string sql = """
             SELECT IdSubLinea, NombreSublinea, CodigoSunat
             FROM Sublinea
-            ORDER BY IdSubLinea DESC
-            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+            WHERE ISNULL(NombreSublinea, '') <> ''
+            ORDER BY NombreSublinea ASC;
             """;
 
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sql, con);
-        cmd.Parameters.AddWithValue("@Offset", (page - 1) * pageSize);
-        cmd.Parameters.AddWithValue("@PageSize", pageSize);
         await con.OpenAsync(cancellationToken);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
 
@@ -65,18 +61,12 @@ public class LineaRepository : ILinea
             lista.Add(new EGeneral
             {
                 Id = reader["IdSubLinea"].ToString() ?? string.Empty,
+                Nombre = reader["NombreSublinea"].ToString() ?? string.Empty,
                 nombreSublinea = reader["NombreSublinea"].ToString() ?? string.Empty,
                 CodigoSunat = reader["CodigoSunat"].ToString() ?? string.Empty
             });
         }
 
         return lista;
-    }
-
-    private static (int page, int pageSize) NormalizePagination(int page, int pageSize)
-    {
-        var normalizedPage = page < 1 ? 1 : page;
-        var normalizedPageSize = pageSize < 1 ? 1 : Math.Min(pageSize, 100);
-        return (normalizedPage, normalizedPageSize);
     }
 }

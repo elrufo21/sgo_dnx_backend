@@ -17,6 +17,17 @@ public class Producto
     public string? ProductoImagen { get; set; }
     public decimal? ValorCritico { get; set; }
     public string? AplicaINV { get; set; }
+    public string? ProductoINV { get; set; }
+    public string? ProductoMarca { get; set; }
+    public decimal? ProductoTipoCambio { get; set; }
+    public decimal? ProductoCostoDolar { get; set; }
+    public long? AlmacenId { get; set; }
+    public string? ProductoUbicacion { get; set; }
+    public string? ProductoObs { get; set; }
+    public decimal? ProductoPV { get; set; }
+    public decimal? ProductoSV { get; set; }
+    public decimal? ProductoxCaja { get; set; }
+    public string? AplicaFB { get; set; }
     public string? DetalleUm { get; set; }
     public string? DetalleUM { get; set; }
     public string? UnidadMedidaDetalle { get; set; }
