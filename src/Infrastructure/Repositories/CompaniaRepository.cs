@@ -171,7 +171,8 @@ public class CompaniaRepository : ICompania
     public async Task<IReadOnlyList<Compania>> ListarAsync(int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
     {
         (page, pageSize) = NormalizePagination(page, pageSize);
-        const string sql = @"SELECT CompaniaId,
+        const string sql = @";WITH Companias AS (
+                             SELECT CompaniaId,
                                     CompaniaRazonSocial,
                                     CompaniaRUC,
                                     CompaniaDireccion,
@@ -198,15 +199,19 @@ public class CompaniaRepository : ICompania
                                     PasswordCorreo,
                                     CorreosAdmin,
                                     BoletaPorLote,
-                                    FlagCaptura
+                                    FlagCaptura,
+                                    ROW_NUMBER() OVER (ORDER BY CompaniaId DESC) AS RowNum
                              FROM Compania
-                             ORDER BY CompaniaId DESC
-                             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
+                             )
+                             SELECT *
+                             FROM Companias
+                             WHERE RowNum BETWEEN @Start AND @End
+                             ORDER BY RowNum;";
 
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sql, con);
-        cmd.Parameters.AddWithValue("@Offset", (page - 1) * pageSize);
-        cmd.Parameters.AddWithValue("@PageSize", pageSize);
+        cmd.Parameters.AddWithValue("@Start", ((page - 1) * pageSize) + 1);
+        cmd.Parameters.AddWithValue("@End", page * pageSize);
         await con.OpenAsync(cancellationToken);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
 
@@ -253,16 +258,22 @@ public class CompaniaRepository : ICompania
     {
         (page, pageSize) = NormalizePagination(page, pageSize);
         const string sql = """
+            ;WITH Companias AS (
+                SELECT CompaniaId,
+                       CompaniaRazonSocial,
+                       ROW_NUMBER() OVER (ORDER BY CompaniaId DESC) AS RowNum
+                FROM Compania
+            )
             SELECT CompaniaId, CompaniaRazonSocial
-            FROM Compania
-            ORDER BY CompaniaId DESC
-            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+            FROM Companias
+            WHERE RowNum BETWEEN @Start AND @End
+            ORDER BY RowNum;
             """;
 
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sql, con);
-        cmd.Parameters.AddWithValue("@Offset", (page - 1) * pageSize);
-        cmd.Parameters.AddWithValue("@PageSize", pageSize);
+        cmd.Parameters.AddWithValue("@Start", ((page - 1) * pageSize) + 1);
+        cmd.Parameters.AddWithValue("@End", page * pageSize);
         await con.OpenAsync(cancellationToken);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
 

@@ -782,6 +782,12 @@ public class NotaController : ControllerBase
         try
         {
             var rutaPfxNormalizada = ResolverRutaPfx(requestBaja.RUTA_PFX ?? string.Empty);
+            var errorCertificado = CrearRespuestaCertificadoInvalidoSiCorresponde(requestBaja.RUTA_PFX, rutaPfxNormalizada);
+            if (errorCertificado is not null)
+            {
+                return Ok(NormalizarRespuestaResumen(errorCertificado));
+            }
+
             var baja = MapearBajaLegacy(requestBaja, tipoProceso.Value, rutaPfxNormalizada);
             var respuestaLegacy = ObtenerRespuestaLegacyForzadaSiCorresponde("resumen/enviar-baja")
                 ?? _cpeGateway.EnvioBaja(baja);
@@ -856,6 +862,12 @@ public class NotaController : ControllerBase
         try
         {
             var rutaPfxNormalizada = ResolverRutaPfx(request.RUTA_PFX ?? string.Empty);
+            var errorCertificado = CrearRespuestaCertificadoInvalidoSiCorresponde(request.RUTA_PFX, rutaPfxNormalizada);
+            if (errorCertificado is not null)
+            {
+                return Ok(NormalizarRespuestaResumen(errorCertificado));
+            }
+
             var resumen = MapearResumenLegacy(request, tipoProceso.Value, rutaPfxNormalizada);
             var respuestaLegacy = ObtenerRespuestaLegacyForzadaSiCorresponde("resumen/enviar")
                 ?? _cpeGateway.EnvioResumen(resumen);
@@ -3991,6 +4003,12 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         AgregarErrorSiVacio(errores, request.DISTRITO_CLIENTE, "DISTRITO_CLIENTE es requerido.");
         AgregarErrorSiVacio(errores, request.COD_PAIS_CLIENTE, "COD_PAIS_CLIENTE es requerido.");
 
+        if (string.Equals((request.TIPO_DOCUMENTO_CLIENTE ?? string.Empty).Trim(), "6", StringComparison.Ordinal) &&
+            !EsRucPeruValido(request.NRO_DOCUMENTO_CLIENTE))
+        {
+            errores.Add("NRO_DOCUMENTO_CLIENTE debe ser un RUC valido.");
+        }
+
         if (!EsFechaIsoValida(request.FECHA_DOCUMENTO))
         {
             errores.Add("FECHA_DOCUMENTO debe tener formato yyyy-MM-dd.");
@@ -6719,6 +6737,11 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
     CancellationToken cancellationToken)
 {
         var rutaPfxNormalizada = ResolverRutaPfx(requestNotaCredito.RUTA_PFX ?? string.Empty);
+        var errorCertificado = CrearRespuestaCertificadoInvalidoSiCorresponde(requestNotaCredito.RUTA_PFX, rutaPfxNormalizada);
+        if (errorCertificado is not null)
+        {
+            return NormalizarRespuestaFactura(errorCertificado);
+        }
 
         var notaCredito = MapearNotaCreditoLegacy(requestNotaCredito, tipoProceso, rutaPfxNormalizada);
         var respuestaLegacy = ObtenerRespuestaLegacyForzadaSiCorresponde("credito/enviar")
@@ -6764,6 +6787,12 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         bool registrarDocumentoVentaSiNoExiste = false)
     {
         var rutaPfxNormalizada = ResolverRutaPfx(requestFactura.RUTA_PFX ?? string.Empty);
+        var errorCertificado = CrearRespuestaCertificadoInvalidoSiCorresponde(requestFactura.RUTA_PFX, rutaPfxNormalizada);
+        if (errorCertificado is not null)
+        {
+            return NormalizarRespuestaFactura(errorCertificado);
+        }
+
         var factura = MapearFacturaLegacy(requestFactura, tipoProceso, rutaPfxNormalizada);
 
         foreach (var d in factura.detalle)
@@ -6826,6 +6855,12 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         CancellationToken cancellationToken)
     {
         var rutaPfxNormalizada = ResolverRutaPfx(requestBoleta.RUTA_PFX ?? string.Empty);
+        var errorCertificado = CrearRespuestaCertificadoInvalidoSiCorresponde(requestBoleta.RUTA_PFX, rutaPfxNormalizada);
+        if (errorCertificado is not null)
+        {
+            return NormalizarRespuestaFactura(errorCertificado);
+        }
+
         var boleta = MapearBoletaLegacy(requestBoleta, tipoProceso, rutaPfxNormalizada);
         var respuestaLegacy = ObtenerRespuestaLegacyForzadaSiCorresponde("boleta/enviar")
             ?? _cpeGateway.Envio(boleta);
@@ -6948,8 +6983,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             return null;
         }
 
-        var clientes = await _clientes.ListarAsync(estado: null, page: 1, pageSize: 10000, cancellationToken: cancellationToken);
-        var cliente = clientes.FirstOrDefault(x => x.ClienteId == nota.ClienteId.Value);
+        var cliente = await _clientes.ObtenerPorIdAsync(nota.ClienteId.Value, cancellationToken);
         if (cliente is null)
         {
             _logger.LogWarning("No se encontro el cliente {ClienteId} para emitir la FACTURA {NotaId}.", nota.ClienteId.Value, notaId);
@@ -8171,7 +8205,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             ? mensajeError
             : ObtenerValorLegacy(respuestaLegacy, "mensaje");
         var codSunat = ObtenerValorLegacy(respuestaLegacy, "cod_sunat");
-        var msjSunat = ObtenerValorLegacy(respuestaLegacy, "msj_sunat");
+        var msjSunat = PrimerValor(ObtenerValorLegacy(respuestaLegacy, "msj_sunat"), mensaje);
         var hashCpe = ObtenerValorLegacy(respuestaLegacy, "hash_cpe");
         var hashCdr = ObtenerValorLegacy(respuestaLegacy, "hash_cdr");
         var cdrBase64 = LimpiarBase64(ObtenerValorLegacy(respuestaLegacy, "cdr_base64"));
@@ -9054,6 +9088,26 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         return string.Empty;
     }
 
+    private static bool EsRucPeruValido(string? ruc)
+    {
+        var valor = (ruc ?? string.Empty).Trim();
+        if (valor.Length != 11 || !valor.All(char.IsDigit))
+        {
+            return false;
+        }
+
+        var pesos = new[] { 5, 4, 3, 2, 7, 6, 5, 4, 3, 2 };
+        var suma = 0;
+        for (var i = 0; i < pesos.Length; i++)
+        {
+            suma += (valor[i] - '0') * pesos[i];
+        }
+
+        var digito = 11 - (suma % 11);
+        digito = digito == 10 ? 0 : digito == 11 ? 1 : digito;
+        return digito == valor[10] - '0';
+    }
+
     private static int ResolverEstadoResumen(EnviarResumenBoletasRequest request)
     {
         if (request.STATUS.HasValue)
@@ -9844,6 +9898,28 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         }
 
         return valor;
+    }
+
+    private static Dictionary<string, string>? CrearRespuestaCertificadoInvalidoSiCorresponde(string? rutaOriginal, string rutaNormalizada)
+    {
+        if (System.IO.File.Exists(rutaNormalizada))
+        {
+            return null;
+        }
+
+        var original = string.IsNullOrWhiteSpace(rutaOriginal) ? "(vacío)" : rutaOriginal.Trim();
+        var mensaje = $"No se pudo materializar/encontrar el certificado PFX/P12 desde '{original}'. Ruta resuelta: '{rutaNormalizada}'. Verifica que CompaniaPFX tenga el base64 completo o una ruta/nombre de archivo existente.";
+
+        return new Dictionary<string, string>
+        {
+            ["flg_rta"] = "0",
+            ["mensaje"] = mensaje,
+            ["cod_sunat"] = string.Empty,
+            ["msj_sunat"] = mensaje,
+            ["hash_cpe"] = string.Empty,
+            ["hash_cdr"] = string.Empty,
+            ["cdr_base64"] = string.Empty
+        };
     }
 
     private static string BuscarCertificadoEnDirectorio(string directorio)
