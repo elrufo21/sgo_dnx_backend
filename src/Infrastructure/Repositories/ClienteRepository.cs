@@ -44,10 +44,10 @@ public class ClienteRepository : ICliente
                 ? """
                   INSERT INTO Cliente
                     (ClienteRazon, ClienteRuc, ClienteDni, ClienteDireccion, ClienteMovil, ClienteTelefono,
-                     ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteCodigo, ClienteUsuario, ClienteFecha)
+                     ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteCodigo, ClienteUsuario, ClienteFecha, ClienteDocu)
                   VALUES
                     (@Razon, @Ruc, @Dni, @Direccion, '', @Telefono, @Correo, @Estado, @Despacho,
-                     @Codigo, @Usuario, GETDATE());
+                     @Codigo, @Usuario, GETDATE(), @Docu);
                   SELECT CONVERT(varchar(20), SCOPE_IDENTITY()) + '|' + @Razon;
                   """
                 : """
@@ -62,7 +62,8 @@ public class ClienteRepository : ICliente
                     ClienteDespacho = @Despacho,
                     ClienteCodigo = @Codigo,
                     ClienteUsuario = @Usuario,
-                    ClienteFecha = GETDATE()
+                    ClienteFecha = GETDATE(),
+                    ClienteDocu = @Docu
                   WHERE ClienteId = @Id;
                   SELECT CONVERT(varchar(20), @Id) + '|' + @Razon;
                   """
@@ -79,6 +80,7 @@ public class ClienteRepository : ICliente
         cmd.Parameters.AddWithValue("@Despacho", cliente.ClienteDespacho?.Trim() ?? string.Empty);
         cmd.Parameters.AddWithValue("@Codigo", cliente.ClienteCodigo?.Trim() ?? string.Empty);
         cmd.Parameters.AddWithValue("@Usuario", cliente.ClienteUsuario?.Trim() ?? string.Empty);
+        cmd.Parameters.AddWithValue("@Docu", string.IsNullOrWhiteSpace(cliente.ClienteDocu) ? "BOLETA" : cliente.ClienteDocu.Trim());
 
         var result = (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString();
 
@@ -98,22 +100,25 @@ public class ClienteRepository : ICliente
     public async Task<bool> EliminarAsync(long id, CancellationToken cancellationToken = default)
     {
         if (id <= 0) return false;
-        if (id > int.MaxValue) return false;
 
-        const string sql = "uspEliminarCliente";
+        const string sql = "DELETE FROM Cliente WHERE ClienteId = @Id;";
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sql, con)
         {
             CommandTimeout = 300,
-            CommandType = CommandType.StoredProcedure
+            CommandType = CommandType.Text
         };
-        cmd.Parameters.Add("@Id", SqlDbType.Int).Value = (int)id;
+        var idParam = cmd.Parameters.Add("@Id", SqlDbType.Decimal);
+        idParam.Precision = 20;
+        idParam.Scale = 0;
+        idParam.Value = id;
         await con.OpenAsync(cancellationToken);
         if (!await ExisteClienteAsync(con, id, cancellationToken)) return false;
 
         try
         {
-            await cmd.ExecuteNonQueryAsync(cancellationToken);
+            var deleted = await cmd.ExecuteNonQueryAsync(cancellationToken);
+            if (deleted <= 0) return false;
         }
         catch (SqlException)
         {
@@ -323,6 +328,19 @@ public class ClienteRepository : ICliente
         await cmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    private static string ReadClienteDocu(IDataRecord reader)
+    {
+        try
+        {
+            var val = reader["ClienteDocu"]?.ToString()?.Trim();
+            return string.IsNullOrWhiteSpace(val) ? "BOLETA" : val;
+        }
+        catch
+        {
+            return "BOLETA";
+        }
+    }
+
     private static Cliente MapCliente(IDataRecord reader) => new()
     {
         ClienteId = Convert.ToInt64(reader["ClienteId"]),
@@ -336,6 +354,7 @@ public class ClienteRepository : ICliente
         ClienteEstado = reader["ClienteEstado"].ToString(),
         ClienteDespacho = reader["ClienteDespacho"].ToString(),
         ClienteUsuario = reader["ClienteUsuario"].ToString(),
-        ClienteFecha = reader["ClienteFecha"] == DBNull.Value ? null : Convert.ToDateTime(reader["ClienteFecha"])
+        ClienteFecha = reader["ClienteFecha"] == DBNull.Value ? null : Convert.ToDateTime(reader["ClienteFecha"]),
+        ClienteDocu = ReadClienteDocu(reader)
     };
 }

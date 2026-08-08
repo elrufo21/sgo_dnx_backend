@@ -63,6 +63,7 @@ public class NotaController : ControllerBase
     private const string DocuConceptoNotaCreditoDefault = "ANULACION DE LA OPERACION";
     private const string DocuAsociadoFacturaServicioOse = "FACTURA_SERVICIO_OSE";
     private const string DocuCondicionFacturaServicio = "SERVICIO";
+    private const string NumeroFacturaRechazada = "0000000";
     private const string MensajeTicketNoGenerado = "NO SE GENERO EL TICKET DE SUNAT,SE RETORNARAN LAS BOLETAS...FAVOR DE ENVIARLO DENUEVO EN UNOS MINUTOS";
 
     private const bool ForzarRechazoRealFacturaSoloCrearOrden = false;
@@ -5874,6 +5875,9 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         var estadoResultado = ResolverEstadoResultadoSunat(flgRta, codSunat);
         var estadoSunatObjetivo = estadoResultado == EstadoResultadoSunat.Rechazado ? "RECHAZADO" : "PENDIENTE";
         var docuEstadoObjetivo = estadoResultado == EstadoResultadoSunat.Rechazado ? "RECHAZADO" : null;
+        var numeroRechazo = estadoResultado == EstadoResultadoSunat.Rechazado && string.Equals((tipoCodigo ?? string.Empty).Trim(), "01", StringComparison.Ordinal)
+            ? NumeroFacturaRechazada
+            : null;
 
         const string sqlActualizarDocumento = """
             DECLARE @EstadoFinal TABLE (EstadoSunat VARCHAR(30));
@@ -5899,10 +5903,18 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                     WHEN d.EstadoSunat = 'RECHAZADO' AND @EstadoSunat = 'PENDIENTE' THEN 'RECHAZADO'
                     ELSE @EstadoSunat
                 END,
-                d.DocuEstado = CASE WHEN NULLIF(@DocuEstado, '') IS NULL THEN d.DocuEstado ELSE @DocuEstado END
+                d.DocuEstado = CASE WHEN NULLIF(@DocuEstado, '') IS NULL THEN d.DocuEstado ELSE @DocuEstado END,
+                d.DocuNumero = CASE WHEN NULLIF(@NumeroRechazo, '') IS NULL THEN d.DocuNumero ELSE @NumeroRechazo END
             OUTPUT inserted.EstadoSunat INTO @EstadoFinal(EstadoSunat)
             FROM DocumentoVenta d
             INNER JOIN UltimoPendiente u ON u.DocuId = d.DocuId;
+
+            IF NULLIF(@NumeroRechazo, '') IS NOT NULL AND @NotaId > 0
+            BEGIN
+                UPDATE NotaPedido
+                SET NotaNumero = @NumeroRechazo
+                WHERE NotaId = @NotaId;
+            END
 
             SELECT
                 COUNT(1) AS FilasAfectadas,
@@ -5925,6 +5937,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             cmd.Parameters.AddWithValue("@DocuHash", (object?)hashCpe ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@EstadoSunat", estadoSunatObjetivo);
             cmd.Parameters.AddWithValue("@DocuEstado", (object?)docuEstadoObjetivo ?? DBNull.Value);
+            cmd.Parameters.AddWithValue("@NumeroRechazo", (object?)numeroRechazo ?? DBNull.Value);
 
             var filasAfectadas = 0;
             var estadoSunatFinal = estadoSunatObjetivo;
@@ -5968,6 +5981,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                     ? "registrar_rechazo_documento"
                     : (mantieneRechazado ? "mantener_rechazado" : "mantener_pendiente"),
                 estado_sunat = estadoSunatFinal,
+                docu_numero = numeroRechazo ?? string.Empty,
                 cod_sunat = codSunat,
                 msj_sunat = mensajeSunat,
                 mensaje = estadoResultado == EstadoResultadoSunat.Rechazado

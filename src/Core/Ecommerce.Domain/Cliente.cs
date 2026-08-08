@@ -14,6 +14,7 @@ public class Cliente
     public string? ClienteDespacho { get; set; }
     public string? ClienteUsuario { get; set; }
     public DateTime? ClienteFecha { get; set; }
+    public string? ClienteDocu { get; set; }
 }
 
 public class ClienteListResult
