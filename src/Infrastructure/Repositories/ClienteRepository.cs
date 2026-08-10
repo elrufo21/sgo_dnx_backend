@@ -1,7 +1,6 @@
 using System.Data;
 using Ecommerce.Application.Contracts.Clientes;
 using Ecommerce.Domain;
-using Ecommerce.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 
@@ -10,13 +9,11 @@ namespace Ecommerce.Infrastructure.Persistence.Repositories;
 public class ClienteRepository : ICliente
 {
     private readonly string _connectionString;
-    private readonly AccesoDatos _accesoDatos;
 
-    public ClienteRepository(IConfiguration configuration, AccesoDatos accesoDatos)
+    public ClienteRepository(IConfiguration configuration)
     {
         _connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Missing connection string: DefaultConnection");
-        _accesoDatos = accesoDatos;
     }
 
     public async Task<string> InsertarAsync(Cliente cliente, CancellationToken cancellationToken = default)
@@ -150,7 +147,7 @@ public class ClienteRepository : ICliente
         const string sql = """
             WITH ClientesFiltrados AS (
                 SELECT ClienteId, ClienteCodigo, ClienteRazon, ClienteRuc, ClienteDni, ClienteDireccion, ClienteTelefono,
-                       ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteUsuario, ClienteFecha,
+                       ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteUsuario, ClienteFecha, ClienteDocu,
                        COUNT(*) OVER() AS TotalRows,
                        ROW_NUMBER() OVER (ORDER BY ClienteRazon, ClienteId) AS RowNum
                 FROM Cliente
@@ -164,7 +161,7 @@ public class ClienteRepository : ICliente
                   )
             )
             SELECT ClienteId, ClienteCodigo, ClienteRazon, ClienteRuc, ClienteDni, ClienteDireccion, ClienteTelefono,
-                   ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteUsuario, ClienteFecha, TotalRows
+                   ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteUsuario, ClienteFecha, ClienteDocu, TotalRows
             FROM ClientesFiltrados
             WHERE RowNum BETWEEN @Start AND @End
             ORDER BY RowNum;
@@ -195,7 +192,7 @@ public class ClienteRepository : ICliente
     {
         const string sql = """
             SELECT TOP 1 ClienteId, ClienteCodigo, ClienteRazon, ClienteRuc, ClienteDni, ClienteDireccion, ClienteTelefono,
-                   ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteUsuario, ClienteFecha
+                   ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteUsuario, ClienteFecha, ClienteDocu
             FROM Cliente
             WHERE ClienteId = @Id;
             """;
@@ -207,7 +204,7 @@ public class ClienteRepository : ICliente
     {
         const string sql = """
             SELECT TOP 1 ClienteId, ClienteCodigo, ClienteRazon, ClienteRuc, ClienteDni, ClienteDireccion, ClienteTelefono,
-                   ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteUsuario, ClienteFecha
+                   ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteUsuario, ClienteFecha, ClienteDocu
             FROM Cliente
             WHERE LTRIM(RTRIM(ISNULL(ClienteCodigo, ''))) = @Codigo;
             """;
@@ -243,15 +240,7 @@ public class ClienteRepository : ICliente
 
     public async Task<string> ListarComboAsync(CancellationToken cancellationToken = default)
     {
-        string result;
-        try
-        {
-            result = await _accesoDatos.EjecutarComandoAsync("uspListaComboClienteWeb", cancellationToken: cancellationToken);
-        }
-        catch (SqlException ex) when (ex.Number == 2812)
-        {
-            result = await ListarComboFallbackAsync(cancellationToken);
-        }
+        var result = await ListarComboFallbackAsync(cancellationToken);
         return string.IsNullOrWhiteSpace(result) ? string.Empty : result;
     }
 
@@ -260,7 +249,11 @@ public class ClienteRepository : ICliente
         const string sql = """
             SELECT ClienteId, ClienteRazon, ClienteRuc, ClienteDni, ClienteDireccion, ClienteTelefono,
                    ClienteCorreo, ClienteEstado, ClienteDespacho, ClienteUsuario,
-                   CONVERT(varchar(10), ClienteFecha, 103) AS ClienteFecha, ClienteCodigo
+                   CASE
+                       WHEN ClienteFecha IS NULL THEN ''
+                       ELSE CONVERT(varchar(10), ClienteFecha, 103) + ' ' + CONVERT(varchar(8), ClienteFecha, 108)
+                   END AS ClienteFecha,
+                   ClienteCodigo, ClienteDocu
             FROM Cliente
             ORDER BY ClienteRazon, ClienteId;
             """;
@@ -286,7 +279,8 @@ public class ClienteRepository : ICliente
                 CleanComboField(reader["ClienteDespacho"]),
                 CleanComboField(reader["ClienteUsuario"]),
                 CleanComboField(reader["ClienteFecha"]),
-                CleanComboField(reader["ClienteCodigo"])
+                CleanComboField(reader["ClienteCodigo"]),
+                CleanComboField(reader["ClienteDocu"])
             }));
         }
 
