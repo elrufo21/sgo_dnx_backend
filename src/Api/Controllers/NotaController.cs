@@ -63,7 +63,6 @@ public class NotaController : ControllerBase
     private const string DocuConceptoNotaCreditoDefault = "ANULACION DE LA OPERACION";
     private const string DocuAsociadoFacturaServicioOse = "FACTURA_SERVICIO_OSE";
     private const string DocuCondicionFacturaServicio = "SERVICIO";
-    private const string NumeroFacturaRechazada = "0000000";
     private const string MensajeTicketNoGenerado = "NO SE GENERO EL TICKET DE SUNAT,SE RETORNARAN LAS BOLETAS...FAVOR DE ENVIARLO DENUEVO EN UNOS MINUTOS";
 
     private const bool ForzarRechazoRealFacturaSoloCrearOrden = false;
@@ -5815,7 +5814,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         }
     }
 
-    private static EstadoResultadoSunat ResolverEstadoResultadoSunat(string? flgRta, string? codSunat)
+    private static EstadoResultadoSunat ResolverEstadoResultadoSunat(string? flgRta, string? codSunat, bool rechazarCodigoSunatNoAceptado = false)
     {
         if (!int.TryParse((codSunat ?? string.Empty).Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var codigo))
         {
@@ -5826,6 +5825,11 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         // Rechazos SUNAT definitivos: deben registrarse como RECHAZADO
         // incluso si el gateway devolvio flg_rta=0.
         if (codigo == 1033 || (codigo >= 2000 && codigo <= 3999))
+        {
+            return EstadoResultadoSunat.Rechazado;
+        }
+
+        if (rechazarCodigoSunatNoAceptado && codigo != 0)
         {
             return EstadoResultadoSunat.Rechazado;
         }
@@ -5843,7 +5847,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         string tipoCodigo,
         Dictionary<string, string>? respuestaLegacy,
         CancellationToken cancellationToken,
-        string descripcionDocumento = "documento")
+        string descripcionDocumento = "documento",
+        bool rechazarCodigoSunatNoAceptado = false)
     {
         var notaId = request.NOTA_ID.GetValueOrDefault();
         var docuId = request.DOCU_ID.GetValueOrDefault();
@@ -5872,13 +5877,9 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         var codSunat = ObtenerValorLegacy(respuestaLegacy, "cod_sunat");
         var mensajeSunat = ObtenerValorLegacy(respuestaLegacy, "msj_sunat");
         var hashCpe = ObtenerValorLegacy(respuestaLegacy, "hash_cpe");
-        var estadoResultado = ResolverEstadoResultadoSunat(flgRta, codSunat);
+        var estadoResultado = ResolverEstadoResultadoSunat(flgRta, codSunat, rechazarCodigoSunatNoAceptado);
         var estadoSunatObjetivo = estadoResultado == EstadoResultadoSunat.Rechazado ? "RECHAZADO" : "PENDIENTE";
         var docuEstadoObjetivo = estadoResultado == EstadoResultadoSunat.Rechazado ? "RECHAZADO" : null;
-        var numeroRechazo = estadoResultado == EstadoResultadoSunat.Rechazado && string.Equals((tipoCodigo ?? string.Empty).Trim(), "01", StringComparison.Ordinal)
-            ? NumeroFacturaRechazada
-            : null;
-
         const string sqlActualizarDocumento = """
             DECLARE @EstadoFinal TABLE (EstadoSunat VARCHAR(30));
 
@@ -5904,15 +5905,31 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                     ELSE @EstadoSunat
                 END,
                 d.DocuEstado = CASE WHEN NULLIF(@DocuEstado, '') IS NULL THEN d.DocuEstado ELSE @DocuEstado END,
-                d.DocuNumero = CASE WHEN NULLIF(@NumeroRechazo, '') IS NULL THEN d.DocuNumero ELSE @NumeroRechazo END
+                d.DocuSubTotal = CASE WHEN @EstadoSunat = 'RECHAZADO' THEN 0 ELSE d.DocuSubTotal END,
+                d.DocuIgv = CASE WHEN @EstadoSunat = 'RECHAZADO' THEN 0 ELSE d.DocuIgv END,
+                d.DocuTotal = CASE WHEN @EstadoSunat = 'RECHAZADO' THEN 0 ELSE d.DocuTotal END,
+                d.DocuSaldo = CASE WHEN @EstadoSunat = 'RECHAZADO' THEN 0 ELSE d.DocuSaldo END,
+                d.DocuAdicional = CASE WHEN @EstadoSunat = 'RECHAZADO' THEN 0 ELSE d.DocuAdicional END,
+                d.ICBPER = CASE WHEN @EstadoSunat = 'RECHAZADO' THEN 0 ELSE d.ICBPER END,
+                d.Efectivo = CASE WHEN @EstadoSunat = 'RECHAZADO' THEN 0 ELSE d.Efectivo END,
+                d.Deposito = CASE WHEN @EstadoSunat = 'RECHAZADO' THEN 0 ELSE d.Deposito END
             OUTPUT inserted.EstadoSunat INTO @EstadoFinal(EstadoSunat)
             FROM DocumentoVenta d
             INNER JOIN UltimoPendiente u ON u.DocuId = d.DocuId;
 
-            IF NULLIF(@NumeroRechazo, '') IS NOT NULL AND @NotaId > 0
+            IF @EstadoSunat = 'RECHAZADO' AND @NotaId > 0
             BEGIN
                 UPDATE NotaPedido
-                SET NotaNumero = @NumeroRechazo
+                SET NotaEstado = 'RECHAZADO',
+                    NotaSubtotal = 0,
+                    NotaTotal = 0,
+                    NotaAcuenta = 0,
+                    NotaSaldo = 0,
+                    NotaAdicional = 0,
+                    NotaTarjeta = 0,
+                    NotaPagar = 0,
+                    Efectivo = 0,
+                    Deposito = 0
                 WHERE NotaId = @NotaId;
             END
 
@@ -5937,7 +5954,6 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             cmd.Parameters.AddWithValue("@DocuHash", (object?)hashCpe ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@EstadoSunat", estadoSunatObjetivo);
             cmd.Parameters.AddWithValue("@DocuEstado", (object?)docuEstadoObjetivo ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@NumeroRechazo", (object?)numeroRechazo ?? DBNull.Value);
 
             var filasAfectadas = 0;
             var estadoSunatFinal = estadoSunatObjetivo;
@@ -5981,7 +5997,6 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                     ? "registrar_rechazo_documento"
                     : (mantieneRechazado ? "mantener_rechazado" : "mantener_pendiente"),
                 estado_sunat = estadoSunatFinal,
-                docu_numero = numeroRechazo ?? string.Empty,
                 cod_sunat = codSunat,
                 msj_sunat = mensajeSunat,
                 mensaje = estadoResultado == EstadoResultadoSunat.Rechazado
@@ -6849,7 +6864,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 requestFactura,
                 tipoCodigo: "01",
                 respuestaLegacy,
-                cancellationToken);
+                cancellationToken,
+                rechazarCodigoSunatNoAceptado: desdeCrearOrden);
         }
         else
         {
@@ -6857,7 +6873,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 requestFactura,
                 tipoCodigo: "01",
                 respuestaLegacy,
-                cancellationToken);
+                cancellationToken,
+                rechazarCodigoSunatNoAceptado: desdeCrearOrden);
         }
 
         return NormalizarRespuestaFactura(respuestaLegacy, registroBd: registroBd);
