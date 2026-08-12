@@ -509,13 +509,14 @@ public class NotaController : ControllerBase
     }
 
     [AllowAnonymous]
-    [HttpPost("boleta/anular-individual", Name = "AnularBoletaIndividualConNotaCredito")]
+    [HttpPost("boleta/anular-individual", Name = "AnularBoletaIndividualLocal")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.BadRequest)]
     [ProducesResponseType((int)HttpStatusCode.NotFound)]
     [ProducesResponseType((int)HttpStatusCode.Conflict)]
-    public async Task<IActionResult> AnularBoletaIndividualConNotaCredito(
+    public async Task<IActionResult> AnularBoletaIndividualLocal(
         [FromBody] AnularBoletaIndividualRequest? request,
+        [FromQuery] bool soloValidar,
         CancellationToken cancellationToken)
     {
         var boletaSolicitada = string.Empty;
@@ -544,25 +545,165 @@ public class NotaController : ControllerBase
         }
         boletaSolicitada = (request.NRO_DOCUMENTO_MODIFICA ?? string.Empty).Trim();
 
-        var (requestNc, statusCode, mensajePreparacion) = await ConstruirRequestAnulacionBoletaIndividualAsync(request, cancellationToken);
-        if (requestNc is null)
+        var requestBusqueda = new EnviarFacturaRequest
         {
-            return StatusCode(statusCode, new
+            DOCU_ID = request.DOCU_ID,
+            NRO_DOCUMENTO_MODIFICA = request.NRO_DOCUMENTO_MODIFICA
+        };
+
+        var origen = await ObtenerOrigenNotaCreditoDesdeBdAsync(requestBusqueda, cancellationToken);
+        if (origen is null)
+        {
+            return NotFound(new
             {
                 ok = false,
-                mensaje = mensajePreparacion
+                mensaje = "No se encontró la boleta a anular (DOCU_ID/NRO_DOCUMENTO_MODIFICA)."
             });
         }
 
-        requestNc = NormalizarRequestNotaCredito(requestNc);
-        var errores = ValidarRequestNotaCredito(requestNc);
+        if (!string.Equals(origen.TipoCodigo, "03", StringComparison.Ordinal))
+        {
+            return BadRequest(new
+            {
+                ok = false,
+                mensaje = "El documento encontrado no corresponde a una boleta."
+            });
+        }
+
+        if (string.Equals(origen.Estado, "ANULADO", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(origen.Estado, "BAJA", StringComparison.OrdinalIgnoreCase))
+        {
+            return Conflict(new
+            {
+                ok = false,
+                mensaje = "La boleta ya se encuentra ANULADA/BAJA."
+            });
+        }
+
+        var listaOrden = ConstruirListaOrdenAnulacionBoleta(origen);
+        if (soloValidar)
+        {
+            return Ok(new
+            {
+                ok = true,
+                mensaje = "Anulación local construida sin enviar a SUNAT/OSE.",
+                docu_id_boleta = origen.DocuId,
+                boleta = boletaSolicitada,
+                estado_sunat_actual = origen.EstadoSunat,
+                requiere_resumen_baja = EsDocumentoAceptadoParaBajaBoleta(origen),
+                lista_orden = listaOrden
+            });
+        }
+
+        try
+        {
+            var resultado = await _mediator.AnularDocumentoAsync(listaOrden, cancellationToken);
+            if (resultado.StartsWith("error", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new
+                {
+                    ok = false,
+                    mensaje = resultado
+                });
+            }
+
+            return Ok(new
+            {
+                ok = string.Equals(resultado, "true", StringComparison.OrdinalIgnoreCase),
+                mensaje = "Boleta anulada.",
+                docu_id_boleta = origen.DocuId,
+                boleta = $"{origen.Serie}-{origen.Numero}".Trim('-'),
+                estado_sunat_anterior = origen.EstadoSunat,
+                requiere_resumen_baja = EsDocumentoAceptadoParaBajaBoleta(origen),
+                resultado
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(
+                ex,
+                "Error al anular boleta localmente. DOCU_ID={DocuId}, NRO_DOCUMENTO_MODIFICA={NroDocumentoModifica}",
+                request.DOCU_ID,
+                request.NRO_DOCUMENTO_MODIFICA);
+
+            return StatusCode((int)HttpStatusCode.InternalServerError, new
+            {
+                ok = false,
+                mensaje = $"Error al anular la boleta localmente: {ex.Message}"
+            });
+        }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("factura/anular-individual", Name = "AnularFacturaIndividualConNotaCredito")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+    [ProducesResponseType((int)HttpStatusCode.NotFound)]
+    [ProducesResponseType((int)HttpStatusCode.Conflict)]
+    public async Task<IActionResult> AnularFacturaIndividualConNotaCredito(
+        [FromBody] AnularBoletaIndividualRequest? request,
+        [FromQuery] bool soloValidar,
+        CancellationToken cancellationToken)
+    {
+        if (request is null)
+        {
+            return BadRequest(new { ok = false, mensaje = "Payload requerido." });
+        }
+
+        if ((!request.DOCU_ID.HasValue || request.DOCU_ID.Value <= 0) &&
+            string.IsNullOrWhiteSpace(request.NRO_DOCUMENTO_MODIFICA))
+        {
+            return BadRequest(new
+            {
+                ok = false,
+                mensaje = "Debe enviar DOCU_ID o NRO_DOCUMENTO_MODIFICA para identificar la factura."
+            });
+        }
+
+        EnviarFacturaRequest? requestNc;
+        int statusCode;
+        string mensajePreparacion;
+        try
+        {
+            (requestNc, statusCode, mensajePreparacion) = await ConstruirRequestAnulacionDocumentoIndividualAsync(request, "01", cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error al preparar la NC de anulación. DOCU_ID={DocuId}", request.DOCU_ID);
+            return StatusCode((int)HttpStatusCode.InternalServerError, new
+            {
+                ok = false,
+                mensaje = "No se pudo preparar la nota de crédito de anulación.",
+                detalle = ex.Message
+            });
+        }
+
+        if (requestNc is null)
+        {
+            return StatusCode(statusCode, new { ok = false, mensaje = mensajePreparacion });
+        }
+
+        var errores = ValidarRequestNotaCredito(NormalizarRequestNotaCredito(requestNc));
         if (errores.Count > 0)
         {
             return BadRequest(new
             {
                 ok = false,
-                mensaje = "No se pudo construir una nota de crédito válida para anular la boleta.",
+                mensaje = "No se pudo construir una nota de crédito válida para anular la factura.",
                 errores
+            });
+        }
+
+        if (soloValidar)
+        {
+            return Ok(new
+            {
+                ok = true,
+                mensaje = "La nota de crédito se construyó correctamente. No se envió a SUNAT/OSE.",
+                factura = requestNc.NRO_DOCUMENTO_MODIFICA,
+                nota_credito = requestNc.NRO_COMPROBANTE,
+                total = requestNc.TOTAL,
+                items = requestNc.detalle?.Count ?? 0
             });
         }
 
@@ -572,8 +713,7 @@ public class NotaController : ControllerBase
             return BadRequest(new
             {
                 ok = false,
-                mensaje = "TIPO_PROCESO inválido para enviar la nota de crédito.",
-                errores = new[] { "TIPO_PROCESO debe ser 1 (producción), 2 (homologación) o 3 (beta)." }
+                mensaje = "TIPO_PROCESO inválido para enviar la nota de crédito."
             });
         }
 
@@ -584,24 +724,16 @@ public class NotaController : ControllerBase
                 ObtenerValorNormalizadoRespuesta(respuestaSunat, "aceptado"),
                 "true",
                 StringComparison.OrdinalIgnoreCase);
-            var codSunat = ObtenerValorNormalizadoRespuesta(respuestaSunat, "cod_sunat");
 
             if (!aceptado)
             {
-                var mensaje = codSunat == "2116"
-                    ? "SUNAT/OSE rechazó la NC porque para esta boleta exige referencia por TICKET (tipo 12), no por documento 03."
-                    : "SUNAT/OSE rechazó la nota de crédito.";
-
                 return StatusCode((int)HttpStatusCode.Conflict, new
                 {
                     ok = false,
-                    mensaje,
-                    docu_id_boleta = requestNc.DOCU_ID,
-                    boleta = boletaSolicitada,
+                    mensaje = "SUNAT/OSE rechazó la nota de crédito.",
+                    factura = request.NRO_DOCUMENTO_MODIFICA,
                     nota_credito = requestNc.NRO_COMPROBANTE,
-                    tipo_comprobante_modifica = requestNc.TIPO_COMPROBANTE_MODIFICA,
-                    referencia_modifica = requestNc.NRO_DOCUMENTO_MODIFICA,
-                    cod_sunat = codSunat,
+                    cod_sunat = ObtenerValorNormalizadoRespuesta(respuestaSunat, "cod_sunat"),
                     msj_sunat = ObtenerValorNormalizadoRespuesta(respuestaSunat, "msj_sunat"),
                     sunat = respuestaSunat
                 });
@@ -610,29 +742,56 @@ public class NotaController : ControllerBase
             return Ok(new
             {
                 ok = true,
-                mensaje = "Se generó y envió la nota de crédito para anular la boleta individual.",
-                docu_id_boleta = requestNc.DOCU_ID,
-                boleta = boletaSolicitada,
+                mensaje = "Se generó y envió la nota de crédito para anular la factura.",
+                factura = request.NRO_DOCUMENTO_MODIFICA,
                 nota_credito = requestNc.NRO_COMPROBANTE,
-                tipo_comprobante_modifica = requestNc.TIPO_COMPROBANTE_MODIFICA,
-                referencia_modifica = requestNc.NRO_DOCUMENTO_MODIFICA,
                 sunat = respuestaSunat
             });
         }
         catch (Exception ex)
         {
-            _logger.LogError(
-                ex,
-                "Error al anular boleta individual via NC. DOCU_ID={DocuId}, NRO_DOCUMENTO_MODIFICA={NroDocumentoModifica}",
-                requestNc.DOCU_ID,
-                requestNc.NRO_DOCUMENTO_MODIFICA);
-
+            _logger.LogError(ex, "Error al anular factura individual via NC. DOCU_ID={DocuId}", requestNc.DOCU_ID);
             return StatusCode((int)HttpStatusCode.InternalServerError, new
             {
                 ok = false,
-                mensaje = $"Error al anular la boleta vía nota de crédito: {ex.Message}"
+                mensaje = $"Error al anular la factura vía nota de crédito: {ex.Message}"
             });
         }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("factura/anular-individual/registrar-aceptada", Name = "RegistrarFacturaAnuladaAceptada")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+    public async Task<IActionResult> RegistrarFacturaAnuladaAceptada(
+        [FromBody] AnularBoletaIndividualRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null || string.IsNullOrWhiteSpace(request.NRO_COMPROBANTE))
+        {
+            return BadRequest(new { ok = false, mensaje = "DOCU_ID/NRO_DOCUMENTO_MODIFICA y NRO_COMPROBANTE son requeridos." });
+        }
+
+        var (notaCredito, statusCode, mensaje) = await ConstruirRequestAnulacionDocumentoIndividualAsync(request, "01", cancellationToken);
+        if (notaCredito is null)
+        {
+            return StatusCode(statusCode, new { ok = false, mensaje });
+        }
+
+        notaCredito = NormalizarRequestNotaCredito(notaCredito);
+        notaCredito.NRO_COMPROBANTE = request.NRO_COMPROBANTE.Trim();
+        var registro = await RegistrarNotaCreditoEnBaseDatosAsync(
+            notaCredito,
+            new Dictionary<string, string>
+            {
+                ["cod_sunat"] = "0",
+                ["msj_sunat"] = request.MSJ_SUNAT?.Trim() ?? "Nota de crédito aceptada por SUNAT/OSE.",
+                ["hash_cpe"] = request.HASH_CPE?.Trim() ?? string.Empty
+            },
+            cancellationToken);
+
+        var ok = string.Equals(ObtenerValorNormalizadoRespuesta(registro, "ok"), "true", StringComparison.OrdinalIgnoreCase);
+        return StatusCode(ok ? (int)HttpStatusCode.OK : (int)HttpStatusCode.InternalServerError, registro);
     }
 
     [AllowAnonymous]
@@ -2081,8 +2240,8 @@ public class NotaController : ControllerBase
                 d.ICBPER,
                 d.CodigoSunat,
                 d.MensajeSunat,
-                d.DocuGravada,
-                d.DocuDescuento,
+                d.DocuSubTotal AS DocuGravada,
+                CAST(0 AS decimal(18, 2)) AS DocuDescuento,
                 d.FormaPago,
                 d.EntidadBancaria,
                 d.NroOperacion,
@@ -2606,7 +2765,12 @@ public class NotaController : ControllerBase
         await con.OpenAsync(cancellationToken);
 
         const string sql = """
-            SELECT ISNULL(MAX(TRY_CONVERT(INT, RIGHT(DocuNumero, 8))), 0)
+            SELECT ISNULL(MAX(CONVERT(INT, CASE
+                WHEN LEN(RTRIM(ISNULL(DocuNumero, ''))) >= 8
+                 AND RIGHT(ISNULL(DocuNumero, ''), 8) NOT LIKE '%[^0-9]%'
+                THEN RIGHT(DocuNumero, 8)
+                ELSE '0'
+            END)), 0)
             FROM DocumentoVenta
             WHERE TipoCodigo = '07'
               AND DocuDocumento = 'NOTA DE CREDITO'
@@ -6476,8 +6640,6 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                     ICBPER = @Icbper,
                     CodigoSunat = @CodigoSunat,
                     MensajeSunat = @MensajeSunat,
-                    DocuGravada = @Gravada,
-                    DocuDescuento = @Descuento,
                     FormaPago = @FormaPago,
                     EntidadBancaria = @EntidadBancaria,
                     NroOperacion = @NroOperacion,
@@ -6497,7 +6659,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 DocuEmision, DocuCondicion, DocuLetras, DocuSubTotal, DocuIgv, DocuTotal,
                 DocuSaldo, DocuUsuario, DocuEstado, DocuSerie, TipoCodigo, DocuAdicional,
                 DocuAsociado, DocuConcepto, DocuNroGuia, DocuHash, EstadoSunat, ICBPER,
-                CodigoSunat, MensajeSunat, DocuGravada, DocuDescuento, EnvioCorreo,
+                CodigoSunat, MensajeSunat,
                 FormaPago, EntidadBancaria, NroOperacion, Efectivo, Deposito
             )
             OUTPUT INSERTED.DocuId INTO @Nuevo
@@ -6507,7 +6669,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 @DocuEmision, 'ALCONTADO', @TotalLetras, @SubTotal, @Igv, @Total,
                 0, @Usuario, 'EMITIDO', @DocuSerie, '07', 0,
                 @DocuAsociado, @Concepto, @NroReferencia, @DocuHash, 'ENVIADO', @Icbper,
-                @CodigoSunat, @MensajeSunat, @Gravada, @Descuento, '',
+                @CodigoSunat, @MensajeSunat,
                 @FormaPago, @EntidadBancaria, @NroOperacion, @Efectivo, @Deposito
             );
 
@@ -6529,12 +6691,12 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             INSERT INTO DetalleDocumento
             (
                 DocuId, IdProducto, DetalleCantidad, DetallPrecio, DetalleImporte,
-                DetalleNotaId, DetalleUM, ValorUM, DetalleDescripcion
+                DetalleNotaId, DetalleUM, ValorUM
             )
             VALUES
             (
                 @DocuId, @IdProducto, @Cantidad, @Precio, @Importe,
-                NULLIF(@DetalleNotaId, 0), @UnidadMedida, @ValorUM, @Descripcion
+                NULLIF(@DetalleNotaId, 0), @UnidadMedida, @ValorUM
             );
             """;
 
@@ -6640,7 +6802,6 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                     cmdDetalle.Parameters.AddWithValue("@DetalleNotaId", 0L);
                     cmdDetalle.Parameters.AddWithValue("@UnidadMedida", (object?)item.unidadMedida?.Trim() ?? DBNull.Value);
                     cmdDetalle.Parameters.AddWithValue("@ValorUM", 1m);
-                    cmdDetalle.Parameters.AddWithValue("@Descripcion", (object?)item.descripcion?.Trim() ?? DBNull.Value);
                     await cmdDetalle.ExecuteNonQueryAsync(cancellationToken);
                 }
             }
@@ -6658,7 +6819,6 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                     cmdDetalle.Parameters.AddWithValue("@DetalleNotaId", item.DetalleNotaId);
                     cmdDetalle.Parameters.AddWithValue("@UnidadMedida", item.Um);
                     cmdDetalle.Parameters.AddWithValue("@ValorUM", item.ValorUm);
-                    cmdDetalle.Parameters.AddWithValue("@Descripcion", item.Descripcion);
                     await cmdDetalle.ExecuteNonQueryAsync(cancellationToken);
                 }
             }
@@ -7303,8 +7463,9 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         return request;
     }
 
-    private async Task<(EnviarFacturaRequest? Request, int StatusCode, string Mensaje)> ConstruirRequestAnulacionBoletaIndividualAsync(
+    private async Task<(EnviarFacturaRequest? Request, int StatusCode, string Mensaje)> ConstruirRequestAnulacionDocumentoIndividualAsync(
         AnularBoletaIndividualRequest payload,
+        string tipoDocumento,
         CancellationToken cancellationToken)
     {
         var requestBusqueda = new EnviarFacturaRequest
@@ -7316,17 +7477,17 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         var origen = await ObtenerOrigenNotaCreditoDesdeBdAsync(requestBusqueda, cancellationToken);
         if (origen is null)
         {
-            return (null, (int)HttpStatusCode.NotFound, "No se encontró la boleta a anular (DOCU_ID/NRO_DOCUMENTO_MODIFICA).");
+            return (null, (int)HttpStatusCode.NotFound, "No se encontró el documento a anular (DOCU_ID/NRO_DOCUMENTO_MODIFICA).");
         }
 
-        if (!string.Equals(origen.TipoCodigo, "03", StringComparison.Ordinal))
+        if (!string.Equals(origen.TipoCodigo, tipoDocumento, StringComparison.Ordinal))
         {
-            return (null, (int)HttpStatusCode.BadRequest, "El documento encontrado no es una boleta electrónica (TipoCodigo distinto de '03').");
+            return (null, (int)HttpStatusCode.BadRequest, $"El documento encontrado no corresponde al tipo {tipoDocumento}.");
         }
 
         if (string.Equals(origen.Estado, "ANULADO", StringComparison.OrdinalIgnoreCase))
         {
-            return (null, (int)HttpStatusCode.Conflict, "La boleta ya se encuentra ANULADA.");
+            return (null, (int)HttpStatusCode.Conflict, "El documento ya se encuentra ANULADO.");
         }
 
         if (origen.CompaniaId <= 0)
@@ -7349,8 +7510,15 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         }
         var credencialesCpe = credenciales!;
 
-        var seriePreferidaNc = ResolverSerieNcParaBoleta(origen.Serie);
-        var (serieNc, numeroNc) = await ObtenerSerieNumeroNotaCreditoAsync(origen.CompaniaId, seriePreferidaNc, cancellationToken);
+        var esFactura = tipoDocumento == "01";
+        var seriePreferidaNc = esFactura
+            ? ResolverSerieNotaCreditoServicio($"{origen.Serie}-{origen.Numero}")
+            : ResolverSerieNcParaBoleta(origen.Serie);
+        var (serieNc, numeroNc) = await ObtenerSerieNumeroNotaCreditoAsync(
+            origen.CompaniaId,
+            seriePreferidaNc,
+            esFactura ? "FN" : "BN",
+            cancellationToken);
         if (string.IsNullOrWhiteSpace(serieNc) || string.IsNullOrWhiteSpace(numeroNc))
         {
             return (null, (int)HttpStatusCode.BadRequest, "No se pudo generar el correlativo de nota de crédito. Verifique SerieNC en MAQUINAS.");
@@ -7383,13 +7551,18 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         var descripcionMotivo = string.IsNullOrWhiteSpace(payload.DESCRIPCION_MOTIVO)
             ? DocuConceptoNotaCreditoDefault
             : payload.DESCRIPCION_MOTIVO.Trim();
+        var referenciaDocumento = $"{origen.Serie}-{origen.Numero}".Trim('-');
         var ticketManual = (payload.TICKET_REFERENCIA ?? string.Empty).Trim();
-        var ticketResumenBoleta = !string.IsNullOrWhiteSpace(ticketManual)
+        var ticketResumenBoleta = !esFactura && !string.IsNullOrWhiteSpace(ticketManual)
             ? ticketManual
-            : await ObtenerTicketResumenBoletaAsync(origen, cancellationToken);
-        var tipoComprobanteModifica = string.IsNullOrWhiteSpace(ticketResumenBoleta) ? "03" : "12";
+            : !esFactura
+                ? await ObtenerTicketResumenBoletaAsync(origen, cancellationToken)
+                : string.Empty;
+        var tipoComprobanteModifica = esFactura
+            ? "01"
+            : string.IsNullOrWhiteSpace(ticketResumenBoleta) ? "03" : "12";
         var referenciaModifica = string.IsNullOrWhiteSpace(ticketResumenBoleta)
-            ? $"{origen.Serie}-{origen.Numero}".Trim('-')
+            ? referenciaDocumento
             : ticketResumenBoleta;
 
         var detalleNc = new List<EnviarFacturaDetalleRequest>();
@@ -7504,6 +7677,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
     private async Task<(string Serie, string Numero)> ObtenerSerieNumeroNotaCreditoAsync(
         int companiaId,
         string? seriePreferida,
+        string seriePrefijo,
         CancellationToken cancellationToken)
     {
         if (companiaId <= 0)
@@ -7527,7 +7701,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 FROM DocumentoVenta d
                 WHERE d.CompaniaId = @CompaniaId
                   AND d.TipoCodigo = '07'
-                  AND LEFT(ISNULL(d.DocuSerie, ''), 2) = 'BN'
+                  AND LEFT(ISNULL(d.DocuSerie, ''), LEN(@SeriePrefijo)) = @SeriePrefijo
                   AND NULLIF(LTRIM(RTRIM(d.DocuSerie)), '') IS NOT NULL
                 ORDER BY d.DocuId DESC;
             END;
@@ -7553,12 +7727,12 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
 
             IF @SerieNC IS NULL
             BEGIN
-                SET @SerieNC = 'BN01';
+                SET @SerieNC = @SeriePrefijo + '01';
             END;
 
-            IF LEFT(@SerieNC, 2) <> 'BN'
+            IF LEFT(@SerieNC, LEN(@SeriePrefijo)) <> @SeriePrefijo
             BEGIN
-                SET @SerieNC = 'BN' + CASE WHEN LEN(@SerieNC) > 2 THEN RIGHT(@SerieNC, LEN(@SerieNC) - 2) ELSE '01' END;
+                SET @SerieNC = @SeriePrefijo + CASE WHEN LEN(@SerieNC) > 2 THEN RIGHT(@SerieNC, LEN(@SerieNC) - 2) ELSE '01' END;
             END;
 
             DECLARE @NumeroNC NVARCHAR(20);
@@ -7577,7 +7751,12 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 SELECT @NumeroNC = RIGHT(
                     '00000000' + CONVERT(
                         VARCHAR(20),
-                        ISNULL(MAX(TRY_CONVERT(INT, RIGHT(d.DocuNumero, 8))), 0) + 1
+                        ISNULL(MAX(CONVERT(INT, CASE
+                            WHEN LEN(RTRIM(ISNULL(d.DocuNumero, ''))) >= 8
+                             AND RIGHT(ISNULL(d.DocuNumero, ''), 8) NOT LIKE '%[^0-9]%'
+                            THEN RIGHT(d.DocuNumero, 8)
+                            ELSE '0'
+                        END)), 0) + 1
                     ),
                     8
                 )
@@ -7596,6 +7775,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         await using var cmd = new SqlCommand(sql, con);
         cmd.Parameters.AddWithValue("@CompaniaId", companiaId);
         cmd.Parameters.AddWithValue("@SeriePreferida", (object?)seriePreferida ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@SeriePrefijo", seriePrefijo);
 
         await con.OpenAsync(cancellationToken);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
@@ -7687,7 +7867,12 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             SELECT @UltimoNumero = RIGHT(
                 '00000000' + CONVERT(
                     VARCHAR(20),
-                    ISNULL(MAX(TRY_CONVERT(INT, RIGHT(d.DocuNumero, 8))), 0)
+                    ISNULL(MAX(CONVERT(INT, CASE
+                        WHEN LEN(RTRIM(ISNULL(d.DocuNumero, ''))) >= 8
+                         AND RIGHT(ISNULL(d.DocuNumero, ''), 8) NOT LIKE '%[^0-9]%'
+                        THEN RIGHT(d.DocuNumero, 8)
+                        ELSE '0'
+                    END)), 0)
                 ),
                 8
             )
@@ -7712,7 +7897,12 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 SELECT @NumeroFactura = RIGHT(
                     '00000000' + CONVERT(
                         VARCHAR(20),
-                        ISNULL(MAX(TRY_CONVERT(INT, RIGHT(d.DocuNumero, 8))), 0) + 1
+                        ISNULL(MAX(CONVERT(INT, CASE
+                            WHEN LEN(RTRIM(ISNULL(d.DocuNumero, ''))) >= 8
+                             AND RIGHT(ISNULL(d.DocuNumero, ''), 8) NOT LIKE '%[^0-9]%'
+                            THEN RIGHT(d.DocuNumero, 8)
+                            ELSE '0'
+                        END)), 0) + 1
                     ),
                     8
                 )
@@ -8892,6 +9082,29 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
 
         NormalizarEscalaSunat(request);
 
+        // El redondeo por línea debe conservar la base e IGV del documento.
+        var diferenciaBase = RedondearSunat(
+            calculoGravado.SubTotal + totalNoGravado - (request.SUB_TOTAL ?? 0m),
+            DecimalesSunatMonto);
+        var diferenciaIgv = RedondearSunat(
+            calculoGravado.Igv - (request.TOTAL_IGV ?? 0m),
+            DecimalesSunatMonto);
+        var ultimaLineaGravada = detalleGravado.LastOrDefault();
+        if (ultimaLineaGravada is not null && (diferenciaBase != 0m || diferenciaIgv != 0m))
+        {
+            ultimaLineaGravada.importe = (ultimaLineaGravada.importe ?? 0m) + diferenciaBase;
+            ultimaLineaGravada.subTotal = ultimaLineaGravada.importe;
+            ultimaLineaGravada.igv = (ultimaLineaGravada.igv ?? 0m) + diferenciaIgv;
+            var cantidad = ultimaLineaGravada.cantidad ?? 0m;
+            ultimaLineaGravada.precioSinImpuesto = cantidad > 0m
+                ? ultimaLineaGravada.importe / cantidad
+                : ultimaLineaGravada.importe;
+            ultimaLineaGravada.precio = cantidad > 0m
+                ? ((ultimaLineaGravada.importe ?? 0m) + (ultimaLineaGravada.igv ?? 0m)) / cantidad
+                : (ultimaLineaGravada.importe ?? 0m) + (ultimaLineaGravada.igv ?? 0m);
+            NormalizarEscalaSunat(request);
+        }
+
         if (string.IsNullOrWhiteSpace(request.TOTAL_LETRAS))
         {
             request.TOTAL_LETRAS = Letras.enletras((request.TOTAL ?? 0m).ToString("N2", CultureInfo.InvariantCulture)) + " SOLES";
@@ -9233,6 +9446,48 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         return FormatDecimalSinRedondeo(valor);
     }
 
+    private static bool EsDocumentoAceptadoParaBajaBoleta(NotaCreditoOrigenBd origen)
+    {
+        return string.Equals(origen.EstadoSunat, "ENVIADO", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(origen.EstadoSunat, "ACEPTADO", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ConstruirListaOrdenAnulacionBoleta(NotaCreditoOrigenBd origen)
+    {
+        var usuario = string.IsNullOrWhiteSpace(origen.Usuario) ? "SYSTEM" : origen.Usuario.Trim();
+        var comprobante = $"{origen.Serie}-{origen.Numero}".Trim('-');
+        var concepto = string.IsNullOrWhiteSpace(origen.Concepto) ? "VENTA" : origen.Concepto.Trim();
+        var documentoCliente = !string.IsNullOrWhiteSpace(origen.ClienteDni)
+            ? origen.ClienteDni.Trim()
+            : origen.ClienteRuc.Trim();
+
+        var cabecera = string.Join("|", new[]
+        {
+            origen.DocuId.ToString(CultureInfo.InvariantCulture),
+            origen.NotaId.ToString(CultureInfo.InvariantCulture),
+            SanitizarCampoListaOrden(usuario),
+            SanitizarCampoListaOrden(concepto),
+            SanitizarCampoListaOrden(comprobante),
+            SanitizarCampoListaOrden(origen.ClienteRazon),
+            SanitizarCampoListaOrden(documentoCliente),
+            string.Empty,
+            "03"
+        });
+
+        var detalle = string.Join(";", origen.Detalles.Select(item => string.Join("|", new[]
+        {
+            item.IdProducto.ToString(CultureInfo.InvariantCulture),
+            SanitizarCampoListaOrden(item.Descripcion),
+            FormatearDecimalListaOrden(item.Cantidad),
+            FormatearDecimalListaOrden(item.Precio),
+            FormatearDecimalListaOrden(item.Costo),
+            FormatearDecimalListaOrden(item.ValorUm <= 0m ? 1m : item.ValorUm),
+            string.Equals(item.AplicaInv, "S", StringComparison.OrdinalIgnoreCase) ? "S" : "N"
+        })));
+
+        return $"{cabecera}[{detalle}";
+    }
+
     private static EnviarResumenBoletasRequest NormalizarRequestParaBaja(EnviarResumenBoletasRequest request)
     {
         request.STATUS = 3;
@@ -9521,10 +9776,13 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 d.DocuId,
                 d.TipoCodigo,
                 d.DocuEstado,
+                d.EstadoSunat,
                 d.CompaniaId,
                 d.NotaId,
                 d.ClienteId,
+                d.DocuEmision,
                 d.DocuUsuario,
+                d.DocuConcepto,
                 d.FormaPago,
                 d.EntidadBancaria,
                 d.NroOperacion,
@@ -9533,8 +9791,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 d.DocuSubTotal,
                 d.DocuIgv,
                 d.DocuTotal,
-                d.DocuGravada,
-                d.DocuDescuento,
+                d.DocuSubTotal AS DocuGravada,
+                CAST(0 AS decimal(18, 2)) AS DocuDescuento,
                 d.ICBPER,
                 COALESCE(NULLIF(LTRIM(RTRIM(w.ClienteRazon)), ''), c.ClienteRazon, '') AS ClienteRazon,
                 COALESCE(NULLIF(LTRIM(RTRIM(w.ClienteRuc)), ''), c.ClienteRuc, '') AS ClienteRuc,
@@ -9583,10 +9841,13 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             DocuId = docuId,
             TipoCodigo = reader["TipoCodigo"]?.ToString()?.Trim() ?? string.Empty,
             Estado = reader["DocuEstado"]?.ToString()?.Trim() ?? string.Empty,
+            EstadoSunat = reader["EstadoSunat"]?.ToString()?.Trim() ?? string.Empty,
             CompaniaId = reader["CompaniaId"] == DBNull.Value ? 0 : Convert.ToInt32(reader["CompaniaId"]),
             NotaId = notaId,
             ClienteId = reader["ClienteId"] == DBNull.Value ? 0L : Convert.ToInt64(reader["ClienteId"]),
+            Emision = reader["DocuEmision"] == DBNull.Value ? default : Convert.ToDateTime(reader["DocuEmision"], CultureInfo.InvariantCulture),
             Usuario = reader["DocuUsuario"]?.ToString()?.Trim() ?? string.Empty,
+            Concepto = reader["DocuConcepto"]?.ToString()?.Trim() ?? string.Empty,
             FormaPago = reader["FormaPago"]?.ToString()?.Trim() ?? string.Empty,
             EntidadBancaria = reader["EntidadBancaria"]?.ToString()?.Trim() ?? string.Empty,
             NroOperacion = reader["NroOperacion"]?.ToString()?.Trim() ?? string.Empty,
@@ -9625,13 +9886,13 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 dd.IdProducto,
                 dd.DetalleCantidad,
                 dd.DetalleUM,
-                COALESCE(NULLIF(dd.DetalleDescripcion, ''), p.ProductoNombre, '') AS Descripcion,
+                COALESCE(p.ProductoNombre, '') AS Descripcion,
                 dd.DetallPrecio,
                 dd.DetalleImporte,
                 COALESCE(dd.DetalleNotaId, dp.DetalleId, 0) AS DetalleNotaId,
                 COALESCE(dd.ValorUM, dp.ValorUM, 1) AS ValorUM,
                 COALESCE(dp.DetalleCosto, p.ProductoCosto, 0) AS Costo,
-                COALESCE(NULLIF(p.AplicaINV, ''), 'S') AS AplicaINV,
+                COALESCE(NULLIF(p.ProductoINV, ''), 'S') AS AplicaINV,
                 COALESCE(NULLIF(s.CodigoSunat, ''), '') AS CodigoSunat
             FROM DetalleDocumento dd
             LEFT JOIN DetallePedido dp
@@ -10211,10 +10472,13 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         public long DocuId { get; set; }
         public string TipoCodigo { get; set; } = string.Empty;
         public string Estado { get; set; } = string.Empty;
+        public string EstadoSunat { get; set; } = string.Empty;
         public int CompaniaId { get; set; }
         public long NotaId { get; set; }
         public long ClienteId { get; set; }
+        public DateTime Emision { get; set; }
         public string Usuario { get; set; } = string.Empty;
+        public string Concepto { get; set; } = string.Empty;
         public string FormaPago { get; set; } = string.Empty;
         public string EntidadBancaria { get; set; } = string.Empty;
         public string NroOperacion { get; set; } = string.Empty;
@@ -10524,6 +10788,9 @@ public class AnularBoletaIndividualRequest
 {
     public long? DOCU_ID { get; set; }
     public string? NRO_DOCUMENTO_MODIFICA { get; set; }
+    public string? NRO_COMPROBANTE { get; set; }
+    public string? HASH_CPE { get; set; }
+    public string? MSJ_SUNAT { get; set; }
     public string? TICKET_REFERENCIA { get; set; }
     public string? DESCRIPCION_MOTIVO { get; set; }
     public string? FECHA_DOCUMENTO { get; set; }

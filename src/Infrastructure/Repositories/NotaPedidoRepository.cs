@@ -69,7 +69,7 @@ public class NotaPedidoRepository : INotaPedido
             {
                 cmd.Parameters.AddWithValue("@DocuId", anulacion.DocuId);
                 cmd.Parameters.AddWithValue("@NotaId", anulacion.NotaId);
-                cmd.Parameters.AddWithValue("@Usuario", anulacion.Usuario);
+                cmd.Parameters.AddWithValue("@Usuario", Limitar(anulacion.Usuario, 60));
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
             }
 
@@ -107,8 +107,8 @@ public class NotaPedidoRepository : INotaPedido
                 cmd.Parameters.AddWithValue("@Cantidad", item.Cantidad);
                 cmd.Parameters.AddWithValue("@ValorUM", item.ValorUm);
                 cmd.Parameters.AddWithValue("@Costo", item.Costo);
-                cmd.Parameters.AddWithValue("@Documento", anulacion.Documento);
-                cmd.Parameters.AddWithValue("@Usuario", anulacion.Usuario);
+                cmd.Parameters.AddWithValue("@Documento", Limitar(anulacion.Documento, 60));
+                cmd.Parameters.AddWithValue("@Usuario", Limitar(anulacion.Usuario, 60));
                 await cmd.ExecuteNonQueryAsync(cancellationToken);
             }
 
@@ -1302,6 +1302,12 @@ public class NotaPedidoRepository : INotaPedido
             : text.Replace(",", "", StringComparison.Ordinal);
         return decimal.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out result) ||
                decimal.TryParse(text, NumberStyles.Any, CultureInfo.CurrentCulture, out result);
+    }
+
+    private static string Limitar(string value, int maxLength)
+    {
+        var text = (value ?? string.Empty).Trim();
+        return text.Length <= maxLength ? text : text[..maxLength];
     }
 
     private sealed record AnulacionDocumento(
