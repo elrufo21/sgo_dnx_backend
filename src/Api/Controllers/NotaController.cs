@@ -328,6 +328,47 @@ public class NotaController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("{notaId:long}/archivos-cpe", Name = "GetNotaArchivosCpe")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> ObtenerArchivosCpe(long notaId, CancellationToken cancellationToken)
+    {
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return StatusCode((int)HttpStatusCode.InternalServerError, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
+        }
+
+        const string sql = """
+            SELECT TOP (1) d.DocuId,
+                   ISNULL(w.DocuXmlUrl, '') AS XmlUrl,
+                   ISNULL(w.DocuCdrUrl, '') AS CdrUrl
+            FROM DocumentoVenta d
+            LEFT JOIN DocumentoVentaCpeWeb w ON w.DocuId = d.DocuId
+            WHERE d.NotaId = @NotaId
+              AND d.TipoCodigo IN ('01', '03')
+            ORDER BY d.DocuId DESC;
+            """;
+
+        await using var con = new SqlConnection(connectionString);
+        await using var cmd = new SqlCommand(sql, con);
+        cmd.Parameters.AddWithValue("@NotaId", notaId);
+        await con.OpenAsync(cancellationToken);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            return NotFound(new { ok = false, mensaje = "No se encontraron archivos CPE para la venta." });
+        }
+
+        return Ok(new
+        {
+            ok = true,
+            docuId = Convert.ToInt64(reader["DocuId"], CultureInfo.InvariantCulture),
+            xmlUrl = reader["XmlUrl"]?.ToString()?.Trim() ?? string.Empty,
+            cdrUrl = reader["CdrUrl"]?.ToString()?.Trim() ?? string.Empty
+        });
+    }
+
+    [AllowAnonymous]
     [HttpGet("sp/{id:long}", Name = "GetNotaPedidoByStoredProcedure")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     public async Task<IActionResult> ObtenerNotaPedidoSp(long id, CancellationToken cancellationToken)
@@ -2362,6 +2403,7 @@ public class NotaController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpPost("documentos/{docuId:long}/sincronizar-archivos-cpe", Name = "SincronizarArchivosFacturaCpe")]
     [HttpPost("facturas-servicio/{docuId:long}/sincronizar-archivos-ose", Name = "SincronizarArchivosFacturaServicioOse")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.NotFound)]
@@ -2372,7 +2414,7 @@ public class NotaController : ControllerBase
             return NotFound(new
             {
                 ok = false,
-                mensaje = "Factura de servicio no encontrada."
+                mensaje = "Factura no encontrada."
             });
         }
 
@@ -2382,7 +2424,7 @@ public class NotaController : ControllerBase
             return StatusCode((int)HttpStatusCode.InternalServerError, new
             {
                 ok = false,
-                mensaje = "No se encontró la cadena de conexión para sincronizar archivos de la factura de servicio."
+                mensaje = "No se encontró la cadena de conexión para sincronizar archivos de la factura."
             });
         }
 
@@ -2398,21 +2440,7 @@ public class NotaController : ControllerBase
             LEFT JOIN Compania c ON c.CompaniaId = d.CompaniaId
             WHERE d.DocuId = @DocuId
               AND d.TipoCodigo = '01'
-              AND LTRIM(RTRIM(ISNULL(d.DocuDocumento, ''))) = 'FACTURA'
-              AND (
-                    UPPER(LTRIM(RTRIM(ISNULL(d.DocuCondicion, '')))) = @CondicionFacturaServicio
-                    OR UPPER(LTRIM(RTRIM(ISNULL(d.DocuAsociado, '')))) = @MarcaFacturaServicio
-                    OR EXISTS (
-                        SELECT 1
-                        FROM DetalleDocumento ds
-                        LEFT JOIN Producto p ON p.IdProducto = ds.IdProducto
-                        WHERE ds.DocuId = d.DocuId
-                          AND (
-                                UPPER(LTRIM(RTRIM(ISNULL(ds.DetalleUM, '')))) = 'ZZ'
-                                OR UPPER(LTRIM(RTRIM(ISNULL(p.AplicaINV, '')))) <> 'S'
-                              )
-                    )
-                  );
+              AND LTRIM(RTRIM(ISNULL(d.DocuDocumento, ''))) = 'FACTURA';
             """;
 
         const string sqlActualizar = """
@@ -2436,8 +2464,6 @@ public class NotaController : ControllerBase
         await using (var cmd = new SqlCommand(sqlBuscar, con))
         {
             cmd.Parameters.AddWithValue("@DocuId", docuId);
-            cmd.Parameters.AddWithValue("@MarcaFacturaServicio", DocuAsociadoFacturaServicioOse);
-            cmd.Parameters.AddWithValue("@CondicionFacturaServicio", DocuCondicionFacturaServicio);
 
             await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
             if (!await reader.ReadAsync(cancellationToken))
@@ -2445,7 +2471,7 @@ public class NotaController : ControllerBase
                 return NotFound(new
                 {
                     ok = false,
-                    mensaje = "Factura de servicio no encontrada."
+                    mensaje = "Factura no encontrada."
                 });
             }
 
@@ -6975,7 +7001,12 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 AplicarErrorRealForzadoFacturaCrearOrden(requestFactura);
             }
 
-            var respuesta = await EjecutarEnvioFacturaAsync(requestFactura, tipoProceso.Value, cancellationToken, desdeCrearOrden: true);
+            var respuesta = await EjecutarEnvioFacturaAsync(
+                requestFactura,
+                tipoProceso.Value,
+                cancellationToken,
+                desdeCrearOrden: true,
+                subirArchivosCpe: true);
             var respuestaJson = JsonSerializer.Serialize(respuesta);
             _logger.LogInformation("Resultado de emision automatica de FACTURA para NotaId {NotaId}: {Respuesta}", notaId.Value, respuestaJson);
             return respuesta;

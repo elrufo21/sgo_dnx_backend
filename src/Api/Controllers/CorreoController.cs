@@ -193,16 +193,6 @@ public class CorreoController : ControllerBase
             errores.Add("Debe enviar al menos un archivo adjunto.");
         }
 
-        if (!TieneXml(request))
-        {
-            errores.Add("Debe enviar el XML como archivo xml o como URL xmlUrl/xml_url/DOCU_XML_URL.");
-        }
-
-        if (!TieneCdr(request))
-        {
-            errores.Add("Debe enviar el CDR como archivo cdr o como URL cdrUrl/cdr_url/DOCU_CDR_URL.");
-        }
-
         var totalBytes = archivos.Sum(a => a.Length);
         if (totalBytes > MaxTotalBytes)
         {
@@ -349,18 +339,6 @@ public class CorreoController : ControllerBase
 
         return $"{ruc}-01-{comprobante}";
     }
-    private static bool TieneXml(EnviarCorreoComprobanteRequest request)
-    {
-        return request.Xml is not null ||
-            !string.IsNullOrWhiteSpace(ObtenerPrimerValor(request.XmlUrl, request.xml_url, request.XML_URL, request.DOCU_XML_URL));
-    }
-
-    private static bool TieneCdr(EnviarCorreoComprobanteRequest request)
-    {
-        return request.Cdr is not null ||
-            !string.IsNullOrWhiteSpace(ObtenerPrimerValor(request.CdrUrl, request.cdr_url, request.CDR_URL, request.DOCU_CDR_URL));
-    }
-
     private static string? ObtenerPrimerValor(params string?[] valores)
     {
         return valores.FirstOrDefault(valor => !string.IsNullOrWhiteSpace(valor))?.Trim();
