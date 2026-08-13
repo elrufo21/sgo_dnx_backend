@@ -9089,19 +9089,22 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         var diferenciaIgv = RedondearSunat(
             calculoGravado.Igv - (request.TOTAL_IGV ?? 0m),
             DecimalesSunatMonto);
-        var ultimaLineaGravada = detalleGravado.LastOrDefault();
-        if (ultimaLineaGravada is not null && (diferenciaBase != 0m || diferenciaIgv != 0m))
+        var lineaAjusteRedondeo = detalleGravado
+            .LastOrDefault(item =>
+                diferenciaBase >= 0m || (item.importe ?? 0m) + diferenciaBase > 0m)
+            ?? detalleGravado.LastOrDefault();
+        if (lineaAjusteRedondeo is not null && (diferenciaBase != 0m || diferenciaIgv != 0m))
         {
-            ultimaLineaGravada.importe = (ultimaLineaGravada.importe ?? 0m) + diferenciaBase;
-            ultimaLineaGravada.subTotal = ultimaLineaGravada.importe;
-            ultimaLineaGravada.igv = (ultimaLineaGravada.igv ?? 0m) + diferenciaIgv;
-            var cantidad = ultimaLineaGravada.cantidad ?? 0m;
-            ultimaLineaGravada.precioSinImpuesto = cantidad > 0m
-                ? ultimaLineaGravada.importe / cantidad
-                : ultimaLineaGravada.importe;
-            ultimaLineaGravada.precio = cantidad > 0m
-                ? ((ultimaLineaGravada.importe ?? 0m) + (ultimaLineaGravada.igv ?? 0m)) / cantidad
-                : (ultimaLineaGravada.importe ?? 0m) + (ultimaLineaGravada.igv ?? 0m);
+            lineaAjusteRedondeo.importe = (lineaAjusteRedondeo.importe ?? 0m) + diferenciaBase;
+            lineaAjusteRedondeo.subTotal = lineaAjusteRedondeo.importe;
+            lineaAjusteRedondeo.igv = (lineaAjusteRedondeo.igv ?? 0m) + diferenciaIgv;
+            var cantidad = lineaAjusteRedondeo.cantidad ?? 0m;
+            lineaAjusteRedondeo.precioSinImpuesto = cantidad > 0m
+                ? lineaAjusteRedondeo.importe / cantidad
+                : lineaAjusteRedondeo.importe;
+            lineaAjusteRedondeo.precio = cantidad > 0m
+                ? ((lineaAjusteRedondeo.importe ?? 0m) + (lineaAjusteRedondeo.igv ?? 0m)) / cantidad
+                : (lineaAjusteRedondeo.importe ?? 0m) + (lineaAjusteRedondeo.igv ?? 0m);
             NormalizarEscalaSunat(request);
         }
 

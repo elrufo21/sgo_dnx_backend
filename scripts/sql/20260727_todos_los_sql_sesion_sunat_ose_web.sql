@@ -866,26 +866,29 @@ BEGIN
             WHERE LEN(LTRIM(RTRIM(splitdata))) > 0;
 
         DECLARE @Columna varchar(max);
+        DECLARE @detalleCampos TABLE
+        (
+            Pos int NOT NULL PRIMARY KEY,
+            Valor varchar(max) NULL
+        );
+        DECLARE @campoPos int;
         OPEN detalle_cursor;
         FETCH NEXT FROM detalle_cursor INTO @Columna;
 
         WHILE @@FETCH_STATUS = 0
         BEGIN
-            DECLARE @detalleCampos TABLE
-            (
-                Pos int IDENTITY(1,1) NOT NULL,
-                Valor varchar(max) NULL
-            );
-
+            DELETE FROM @detalleCampos;
+            SET @campoPos = 1;
             SET @start = 1;
             WHILE @start <= LEN(@Columna) + 1
             BEGIN
                 SET @end = CHARINDEX('|', @Columna, @start);
                 IF @end = 0 SET @end = LEN(@Columna) + 1;
 
-                INSERT INTO @detalleCampos (Valor)
-                VALUES (SUBSTRING(@Columna, @start, @end - @start));
+                INSERT INTO @detalleCampos (Pos, Valor)
+                VALUES (@campoPos, SUBSTRING(@Columna, @start, @end - @start));
 
+                SET @campoPos = @campoPos + 1;
                 SET @start = @end + 1;
             END
 
