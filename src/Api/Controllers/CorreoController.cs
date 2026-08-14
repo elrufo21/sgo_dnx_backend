@@ -348,6 +348,10 @@ public class CorreoController : ControllerBase
         var tipoComprobante = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(request.TipoComprobante)
             ? "Comprobante electrónico"
             : request.TipoComprobante.Trim());
+        var esBoleta = request.TipoComprobante?.Contains("boleta", StringComparison.OrdinalIgnoreCase) == true;
+        var mensajeAdjunto = esBoleta
+            ? $"Se adjunta su <strong>{tipoComprobante}</strong>, aceptada por SUNAT."
+            : $"Se adjunta su <strong>{tipoComprobante}</strong>, aceptada por SUNAT, en formato PDF, XML y CDR.";
         var numero = WebUtility.HtmlEncode(request.NroComprobante?.Trim() ?? string.Empty);
         var titulo = string.IsNullOrWhiteSpace(numero) ? tipoComprobante : $"{tipoComprobante} · {numero}";
 
@@ -366,7 +370,7 @@ public class CorreoController : ControllerBase
                       <div style="font-size:20px;font-weight:700;color:#172033;">{titulo}</div>
                       <div style="width:44px;height:3px;margin:16px 0 22px;background:#9f3028;border-radius:2px;"></div>
                       <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Buen día,</p>
-                      <p style="margin:0;font-size:15px;line-height:1.65;">Se adjunta su <strong>{tipoComprobante}</strong>, aceptada por SUNAT, en formato PDF, XML y CDR.</p>
+                      <p style="margin:0;font-size:15px;line-height:1.65;">{mensajeAdjunto}</p>
                       <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:24px;width:100%;background:#eef8f0;border-radius:10px;">
                         <tr><td style="padding:14px 16px;color:#24713a;font-size:14px;font-weight:700;">✓ Comprobante aceptado por SUNAT</td></tr>
                       </table>
