@@ -15,33 +15,62 @@ public sealed class CashFlowController : ControllerBase
     public CashFlowController(IConfiguration configuration) => _configuration = configuration;
 
     [HttpGet(Name = "GetCashFlows")]
-    public async Task<IActionResult> Listar(CancellationToken cancellationToken)
+    public async Task<IActionResult> Listar(
+        [FromQuery] DateOnly? fechaInicio,
+        [FromQuery] DateOnly? fechaFin,
+        CancellationToken cancellationToken)
     {
+        if (fechaInicio.HasValue != fechaFin.HasValue)
+            return BadRequest(new { ok = false, mensaje = "Seleccione fecha inicio y fecha fin." });
+        if (fechaInicio > fechaFin)
+            return BadRequest(new { ok = false, mensaje = "La fecha inicio no puede ser mayor que la fecha fin." });
+
         var connectionString = _configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
             return StatusCode(500, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
 
         var items = new List<CashFlowResponse>();
         await using var con = new SqlConnection(connectionString);
-        await using var cmd = new SqlCommand("uspListarCajaWEB", con)
+        await using var cmd = new SqlCommand(fechaInicio.HasValue ? "listarCajaFecha" : "listarCaja", con)
         {
             CommandType = CommandType.StoredProcedure
         };
+        if (fechaInicio.HasValue)
+        {
+            cmd.Parameters.Add("@fechainicio", SqlDbType.Date).Value = fechaInicio.Value.ToDateTime(TimeOnly.MinValue);
+            cmd.Parameters.Add("@fechafin", SqlDbType.Date).Value = fechaFin!.Value.ToDateTime(TimeOnly.MinValue);
+        }
 
         await con.OpenAsync(cancellationToken);
-        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
+        await using (var reader = await cmd.ExecuteReaderAsync(cancellationToken))
         {
-            items.Add(new CashFlowResponse(
-                Convert.ToInt64(reader["CajaId"], CultureInfo.InvariantCulture),
-                reader["FechaApertura"]?.ToString() ?? string.Empty,
-                reader["FechaCierre"]?.ToString() ?? string.Empty,
-                Convert.ToDecimal(reader["MontoInicial"], CultureInfo.InvariantCulture),
-                reader["Encargado"]?.ToString() ?? string.Empty,
-                reader["Usuario"]?.ToString() ?? string.Empty,
-                reader["Estado"]?.ToString() ?? string.Empty,
-                reader["Observacion"]?.ToString() ?? string.Empty));
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                items.Add(new CashFlowResponse(
+                    Convert.ToInt64(reader["CajaId"], CultureInfo.InvariantCulture),
+                    reader["CajaFecha"]?.ToString() ?? string.Empty,
+                    reader["CajaCierre"]?.ToString() ?? string.Empty,
+                    Convert.ToDecimal(reader["MontoIniSol"], CultureInfo.InvariantCulture),
+                    Convert.ToDecimal(reader["CajaIngresos"], CultureInfo.InvariantCulture),
+                    Convert.ToDecimal(reader["CajaSalidas"], CultureInfo.InvariantCulture),
+                    Convert.ToDecimal(reader["CajaTotal"], CultureInfo.InvariantCulture),
+                    reader["CajaEncargado"]?.ToString() ?? string.Empty,
+                    reader["CajaUsuario"]?.ToString() ?? string.Empty,
+                    reader["CajaEstado"]?.ToString() ?? string.Empty,
+                    reader["Observacion"]?.ToString() ?? string.Empty));
+            }
         }
+
+        var activas = await ObtenerTotalesCajasActivasAsync(con, items, cancellationToken);
+        if (activas.Count > 0)
+            items = items.Select(caja => activas.TryGetValue(caja.CajaId, out var total)
+                ? caja with
+                {
+                    Ingresos = total.Ingresos,
+                    Salidas = total.Salidas,
+                    Diferencia = total.EfectivoContado - (caja.MontoInicial + total.Ingresos - total.Salidas)
+                }
+                : caja).ToList();
 
         return Ok(items);
     }
@@ -120,7 +149,9 @@ public sealed class CashFlowController : ControllerBase
             Convert.ToDecimal(reader["VentasDeposito"], CultureInfo.InvariantCulture),
             Convert.ToDecimal(reader["Salidas"], CultureInfo.InvariantCulture),
             Convert.ToDecimal(reader["EfectivoEsperado"], CultureInfo.InvariantCulture),
-            monedas);
+            monedas,
+            "ACTIVO",
+            string.Empty);
 
         if (await reader.NextResultAsync(cancellationToken))
         {
@@ -131,6 +162,59 @@ public sealed class CashFlowController : ControllerBase
                     Convert.ToInt32(reader["Cantidad"], CultureInfo.InvariantCulture)));
             }
         }
+
+        return Ok(response);
+    }
+
+    [HttpGet("{cajaId:long}/detail", Name = "GetCashFlowDetail")]
+    public async Task<IActionResult> ObtenerDetalle(long cajaId, CancellationToken cancellationToken)
+    {
+        if (cajaId <= 0) return BadRequest(new { ok = false, mensaje = "Caja inválida." });
+
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return StatusCode(500, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
+
+        await using var con = new SqlConnection(connectionString);
+        await using var cmd = new SqlCommand("""
+            SELECT c.CajaId, CONVERT(varchar(19), c.CajaFecha, 126) AS FechaApertura,
+                   ISNULL(c.CajaCierre, '') AS FechaCierre, ISNULL(c.CajaEstado, '') AS Estado,
+                   ISNULL(c.MontoIniSOl, 0) AS MontoInicial, ISNULL(c.CajaEncargado, '') AS Encargado,
+                   ISNULL(c.CajaUsuario, '') AS Usuario, ISNULL(c.Observacion, '') AS Observacion,
+                   ISNULL((SELECT SUM(ISNULL(n.Efectivo, 0)) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS VentasEfectivo,
+                   ISNULL((SELECT SUM(CASE WHEN UPPER(ISNULL(n.NotaFormaPago, '')) LIKE '%TARJETA%' THEN ISNULL(n.Deposito, 0) ELSE 0 END) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS VentasTarjeta,
+                   ISNULL((SELECT SUM(CASE WHEN UPPER(ISNULL(n.NotaFormaPago, '')) LIKE '%TARJETA%' THEN 0 ELSE ISNULL(n.Deposito, 0) END) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS VentasDeposito,
+                   ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0)) FROM CajaDetalle d WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0), 0) AS Salidas
+              FROM Caja c
+             WHERE c.CajaId = @CajaId;
+            SELECT CONVERT(decimal(18,2), Billete) AS Billete, ISNULL(Efectivo, 0) AS Cantidad
+              FROM Monedas WHERE CajaId = @CajaId ORDER BY CONVERT(decimal(18,2), Billete) DESC;
+            """, con);
+        cmd.Parameters.Add("@CajaId", SqlDbType.Decimal).Value = cajaId;
+        cmd.Parameters["@CajaId"].Precision = 38;
+        cmd.Parameters["@CajaId"].Scale = 0;
+
+        await con.OpenAsync(cancellationToken);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return Ok(null);
+
+        var monedas = new List<CashCountResponse>();
+        var montoInicial = Convert.ToDecimal(reader["MontoInicial"], CultureInfo.InvariantCulture);
+        var ventasEfectivo = Convert.ToDecimal(reader["VentasEfectivo"], CultureInfo.InvariantCulture);
+        var salidas = Convert.ToDecimal(reader["Salidas"], CultureInfo.InvariantCulture);
+        var response = new ActiveCashFlowResponse(
+            Convert.ToInt64(reader["CajaId"], CultureInfo.InvariantCulture), reader["FechaApertura"]?.ToString() ?? string.Empty,
+            montoInicial, reader["Encargado"]?.ToString() ?? string.Empty, reader["Usuario"]?.ToString() ?? string.Empty,
+            reader["Observacion"]?.ToString() ?? string.Empty, ventasEfectivo,
+            Convert.ToDecimal(reader["VentasTarjeta"], CultureInfo.InvariantCulture),
+            Convert.ToDecimal(reader["VentasDeposito"], CultureInfo.InvariantCulture), salidas,
+            montoInicial + ventasEfectivo - salidas, monedas,
+            reader["Estado"]?.ToString() ?? string.Empty,
+            reader["FechaCierre"]?.ToString() ?? string.Empty);
+
+        if (await reader.NextResultAsync(cancellationToken))
+            while (await reader.ReadAsync(cancellationToken))
+                monedas.Add(new CashCountResponse(Convert.ToDecimal(reader["Billete"], CultureInfo.InvariantCulture), Convert.ToInt32(reader["Cantidad"], CultureInfo.InvariantCulture)));
 
         return Ok(response);
     }
@@ -154,7 +238,7 @@ public sealed class CashFlowController : ControllerBase
         await con.OpenAsync(cancellationToken);
         await using var tx = (SqlTransaction)await con.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
 
-        var caja = await ObtenerCajaParaCierreAsync(con, tx, cajaId, request.UsuarioId, cancellationToken);
+        var caja = await ObtenerCajaParaCierreAsync(con, tx, cajaId, cancellationToken);
         if (caja is null)
             return Conflict(new { ok = false, mensaje = "La caja ya no está disponible para cerrar." });
 
@@ -191,7 +275,7 @@ public sealed class CashFlowController : ControllerBase
             caja.Depositos.ToString("0.00", CultureInfo.InvariantCulture),
             caja.Salidas.ToString("0.00", CultureInfo.InvariantCulture),
             efectivoContado.ToString("0.00", CultureInfo.InvariantCulture),
-            request.UsuarioId.ToString(CultureInfo.InvariantCulture), CajaField(request.Observacion)
+            caja.UsuarioId.ToString(CultureInfo.InvariantCulture), CajaField(request.Observacion)
         });
         var raw = await EjecutarCajaInsertaCsvAsync(con, tx, data, cancellationToken);
         if (!string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase))
@@ -213,6 +297,63 @@ public sealed class CashFlowController : ControllerBase
         });
     }
 
+    [HttpPut("{cajaId:long}/state", Name = "UpdateCashFlowState")]
+    public async Task<IActionResult> ActualizarEstado(
+        long cajaId,
+        [FromBody] UpdateCashFlowStateRequest request,
+        CancellationToken cancellationToken)
+    {
+        var estado = request.Estado?.Trim().ToUpperInvariant();
+        if (cajaId <= 0 || estado is not ("ACTIVO" or "CERRADA"))
+            return BadRequest(new { ok = false, mensaje = "El estado de caja no es válido." });
+
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return StatusCode(500, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
+
+        await using var con = new SqlConnection(connectionString);
+        await con.OpenAsync(cancellationToken);
+        await using var tx = (SqlTransaction)await con.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+
+        var caja = await ObtenerCajaParaActualizarAsync(con, tx, cajaId, cancellationToken);
+        if (caja is null)
+            return NotFound(new { ok = false, mensaje = "No se encontró la caja." });
+
+        if (estado == "ACTIVO")
+        {
+            await using var activaCmd = new SqlCommand("SELECT COUNT(*) FROM Caja WITH (UPDLOCK, HOLDLOCK) WHERE CajaEstado = 'ACTIVO' AND CajaId <> @CajaId", con, tx);
+            activaCmd.Parameters.Add("@CajaId", SqlDbType.Decimal).Value = cajaId;
+            activaCmd.Parameters["@CajaId"].Precision = 38;
+            activaCmd.Parameters["@CajaId"].Scale = 0;
+            if (Convert.ToInt32(await activaCmd.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) >= 3)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return Conflict(new { ok = false, mensaje = "No se puede activar la caja porque hay tres cajas abiertas." });
+            }
+        }
+
+        var data = string.Join("|", new[]
+        {
+            cajaId.ToString(CultureInfo.InvariantCulture), CajaField(caja.FechaCierre),
+            caja.MontoInicial.ToString("0.00", CultureInfo.InvariantCulture),
+            CajaField(caja.Encargado), CajaField(caja.Usuario), estado,
+            caja.Ingresos.ToString("0.00", CultureInfo.InvariantCulture),
+            caja.Depositos.ToString("0.00", CultureInfo.InvariantCulture),
+            caja.Salidas.ToString("0.00", CultureInfo.InvariantCulture),
+            caja.Total.ToString("0.00", CultureInfo.InvariantCulture),
+            caja.UsuarioId.ToString(CultureInfo.InvariantCulture), CajaField(caja.Observacion)
+        });
+        var raw = await EjecutarCajaInsertaCsvAsync(con, tx, data, cancellationToken);
+        if (!string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase))
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return Conflict(new { ok = false, mensaje = MensajeCajaInserta(raw) });
+        }
+
+        await tx.CommitAsync(cancellationToken);
+        return Ok(new { ok = true, cajaId, estado, mensaje = "Estado de caja actualizado." });
+    }
+
     private static async Task<string> EjecutarCajaInsertaCsvAsync(
         SqlConnection con,
         SqlTransaction? tx,
@@ -227,15 +368,50 @@ public sealed class CashFlowController : ControllerBase
         return (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString()?.Trim() ?? string.Empty;
     }
 
+    private static async Task<Dictionary<long, CajaLiveTotals>> ObtenerTotalesCajasActivasAsync(
+        SqlConnection con,
+        IEnumerable<CashFlowResponse> cajas,
+        CancellationToken cancellationToken)
+    {
+        var ids = cajas.Where(x => string.Equals(x.Estado, "ACTIVO", StringComparison.OrdinalIgnoreCase))
+            .Select(x => x.CajaId).ToArray();
+        if (ids.Length == 0) return new Dictionary<long, CajaLiveTotals>();
+
+        var parametros = ids.Select((_, index) => $"@CajaId{index}").ToArray();
+        await using var cmd = new SqlCommand($"""
+            SELECT c.CajaId,
+                   ISNULL((SELECT SUM(ISNULL(n.Efectivo, 0)) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS Ingresos,
+                   ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0)) FROM CajaDetalle d WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0), 0) AS Salidas,
+                   ISNULL((SELECT SUM(ISNULL(m.Monto, 0)) FROM Monedas m WHERE m.CajaId = c.CajaId), 0) AS EfectivoContado
+              FROM Caja c
+             WHERE c.CajaId IN ({string.Join(", ", parametros)})
+            """, con);
+        for (var index = 0; index < ids.Length; index++)
+        {
+            var parameter = cmd.Parameters.Add(parametros[index], SqlDbType.Decimal);
+            parameter.Precision = 38;
+            parameter.Scale = 0;
+            parameter.Value = ids[index];
+        }
+
+        var result = new Dictionary<long, CajaLiveTotals>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            result[Convert.ToInt64(reader["CajaId"], CultureInfo.InvariantCulture)] = new CajaLiveTotals(
+                Convert.ToDecimal(reader["Ingresos"], CultureInfo.InvariantCulture),
+                Convert.ToDecimal(reader["Salidas"], CultureInfo.InvariantCulture),
+                Convert.ToDecimal(reader["EfectivoContado"], CultureInfo.InvariantCulture));
+        return result;
+    }
+
     private static async Task<CajaCloseInfo?> ObtenerCajaParaCierreAsync(
         SqlConnection con,
         SqlTransaction tx,
         long cajaId,
-        int usuarioId,
         CancellationToken cancellationToken)
     {
         await using var cmd = new SqlCommand("""
-            SELECT c.MontoIniSOl, c.CajaEncargado, c.CajaUsuario,
+            SELECT c.MontoIniSOl, c.CajaEncargado, c.CajaUsuario, c.UsuarioId,
                    ISNULL((SELECT SUM(ISNULL(n.Efectivo, 0))
                              FROM NotaPedido n
                             WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS Ingresos,
@@ -246,12 +422,11 @@ public sealed class CashFlowController : ControllerBase
                              FROM CajaDetalle d
                             WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0), 0) AS Salidas
               FROM Caja c WITH (UPDLOCK, HOLDLOCK)
-             WHERE c.CajaId = @CajaId AND c.UsuarioId = @UsuarioId AND c.CajaEstado = 'ACTIVO'
+             WHERE c.CajaId = @CajaId AND c.CajaEstado = 'ACTIVO'
             """, con, tx);
         cmd.Parameters.Add("@CajaId", SqlDbType.Decimal).Value = cajaId;
         cmd.Parameters["@CajaId"].Precision = 38;
         cmd.Parameters["@CajaId"].Scale = 0;
-        cmd.Parameters.Add("@UsuarioId", SqlDbType.Int).Value = usuarioId;
 
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         if (!await reader.ReadAsync(cancellationToken)) return null;
@@ -262,10 +437,45 @@ public sealed class CashFlowController : ControllerBase
             montoInicial,
             reader["CajaEncargado"]?.ToString() ?? string.Empty,
             reader["CajaUsuario"]?.ToString() ?? string.Empty,
+            Convert.ToInt32(reader["UsuarioId"], CultureInfo.InvariantCulture),
             ingresos,
             Convert.ToDecimal(reader["Depositos"], CultureInfo.InvariantCulture),
             salidas,
             montoInicial + ingresos - salidas);
+    }
+
+    private static async Task<CajaUpdateInfo?> ObtenerCajaParaActualizarAsync(
+        SqlConnection con,
+        SqlTransaction tx,
+        long cajaId,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new SqlCommand("""
+            SELECT ISNULL(CajaCierre, '') AS CajaCierre, ISNULL(MontoIniSOl, 0) AS MontoInicial,
+                   ISNULL(CajaEncargado, '') AS Encargado, ISNULL(CajaUsuario, '') AS Usuario,
+                   ISNULL(CajaIngresos, 0) AS Ingresos, ISNULL(CajaDeposito, 0) AS Depositos,
+                   ISNULL(CajaSalidas, 0) AS Salidas, ISNULL(CajaTotal, 0) AS Total,
+                   ISNULL(UsuarioId, 0) AS UsuarioId, ISNULL(Observacion, '') AS Observacion
+              FROM Caja WITH (UPDLOCK, HOLDLOCK)
+             WHERE CajaId = @CajaId
+            """, con, tx);
+        cmd.Parameters.Add("@CajaId", SqlDbType.Decimal).Value = cajaId;
+        cmd.Parameters["@CajaId"].Precision = 38;
+        cmd.Parameters["@CajaId"].Scale = 0;
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return null;
+        return new CajaUpdateInfo(
+            reader["CajaCierre"]?.ToString() ?? string.Empty,
+            Convert.ToDecimal(reader["MontoInicial"], CultureInfo.InvariantCulture),
+            reader["Encargado"]?.ToString() ?? string.Empty,
+            reader["Usuario"]?.ToString() ?? string.Empty,
+            Convert.ToDecimal(reader["Ingresos"], CultureInfo.InvariantCulture),
+            Convert.ToDecimal(reader["Depositos"], CultureInfo.InvariantCulture),
+            Convert.ToDecimal(reader["Salidas"], CultureInfo.InvariantCulture),
+            Convert.ToDecimal(reader["Total"], CultureInfo.InvariantCulture),
+            Convert.ToInt32(reader["UsuarioId"], CultureInfo.InvariantCulture),
+            reader["Observacion"]?.ToString() ?? string.Empty);
     }
 
     private static string CajaField(string? value) => (value ?? string.Empty).Replace('|', ' ').Trim();
@@ -281,10 +491,25 @@ public sealed class CashFlowController : ControllerBase
         decimal MontoInicial,
         string Encargado,
         string Usuario,
+        int UsuarioId,
         decimal Ingresos,
         decimal Depositos,
         decimal Salidas,
         decimal EfectivoEsperado);
+
+    private sealed record CajaLiveTotals(decimal Ingresos, decimal Salidas, decimal EfectivoContado);
+
+    private sealed record CajaUpdateInfo(
+        string FechaCierre,
+        decimal MontoInicial,
+        string Encargado,
+        string Usuario,
+        decimal Ingresos,
+        decimal Depositos,
+        decimal Salidas,
+        decimal Total,
+        int UsuarioId,
+        string Observacion);
 }
 
 public sealed record OpenCashFlowRequest(
@@ -299,6 +524,9 @@ public sealed record CashFlowResponse(
     string FechaApertura,
     string FechaCierre,
     decimal MontoInicial,
+    decimal Ingresos,
+    decimal Salidas,
+    decimal Diferencia,
     string Encargado,
     string Usuario,
     string Estado,
@@ -316,11 +544,15 @@ public sealed record ActiveCashFlowResponse(
     decimal VentasDeposito,
     decimal Salidas,
     decimal EfectivoEsperado,
-    List<CashCountResponse> Monedas);
+    List<CashCountResponse> Monedas,
+    string Estado,
+    string FechaCierre);
 
 public sealed record CashCountResponse(decimal Billete, int Cantidad);
 
 public sealed record CloseCashFlowRequest(int UsuarioId, string? Observacion, List<CashCountRequest>? Monedas);
+
+public sealed record UpdateCashFlowStateRequest(string? Estado);
 
 public sealed record CashCountRequest(
     [property: JsonPropertyName("denominacion")] decimal Billete,
