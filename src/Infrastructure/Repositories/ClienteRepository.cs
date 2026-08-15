@@ -26,10 +26,10 @@ public class ClienteRepository : ICliente
         await using var con = new SqlConnection(_connectionString);
         await con.OpenAsync(cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(dni) && await ExisteDocumentoAsync(con, "ClienteDni", dni, id, cancellationToken))
+        if (!string.IsNullOrWhiteSpace(dni) && await DocumentoCambiadoYExisteAsync(con, "ClienteDni", dni, id, cancellationToken))
             return "existe DNI";
 
-        if (!string.IsNullOrWhiteSpace(ruc) && await ExisteDocumentoAsync(con, "ClienteRuc", ruc, id, cancellationToken))
+        if (!string.IsNullOrWhiteSpace(ruc) && await DocumentoCambiadoYExisteAsync(con, "ClienteRuc", ruc, id, cancellationToken))
             return "existe RUC";
 
         await using var cmd = new SqlCommand
@@ -84,13 +84,20 @@ public class ClienteRepository : ICliente
         return string.IsNullOrWhiteSpace(result) ? "error" : result;
     }
 
-    private static async Task<bool> ExisteDocumentoAsync(SqlConnection con, string column, string value, long excludeId, CancellationToken cancellationToken)
+    private static async Task<bool> DocumentoCambiadoYExisteAsync(SqlConnection con, string column, string value, long clienteId, CancellationToken cancellationToken)
     {
         await using var cmd = new SqlCommand(
-            $"SELECT TOP 1 1 FROM Cliente WHERE {column} = @Value AND ClienteId <> @Id;",
+            $"""
+              SELECT TOP 1 1
+              FROM Cliente
+              WHERE LTRIM(RTRIM(ISNULL({column}, ''))) = @Value
+                AND ClienteId <> @Id
+                AND (@Id <= 0 OR ISNULL((SELECT TOP 1 LTRIM(RTRIM(ISNULL({column}, '')))
+                                           FROM Cliente WHERE ClienteId = @Id), '') <> @Value);
+              """,
             con);
         cmd.Parameters.AddWithValue("@Value", value);
-        cmd.Parameters.AddWithValue("@Id", excludeId);
+        cmd.Parameters.AddWithValue("@Id", clienteId);
         return await cmd.ExecuteScalarAsync(cancellationToken) is not null;
     }
 
