@@ -1786,16 +1786,13 @@ public class NotaController : ControllerBase
         }
         if (string.Equals(raw, "false", StringComparison.OrdinalIgnoreCase))
         {
-            var pagoId = await RegistrarPagoVariosSinCajaAsync(
-                con,
-                request,
-                concepto,
-                formaPago,
-                efectivo,
-                deposito,
-                total,
-                cancellationToken);
-            return Ok(new { ok = true, resultado = "true", pagoId, sinCaja = true });
+            return Conflict(new
+            {
+                ok = false,
+                codigo = "CAJA_CHICA_CERRADA",
+                resultado = raw,
+                mensaje = "No se aperturó caja chica. Favor de abrir una nueva caja."
+            });
         }
         if (string.Equals(raw, "OPERACION", StringComparison.OrdinalIgnoreCase))
             return BadRequest(new { ok = false, resultado = raw, mensaje = "El numero de operacion ya existe." });
@@ -3345,7 +3342,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         var estadoSunat = "PENDIENTE";
         var docuSubtotal = calculoTributario.SubTotal;
         var docuIgv = calculoTributario.Igv;
-        var usuarioId = (nota.UsuarioId.GetValueOrDefault() > 0 ? nota.UsuarioId.Value : 7)
+        var usuarioId = nota.UsuarioId.GetValueOrDefault()
             .ToString(CultureInfo.InvariantCulture);
         var docuGravada = calculoTributario.Gravada;
         var entidadBancaria = esPagoVarios ? "-" : (nota.EntidadBancaria ?? "-");
@@ -3594,7 +3591,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             FormatDateForSql(nota.NotaFecha),
             nota.NotaUsuario ?? string.Empty,
             nota.NotaFormaPago ?? string.Empty,
-            nota.NotaCondicion ?? string.Empty
+            nota.NotaCondicion ?? string.Empty,
+            nota.UsuarioId.GetValueOrDefault().ToString(CultureInfo.InvariantCulture)
         };
 
         var detailParts = new List<string>();
@@ -3672,7 +3670,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         var docuSubtotal = calculoTributario.SubTotal;
         var igv = calculoTributario.Igv;
         var usuarioId = GetFirstString(res, "UsuarioId");
-        if (string.IsNullOrWhiteSpace(usuarioId)) usuarioId = "7";
+        if (string.IsNullOrWhiteSpace(usuarioId)) usuarioId = "0";
         var docuGravada = calculoTributario.Gravada;
         var notaTransaccion = GetFirstString(res, "NotaTransaccion", "Transaccion", "transactionNumber");
         var miembro = GetFirstString(res, "Miembro", "ClienteRazon", "ClienteRazonSocial", "RazonSocial");
@@ -5501,7 +5499,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 CompaniaId, NotaId, DocuDocumento, DocuNumero, ClienteId, DocuRegistro,
                 DocuEmision, DocuCondicion, DocuLetras, DocuSubTotal, DocuIgv, DocuTotal,
                 DocuSaldo, DocuUsuario, DocuEstado, DocuSerie, TipoCodigo, DocuAdicional,
-                DocuAsociado, DocuConcepto, DocuNroGuia, DocuHash, EstadoSunat, ICBPER,
+                DocuAsociado, DocuConcepto, DocuOperacion, DocuTransaccion, DocuNroGuia, DocuHash, EstadoSunat, ICBPER,
                 CodigoSunat, MensajeSunat, DocuGravada, DocuDescuento, EnvioCorreo,
                 FormaPago, EntidadBancaria, NroOperacion, Efectivo, Deposito
             )
@@ -5511,7 +5509,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 @CompaniaId, @NotaId, 'NOTA DE CREDITO', @DocuNumero, @ClienteId, GETDATE(),
                 @DocuEmision, 'ALCONTADO', @TotalLetras, @SubTotal, @Igv, @Total,
                 0, @Usuario, 'EMITIDO', @DocuSerie, '07', 0,
-                @DocuAsociado, @Concepto, @NroReferencia, '', 'PENDIENTE', @Icbper,
+                @DocuAsociado, @Concepto, @DocuOperacion, @DocuTransaccion, @NroReferencia, '', 'PENDIENTE', @Icbper,
                 '', '', @Gravada, @Descuento, '',
                 @FormaPago, @EntidadBancaria, @NroOperacion, @Efectivo, @Deposito
             );
@@ -5535,6 +5533,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 DocuAdicional = 0,
                 DocuAsociado = @DocuAsociado,
                 DocuConcepto = @Concepto,
+                DocuOperacion = @DocuOperacion,
+                DocuTransaccion = @DocuTransaccion,
                 DocuNroGuia = @NroReferencia,
                 EstadoSunat = 'PENDIENTE',
                 ICBPER = @Icbper,
@@ -5615,6 +5615,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 cmd.Parameters.AddWithValue("@DocuNumero", numeroNc.Trim());
                 cmd.Parameters.AddWithValue("@DocuAsociado", origen.DocuId.ToString(CultureInfo.InvariantCulture));
                 cmd.Parameters.AddWithValue("@Concepto", concepto);
+                cmd.Parameters.AddWithValue("@DocuOperacion", origen.Operacion);
+                cmd.Parameters.AddWithValue("@DocuTransaccion", origen.Transaccion);
                 cmd.Parameters.AddWithValue("@NroReferencia", (request.NRO_DOCUMENTO_MODIFICA ?? $"{origen.Serie}-{origen.Numero}").Trim());
                 cmd.Parameters.AddWithValue("@Icbper", request.TOTAL_ICBPER ?? origen.Icbper);
                 cmd.Parameters.AddWithValue("@Gravada", request.TOTAL_GRAVADAS ?? request.SUB_TOTAL ?? origen.Gravada);
@@ -6634,6 +6636,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                     DocuAdicional = 0,
                     DocuAsociado = @DocuAsociado,
                     DocuConcepto = @Concepto,
+                    DocuOperacion = @DocuOperacion,
+                    DocuTransaccion = @DocuTransaccion,
                     DocuNroGuia = @NroReferencia,
                     DocuHash = CASE WHEN NULLIF(@DocuHash, '') IS NULL THEN DocuHash ELSE @DocuHash END,
                     EstadoSunat = 'ENVIADO',
@@ -6658,7 +6662,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 CompaniaId, NotaId, DocuDocumento, DocuNumero, ClienteId, DocuRegistro,
                 DocuEmision, DocuCondicion, DocuLetras, DocuSubTotal, DocuIgv, DocuTotal,
                 DocuSaldo, DocuUsuario, DocuEstado, DocuSerie, TipoCodigo, DocuAdicional,
-                DocuAsociado, DocuConcepto, DocuNroGuia, DocuHash, EstadoSunat, ICBPER,
+                DocuAsociado, DocuConcepto, DocuOperacion, DocuTransaccion, DocuNroGuia, DocuHash, EstadoSunat, ICBPER,
                 CodigoSunat, MensajeSunat,
                 FormaPago, EntidadBancaria, NroOperacion, Efectivo, Deposito
             )
@@ -6668,7 +6672,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 @CompaniaId, @NotaId, 'NOTA DE CREDITO', @DocuNumero, @ClienteId, GETDATE(),
                 @DocuEmision, 'ALCONTADO', @TotalLetras, @SubTotal, @Igv, @Total,
                 0, @Usuario, 'EMITIDO', @DocuSerie, '07', 0,
-                @DocuAsociado, @Concepto, @NroReferencia, @DocuHash, 'ENVIADO', @Icbper,
+                @DocuAsociado, @Concepto, @DocuOperacion, @DocuTransaccion, @NroReferencia, @DocuHash, 'ENVIADO', @Icbper,
                 @CodigoSunat, @MensajeSunat,
                 @FormaPago, @EntidadBancaria, @NroOperacion, @Efectivo, @Deposito
             );
@@ -6726,6 +6730,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             cmd.Parameters.AddWithValue("@DocuNumero", numeroNc.Trim());
             cmd.Parameters.AddWithValue("@DocuAsociado", origen.DocuId.ToString(CultureInfo.InvariantCulture));
             cmd.Parameters.AddWithValue("@Concepto", concepto);
+            cmd.Parameters.AddWithValue("@DocuOperacion", origen.Operacion);
+            cmd.Parameters.AddWithValue("@DocuTransaccion", origen.Transaccion);
             cmd.Parameters.AddWithValue("@NroReferencia", referencia);
             cmd.Parameters.AddWithValue("@DocuHash", (object?)hashCpe ?? DBNull.Value);
             cmd.Parameters.AddWithValue("@Icbper", icbper);
@@ -9786,6 +9792,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 d.DocuEmision,
                 d.DocuUsuario,
                 d.DocuConcepto,
+                d.DocuOperacion,
+                d.DocuTransaccion,
                 d.FormaPago,
                 d.EntidadBancaria,
                 d.NroOperacion,
@@ -9851,6 +9859,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             Emision = reader["DocuEmision"] == DBNull.Value ? default : Convert.ToDateTime(reader["DocuEmision"], CultureInfo.InvariantCulture),
             Usuario = reader["DocuUsuario"]?.ToString()?.Trim() ?? string.Empty,
             Concepto = reader["DocuConcepto"]?.ToString()?.Trim() ?? string.Empty,
+            Operacion = reader["DocuOperacion"]?.ToString()?.Trim() ?? string.Empty,
+            Transaccion = reader["DocuTransaccion"]?.ToString()?.Trim() ?? string.Empty,
             FormaPago = reader["FormaPago"]?.ToString()?.Trim() ?? string.Empty,
             EntidadBancaria = reader["EntidadBancaria"]?.ToString()?.Trim() ?? string.Empty,
             NroOperacion = reader["NroOperacion"]?.ToString()?.Trim() ?? string.Empty,
@@ -10482,6 +10492,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         public DateTime Emision { get; set; }
         public string Usuario { get; set; } = string.Empty;
         public string Concepto { get; set; } = string.Empty;
+        public string Operacion { get; set; } = string.Empty;
+        public string Transaccion { get; set; } = string.Empty;
         public string FormaPago { get; set; } = string.Empty;
         public string EntidadBancaria { get; set; } = string.Empty;
         public string NroOperacion { get; set; } = string.Empty;
