@@ -26,9 +26,6 @@ public class ClienteRepository : ICliente
         await using var con = new SqlConnection(_connectionString);
         await con.OpenAsync(cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(dni) && await DocumentoCambiadoYExisteAsync(con, "ClienteDni", dni, id, cancellationToken))
-            return "existe DNI";
-
         if (!string.IsNullOrWhiteSpace(ruc) && await DocumentoCambiadoYExisteAsync(con, "ClienteRuc", ruc, id, cancellationToken))
             return "existe RUC";
 

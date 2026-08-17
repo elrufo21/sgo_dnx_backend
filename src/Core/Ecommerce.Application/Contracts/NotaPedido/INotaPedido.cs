@@ -65,4 +65,8 @@ public interface INotaPedido
         int page = 1,
         int pageSize = 50,
         CancellationToken cancellationToken = default);
+    Task<string> ListarCadenaAsync(
+        DateTime fechaInicio,
+        DateTime fechaFin,
+        CancellationToken cancellationToken = default);
 }

@@ -279,6 +279,27 @@ public class NotaController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("lista-cadena", Name = "GetNotaListString")]
+    [ProducesResponseType(typeof(string), (int)HttpStatusCode.OK)]
+    public async Task<ActionResult<string>> ListarNotaCadena(
+        [FromQuery] DateTime? fechaInicio,
+        [FromQuery] DateTime? fechaFin,
+        CancellationToken cancellationToken = default)
+    {
+        if (!fechaInicio.HasValue || !fechaFin.HasValue)
+        {
+            return BadRequest("Debe enviar fechaInicio y fechaFin en formato YYYY-MM-DD.");
+        }
+
+        if (fechaInicio.Value.Date > fechaFin.Value.Date)
+        {
+            return BadRequest("fechaInicio no puede ser mayor que fechaFin.");
+        }
+
+        return Ok(await _mediator.ListarCadenaAsync(fechaInicio.Value, fechaFin.Value, cancellationToken));
+    }
+
+    [AllowAnonymous]
     [HttpGet("list", Name = "GetNotaList")]
     [ProducesResponseType(typeof(IReadOnlyList<EListaNota>), (int)HttpStatusCode.OK)]
     public async Task<ActionResult<IReadOnlyList<EListaNota>>> ListarNota(

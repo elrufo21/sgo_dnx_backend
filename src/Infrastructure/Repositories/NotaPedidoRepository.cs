@@ -847,21 +847,9 @@ public class NotaPedidoRepository : INotaPedido
 
     public async Task<IReadOnlyList<EListaNota>> ListarAsync(DateTime fechaInicio, DateTime fechaFin, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
     {
-        const string sp = "listaNotaPedido";
-        await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand(sp, con)
-        {
-            CommandTimeout = 300,
-            CommandType = CommandType.StoredProcedure
-        };
-        cmd.Parameters.AddWithValue("@FechaInicio", fechaInicio.Date);
-        cmd.Parameters.AddWithValue("@FechaFin", fechaFin.Date);
+        var result = await ListarCadenaAsync(fechaInicio, fechaFin, cancellationToken);
 
-        await con.OpenAsync(cancellationToken);
-        var scalar = await cmd.ExecuteScalarAsync(cancellationToken);
-        var result = scalar?.ToString() ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(result))
+        if (string.IsNullOrWhiteSpace(result) || result == "~")
         {
             return new List<EListaNota>();
         }
@@ -874,11 +862,26 @@ public class NotaPedidoRepository : INotaPedido
             "PROFORMA V"
         };
 
-        var lista = Cadena.AlistaCamposNota(result)
+        return Cadena.AlistaCamposNota(result)
             .Where(x => documentosPermitidos.Contains((x.Documento ?? string.Empty).Trim()))
             .ToList();
+    }
 
-        return lista;
+    public async Task<string> ListarCadenaAsync(DateTime fechaInicio, DateTime fechaFin, CancellationToken cancellationToken = default)
+    {
+        const string sp = "listaNotaPedido";
+        await using var con = new SqlConnection(_connectionString);
+        await using var cmd = new SqlCommand(sp, con)
+        {
+            CommandTimeout = 300,
+            CommandType = CommandType.StoredProcedure
+        };
+        cmd.Parameters.AddWithValue("@FechaInicio", fechaInicio.Date);
+        cmd.Parameters.AddWithValue("@FechaFin", fechaFin.Date);
+
+        await con.OpenAsync(cancellationToken);
+        var scalar = await cmd.ExecuteScalarAsync(cancellationToken);
+        return scalar?.ToString() ?? "~";
     }
 
     private static async Task<long> InsertOrUpdateNotaAsync(NotaPedido notaPedido, SqlConnection con, SqlTransaction tx, CancellationToken cancellationToken)

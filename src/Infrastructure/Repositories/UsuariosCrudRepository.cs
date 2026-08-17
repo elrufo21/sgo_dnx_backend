@@ -55,7 +55,11 @@ public class UsuariosCrudRepository : IUsuariosCrud
         const string sql = """
             SELECT U.UsuarioID,
                    U.PersonalId,
-                   CONCAT(ISNULL(P.PersonalNombres, ''), ' ', ISNULL(P.PersonalApellidos, '')) AS Nombre,
+                   CONCAT(
+                       SUBSTRING(P.PersonalNombres, 1, CHARINDEX(' ', P.PersonalNombres + ' ') - 1),
+                       ' ',
+                       SUBSTRING(P.PersonalApellidos, 1, CHARINDEX(' ', P.PersonalApellidos + ' ') - 1)
+                   ) AS Nombre,
                    U.UsuarioAlias,
                    U.UsuarioFechaReg AS Fecha,
                    U.UsuarioEstado AS Estado,

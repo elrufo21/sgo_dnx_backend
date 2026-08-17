@@ -91,7 +91,7 @@ public static class Cadena
             if (campos.Length == 0 || campos[0] == "~") break;
 
             // Formato completo actual de dbo.listaNotaPedido:
-            // 0..43 (44 campos) + opcional 44 EstadoSunat
+            // 0..43 (44 campos) + 44 EstadoSunat + 45 ClienteCodigo
             if (campos.Length >= 44)
             {
                 lista.Add(new EListaNota
