@@ -219,6 +219,84 @@ public sealed class CashFlowController : ControllerBase
         return Ok(response);
     }
 
+    [HttpGet("{cajaId:long}/products", Name = "GetCashFlowProducts")]
+    public async Task<IActionResult> ListarProductos(long cajaId, CancellationToken cancellationToken)
+    {
+        if (cajaId <= 0) return BadRequest("Caja inválida.");
+
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return StatusCode(500, "No se encontró la cadena de conexión.");
+
+        await using var con = new SqlConnection(connectionString);
+        await using var cmd = new SqlCommand("listarDetaCaja", con)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+        var parameter = cmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+        parameter.Precision = 38;
+        parameter.Scale = 0;
+        parameter.Value = cajaId;
+
+        await con.OpenAsync(cancellationToken);
+        return Ok((await cmd.ExecuteScalarAsync(cancellationToken))?.ToString() ?? "~");
+    }
+
+    [HttpDelete("{cajaId:long}", Name = "DeleteCashFlow")]
+    public async Task<IActionResult> Eliminar(long cajaId, CancellationToken cancellationToken)
+    {
+        if (cajaId <= 0) return BadRequest(new { ok = false, mensaje = "Caja inválida." });
+
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return StatusCode(500, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
+
+        await using var con = new SqlConnection(connectionString);
+        await con.OpenAsync(cancellationToken);
+        await using var tx = (SqlTransaction)await con.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+
+        await using (var existsCmd = new SqlCommand("SELECT 1 FROM Caja WITH (UPDLOCK, HOLDLOCK) WHERE CajaId = @CajaId", con, tx))
+        {
+            var parameter = existsCmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+            parameter.Precision = 38;
+            parameter.Scale = 0;
+            parameter.Value = cajaId;
+            if (await existsCmd.ExecuteScalarAsync(cancellationToken) is null)
+                return NotFound(new { ok = false, mensaje = "La caja ya no existe." });
+        }
+
+        await using (var productsCmd = new SqlCommand("""
+            SELECT TOP 1 1
+            FROM NotaPedido n
+            INNER JOIN DetallePedido d ON d.NotaId = n.NotaId
+            WHERE n.CajaId = @CajaId
+            """, con, tx))
+        {
+            var parameter = productsCmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+            parameter.Precision = 38;
+            parameter.Scale = 0;
+            parameter.Value = cajaId;
+            if (await productsCmd.ExecuteScalarAsync(cancellationToken) is not null)
+                return Conflict(new { ok = false, mensaje = "Esta caja no se puede eliminar porque ya tiene productos registrados. Así protegemos las ventas realizadas." });
+        }
+
+        await using (var deleteCmd = new SqlCommand("""
+            DELETE FROM CajaDetalle WHERE CajaId = @CajaId;
+            DELETE FROM Monedas WHERE CajaId = @CajaId;
+            DELETE FROM Caja WHERE CajaId = @CajaId;
+            """, con, tx))
+        {
+            var parameter = deleteCmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+            parameter.Precision = 38;
+            parameter.Scale = 0;
+            parameter.Value = cajaId;
+            await deleteCmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        await tx.CommitAsync(cancellationToken);
+        return Ok(new { ok = true, mensaje = "La caja fue eliminada correctamente." });
+    }
+
     [HttpPost("{cajaId:long}/close", Name = "CloseCashFlow")]
     public async Task<IActionResult> Cerrar(
         long cajaId,
