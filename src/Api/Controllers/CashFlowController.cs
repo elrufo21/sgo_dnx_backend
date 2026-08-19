@@ -290,7 +290,7 @@ public sealed class CashFlowController : ControllerBase
                    SET DetalleMonto = @Importe
                  WHERE CajaId = @CajaId AND DetalleId = @DetalleId
                    AND DetalleMovimiento = 'INGRESO'
-                   AND DetalleConcepto IN ('VITRINA', 'REVISTAS', 'COPIAS Y OTROS')
+                   AND DetalleConcepto IN ('VITRINA', 'SENCILLO', 'REVISTAS', 'COPIAS Y OTROS')
                 """, con, tx);
             var importe = cmd.Parameters.Add("@Importe", SqlDbType.Decimal);
             importe.Precision = 18;
