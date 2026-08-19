@@ -29,7 +29,7 @@ BEGIN
                 ISNULL(c.ClienteDespacho, '') + '|' +
                 ISNULL(c.ClienteUsuario, '') + '|' +
                 CONVERT(VARCHAR, c.ClienteFecha, 103) + '|' +
-                CONVERT(VARCHAR, n.NotaFecha, 103) + '|' +
+                CONVERT(VARCHAR(10), n.NotaFecha, 103) + ' ' + CONVERT(VARCHAR(8), n.NotaFecha, 108) + '|' +
                 ISNULL(n.NotaUsuario, '') + '|' +
                 ISNULL(n.NotaFormaPago, '') + '|' +
                 ISNULL(n.NotaCondicion, '') + '|' +
