@@ -184,7 +184,7 @@ public sealed class CashFlowController : ControllerBase
                    ISNULL((SELECT SUM(ISNULL(n.Efectivo, 0)) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS VentasEfectivo,
                    ISNULL((SELECT SUM(CASE WHEN UPPER(ISNULL(n.NotaFormaPago, '')) LIKE '%TARJETA%' THEN ISNULL(n.Deposito, 0) ELSE 0 END) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS VentasTarjeta,
                    ISNULL((SELECT SUM(CASE WHEN UPPER(ISNULL(n.NotaFormaPago, '')) LIKE '%TARJETA%' THEN 0 ELSE ISNULL(n.Deposito, 0) END) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS VentasDeposito,
-                   ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0)) FROM CajaDetalle d WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0), 0) AS Salidas
+                   ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0)) FROM CajaDetalle d WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0 AND ISNULL(d.DetalleConcepto, '') NOT LIKE 'VENTA DEL OBS DOCUMENTO%'), 0) AS Salidas
               FROM Caja c
              WHERE c.CajaId = @CajaId;
             SELECT CONVERT(decimal(18,2), Billete) AS Billete, ISNULL(Efectivo, 0) AS Cantidad
@@ -240,6 +240,29 @@ public sealed class CashFlowController : ControllerBase
 
         await con.OpenAsync(cancellationToken);
         return Ok((await cmd.ExecuteScalarAsync(cancellationToken))?.ToString() ?? "~");
+    }
+
+    [HttpGet("{cajaId:long}/movements", Name = "GetCashFlowMovements")]
+    public async Task<IActionResult> ListarMovimientos(long cajaId, CancellationToken cancellationToken)
+    {
+        if (cajaId <= 0) return BadRequest("Caja inválida.");
+
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return StatusCode(500, "No se encontró la cadena de conexión.");
+
+        await using var con = new SqlConnection(connectionString);
+        await using var cmd = new SqlCommand("uspTraerGastosA", con)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+        var parameter = cmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+        parameter.Precision = 38;
+        parameter.Scale = 0;
+        parameter.Value = cajaId;
+
+        await con.OpenAsync(cancellationToken);
+        return Ok((await cmd.ExecuteScalarAsync(cancellationToken))?.ToString() ?? "~[~[~[~");
     }
 
     [HttpDelete("{cajaId:long}", Name = "DeleteCashFlow")]
@@ -319,7 +342,10 @@ public sealed class CashFlowController : ControllerBase
         var caja = await ObtenerCajaParaCierreAsync(con, tx, cajaId, cancellationToken);
         if (caja is null)
             return Conflict(new { ok = false, mensaje = "La caja ya no está disponible para cerrar." });
+        if (request.MontoInicial is < 0)
+            return BadRequest(new { ok = false, mensaje = "El sencillo no puede ser negativo." });
 
+        var montoInicial = request.MontoInicial ?? caja.MontoInicial;
         var efectivoContado = request.Monedas.Sum(x => x.Billete * x.Cantidad);
         foreach (var moneda in request.Monedas)
         {
@@ -347,7 +373,7 @@ public sealed class CashFlowController : ControllerBase
         {
             cajaId.ToString(CultureInfo.InvariantCulture),
             DateTime.Now.ToString("dd/MM/yyyy H:mm:ss", CultureInfo.InvariantCulture),
-            caja.MontoInicial.ToString("0.00", CultureInfo.InvariantCulture),
+            montoInicial.ToString("0.00", CultureInfo.InvariantCulture),
             CajaField(caja.Encargado), CajaField(caja.Usuario), "CERRADA",
             caja.Ingresos.ToString("0.00", CultureInfo.InvariantCulture),
             caja.Depositos.ToString("0.00", CultureInfo.InvariantCulture),
@@ -363,7 +389,7 @@ public sealed class CashFlowController : ControllerBase
         }
 
         await tx.CommitAsync(cancellationToken);
-        var diferencia = efectivoContado - caja.EfectivoEsperado;
+        var diferencia = efectivoContado - (caja.EfectivoEsperado - caja.MontoInicial + montoInicial);
         return Ok(new
         {
             ok = true,
@@ -396,30 +422,47 @@ public sealed class CashFlowController : ControllerBase
         var caja = await ObtenerCajaParaActualizarAsync(con, tx, cajaId, cancellationToken);
         if (caja is null)
             return NotFound(new { ok = false, mensaje = "No se encontró la caja." });
+        if (request.MontoInicial is < 0)
+            return BadRequest(new { ok = false, mensaje = "El sencillo no puede ser negativo." });
+
+        var montoInicial = request.MontoInicial ?? caja.MontoInicial;
+        var observacion = request.Observacion ?? caja.Observacion;
 
         if (estado == "ACTIVO")
         {
-            await using var activaCmd = new SqlCommand("SELECT COUNT(*) FROM Caja WITH (UPDLOCK, HOLDLOCK) WHERE CajaEstado = 'ACTIVO' AND CajaId <> @CajaId", con, tx);
-            activaCmd.Parameters.Add("@CajaId", SqlDbType.Decimal).Value = cajaId;
-            activaCmd.Parameters["@CajaId"].Precision = 38;
-            activaCmd.Parameters["@CajaId"].Scale = 0;
-            if (Convert.ToInt32(await activaCmd.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) >= 3)
+            await using var validarCmd = new SqlCommand("uspValidaCantCajas", con, tx)
+            {
+                CommandType = CommandType.StoredProcedure
+            };
+            var cajaIdParameter = validarCmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+            cajaIdParameter.Precision = 38;
+            cajaIdParameter.Scale = 0;
+            cajaIdParameter.Value = cajaId;
+            validarCmd.Parameters.Add("@UsuarioId", SqlDbType.Int).Value = caja.UsuarioId;
+            var validacion = (await validarCmd.ExecuteScalarAsync(cancellationToken))?.ToString()?.Trim().ToUpperInvariant();
+
+            if (validacion == "USUARIO_ACTIVO")
             {
                 await tx.RollbackAsync(cancellationToken);
-                return Conflict(new { ok = false, mensaje = "No se puede activar la caja porque hay tres cajas abiertas." });
+                return Conflict(new { ok = false, mensaje = "No puedes activar esta caja cerrada porque el usuario ya tiene una caja abierta." });
+            }
+            if (validacion == "NO CERRO")
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return Conflict(new { ok = false, mensaje = "Ya hay tres cajas abiertas. Cierra una antes de activar otra." });
             }
         }
 
         var data = string.Join("|", new[]
         {
-            cajaId.ToString(CultureInfo.InvariantCulture), CajaField(caja.FechaCierre),
-            caja.MontoInicial.ToString("0.00", CultureInfo.InvariantCulture),
+            cajaId.ToString(CultureInfo.InvariantCulture), CajaField(estado == "ACTIVO" ? string.Empty : caja.FechaCierre),
+            montoInicial.ToString("0.00", CultureInfo.InvariantCulture),
             CajaField(caja.Encargado), CajaField(caja.Usuario), estado,
             caja.Ingresos.ToString("0.00", CultureInfo.InvariantCulture),
             caja.Depositos.ToString("0.00", CultureInfo.InvariantCulture),
             caja.Salidas.ToString("0.00", CultureInfo.InvariantCulture),
             caja.Total.ToString("0.00", CultureInfo.InvariantCulture),
-            caja.UsuarioId.ToString(CultureInfo.InvariantCulture), CajaField(caja.Observacion)
+            caja.UsuarioId.ToString(CultureInfo.InvariantCulture), CajaField(observacion)
         });
         var raw = await EjecutarCajaInsertaCsvAsync(con, tx, data, cancellationToken);
         if (!string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase))
@@ -429,7 +472,7 @@ public sealed class CashFlowController : ControllerBase
         }
 
         await tx.CommitAsync(cancellationToken);
-        return Ok(new { ok = true, cajaId, estado, mensaje = "Estado de caja actualizado." });
+        return Ok(new { ok = true, cajaId, estado, mensaje = "Caja actualizada correctamente." });
     }
 
     private static async Task<string> EjecutarCajaInsertaCsvAsync(
@@ -459,7 +502,7 @@ public sealed class CashFlowController : ControllerBase
         await using var cmd = new SqlCommand($"""
             SELECT c.CajaId,
                    ISNULL((SELECT SUM(ISNULL(n.Efectivo, 0)) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS Ingresos,
-                   ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0)) FROM CajaDetalle d WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0), 0) AS Salidas,
+                   ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0)) FROM CajaDetalle d WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0 AND ISNULL(d.DetalleConcepto, '') NOT LIKE 'VENTA DEL OBS DOCUMENTO%'), 0) AS Salidas,
                    ISNULL((SELECT SUM(ISNULL(m.Monto, 0)) FROM Monedas m WHERE m.CajaId = c.CajaId), 0) AS EfectivoContado
               FROM Caja c
              WHERE c.CajaId IN ({string.Join(", ", parametros)})
@@ -498,7 +541,7 @@ public sealed class CashFlowController : ControllerBase
                             WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS Depositos,
                    ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0))
                              FROM CajaDetalle d
-                            WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0), 0) AS Salidas
+                            WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0 AND ISNULL(d.DetalleConcepto, '') NOT LIKE 'VENTA DEL OBS DOCUMENTO%'), 0) AS Salidas
               FROM Caja c WITH (UPDLOCK, HOLDLOCK)
              WHERE c.CajaId = @CajaId AND c.CajaEstado = 'ACTIVO'
             """, con, tx);
@@ -560,8 +603,8 @@ public sealed class CashFlowController : ControllerBase
 
     private static string MensajeCajaInserta(string raw) => raw.ToUpperInvariant() switch
     {
-        "EXISTE" => "Ya existe una caja abierta para este usuario.",
-        "NO CERRO" => "No se puede abrir otra caja porque hay cajas pendientes de cierre.",
+        "EXISTE" => "Ya tienes una caja abierta. Ciérrala antes de abrir una nueva.",
+        "NO CERRO" => "Hay cajas pendientes de cierre. Ciérralas antes de abrir una nueva.",
         _ => string.IsNullOrWhiteSpace(raw) ? "No se pudo registrar la caja." : raw
     };
 
@@ -628,9 +671,9 @@ public sealed record ActiveCashFlowResponse(
 
 public sealed record CashCountResponse(decimal Billete, int Cantidad);
 
-public sealed record CloseCashFlowRequest(int UsuarioId, string? Observacion, List<CashCountRequest>? Monedas);
+public sealed record CloseCashFlowRequest(int UsuarioId, decimal? MontoInicial, string? Observacion, List<CashCountRequest>? Monedas);
 
-public sealed record UpdateCashFlowStateRequest(string? Estado);
+public sealed record UpdateCashFlowStateRequest(string? Estado, decimal? MontoInicial, string? Observacion);
 
 public sealed record CashCountRequest(
     [property: JsonPropertyName("denominacion")] decimal Billete,
