@@ -265,6 +265,54 @@ public sealed class CashFlowController : ControllerBase
         return Ok((await cmd.ExecuteScalarAsync(cancellationToken))?.ToString() ?? "~[~[~[~");
     }
 
+    [HttpPut("{cajaId:long}/manual-income", Name = "UpdateCashFlowManualIncome")]
+    public async Task<IActionResult> ActualizarIngresosManuales(
+        long cajaId,
+        [FromBody] UpdateCashFlowManualIncomeRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (cajaId <= 0 || request.Movimientos is null || request.Movimientos.Count == 0 ||
+            request.Movimientos.Any(x => x.DetalleId <= 0 || x.Importe < 0) ||
+            request.Movimientos.Select(x => x.DetalleId).Distinct().Count() != request.Movimientos.Count)
+            return BadRequest(new { ok = false, mensaje = "Los importes de ingreso no son válidos." });
+
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return StatusCode(500, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
+
+        await using var con = new SqlConnection(connectionString);
+        await con.OpenAsync(cancellationToken);
+        await using var tx = (SqlTransaction)await con.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        foreach (var movimiento in request.Movimientos)
+        {
+            await using var cmd = new SqlCommand("""
+                UPDATE CajaDetalle
+                   SET DetalleMonto = @Importe
+                 WHERE CajaId = @CajaId AND DetalleId = @DetalleId
+                   AND DetalleMovimiento = 'INGRESO'
+                   AND DetalleConcepto IN ('VITRINA', 'REVISTAS', 'COPIAS Y OTROS')
+                """, con, tx);
+            var importe = cmd.Parameters.Add("@Importe", SqlDbType.Decimal);
+            importe.Precision = 18;
+            importe.Scale = 2;
+            importe.Value = movimiento.Importe;
+            cmd.Parameters.Add("@CajaId", SqlDbType.Decimal).Value = cajaId;
+            cmd.Parameters["@CajaId"].Precision = 38;
+            cmd.Parameters["@CajaId"].Scale = 0;
+            cmd.Parameters.Add("@DetalleId", SqlDbType.Decimal).Value = movimiento.DetalleId;
+            cmd.Parameters["@DetalleId"].Precision = 38;
+            cmd.Parameters["@DetalleId"].Scale = 0;
+            if (await cmd.ExecuteNonQueryAsync(cancellationToken) != 1)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return BadRequest(new { ok = false, mensaje = "No se encontró un ingreso editable de esta caja." });
+            }
+        }
+
+        await tx.CommitAsync(cancellationToken);
+        return Ok(new { ok = true, mensaje = "Ingresos actualizados correctamente." });
+    }
+
     [HttpDelete("{cajaId:long}", Name = "DeleteCashFlow")]
     public async Task<IActionResult> Eliminar(long cajaId, CancellationToken cancellationToken)
     {
@@ -541,6 +589,10 @@ public sealed class CashFlowController : ControllerBase
                             WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS Depositos,
                    ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0))
                              FROM CajaDetalle d
+                            WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'INGRESO'
+                              AND d.DetalleConcepto IN ('VITRINA', 'REVISTAS', 'COPIAS Y OTROS')), 0) AS IngresosManuales,
+                   ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0))
+                             FROM CajaDetalle d
                             WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0 AND ISNULL(d.DetalleConcepto, '') NOT LIKE 'VENTA DEL OBS DOCUMENTO%'), 0) AS Salidas
               FROM Caja c WITH (UPDLOCK, HOLDLOCK)
              WHERE c.CajaId = @CajaId AND c.CajaEstado = 'ACTIVO'
@@ -553,6 +605,7 @@ public sealed class CashFlowController : ControllerBase
         if (!await reader.ReadAsync(cancellationToken)) return null;
         var montoInicial = Convert.ToDecimal(reader["MontoIniSOl"], CultureInfo.InvariantCulture);
         var ingresos = Convert.ToDecimal(reader["Ingresos"], CultureInfo.InvariantCulture);
+        var ingresosManuales = Convert.ToDecimal(reader["IngresosManuales"], CultureInfo.InvariantCulture);
         var salidas = Convert.ToDecimal(reader["Salidas"], CultureInfo.InvariantCulture);
         return new CajaCloseInfo(
             montoInicial,
@@ -560,9 +613,10 @@ public sealed class CashFlowController : ControllerBase
             reader["CajaUsuario"]?.ToString() ?? string.Empty,
             Convert.ToInt32(reader["UsuarioId"], CultureInfo.InvariantCulture),
             ingresos,
+            ingresosManuales,
             Convert.ToDecimal(reader["Depositos"], CultureInfo.InvariantCulture),
             salidas,
-            montoInicial + ingresos - salidas);
+            montoInicial + ingresos + ingresosManuales - salidas);
     }
 
     private static async Task<CajaUpdateInfo?> ObtenerCajaParaActualizarAsync(
@@ -614,6 +668,7 @@ public sealed class CashFlowController : ControllerBase
         string Usuario,
         int UsuarioId,
         decimal Ingresos,
+        decimal IngresosManuales,
         decimal Depositos,
         decimal Salidas,
         decimal EfectivoEsperado);
@@ -674,6 +729,12 @@ public sealed record CashCountResponse(decimal Billete, int Cantidad);
 public sealed record CloseCashFlowRequest(int UsuarioId, decimal? MontoInicial, string? Observacion, List<CashCountRequest>? Monedas);
 
 public sealed record UpdateCashFlowStateRequest(string? Estado, decimal? MontoInicial, string? Observacion);
+
+public sealed record UpdateCashFlowManualIncomeRequest(List<CashFlowManualIncomeRequest>? Movimientos);
+
+public sealed record CashFlowManualIncomeRequest(
+    [property: JsonPropertyName("id")] int DetalleId,
+    decimal Importe);
 
 public sealed record CashCountRequest(
     [property: JsonPropertyName("denominacion")] decimal Billete,
