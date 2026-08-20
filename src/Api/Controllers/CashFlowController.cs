@@ -184,6 +184,7 @@ public sealed class CashFlowController : ControllerBase
                    ISNULL((SELECT SUM(ISNULL(n.Efectivo, 0)) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS VentasEfectivo,
                    ISNULL((SELECT SUM(CASE WHEN UPPER(ISNULL(n.NotaFormaPago, '')) LIKE '%TARJETA%' THEN ISNULL(n.Deposito, 0) ELSE 0 END) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS VentasTarjeta,
                    ISNULL((SELECT SUM(CASE WHEN UPPER(ISNULL(n.NotaFormaPago, '')) LIKE '%TARJETA%' THEN 0 ELSE ISNULL(n.Deposito, 0) END) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS VentasDeposito,
+                   ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0)) FROM CajaDetalle d WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'INGRESO' AND ISNULL(d.NotaId, 0) = 0 AND ISNULL(d.NotaIdB, 0) = -1), 0) AS IngresosCajaChica,
                    ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0)) FROM CajaDetalle d WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0 AND ISNULL(d.DetalleConcepto, '') NOT LIKE 'VENTA DEL OBS DOCUMENTO%'), 0) AS Salidas
               FROM Caja c
              WHERE c.CajaId = @CajaId;
@@ -201,6 +202,7 @@ public sealed class CashFlowController : ControllerBase
         var monedas = new List<CashCountResponse>();
         var montoInicial = Convert.ToDecimal(reader["MontoInicial"], CultureInfo.InvariantCulture);
         var ventasEfectivo = Convert.ToDecimal(reader["VentasEfectivo"], CultureInfo.InvariantCulture);
+        var ingresosCajaChica = Convert.ToDecimal(reader["IngresosCajaChica"], CultureInfo.InvariantCulture);
         var salidas = Convert.ToDecimal(reader["Salidas"], CultureInfo.InvariantCulture);
         var response = new ActiveCashFlowResponse(
             Convert.ToInt64(reader["CajaId"], CultureInfo.InvariantCulture), reader["FechaApertura"]?.ToString() ?? string.Empty,
@@ -208,7 +210,7 @@ public sealed class CashFlowController : ControllerBase
             reader["Observacion"]?.ToString() ?? string.Empty, ventasEfectivo,
             Convert.ToDecimal(reader["VentasTarjeta"], CultureInfo.InvariantCulture),
             Convert.ToDecimal(reader["VentasDeposito"], CultureInfo.InvariantCulture), salidas,
-            montoInicial + ventasEfectivo - salidas, monedas,
+            montoInicial + ventasEfectivo + ingresosCajaChica - salidas, monedas,
             reader["Estado"]?.ToString() ?? string.Empty,
             reader["FechaCierre"]?.ToString() ?? string.Empty);
 
@@ -423,7 +425,7 @@ public sealed class CashFlowController : ControllerBase
             DateTime.Now.ToString("dd/MM/yyyy H:mm:ss", CultureInfo.InvariantCulture),
             montoInicial.ToString("0.00", CultureInfo.InvariantCulture),
             CajaField(caja.Encargado), CajaField(caja.Usuario), "CERRADA",
-            caja.Ingresos.ToString("0.00", CultureInfo.InvariantCulture),
+            (caja.Ingresos + caja.IngresosManuales).ToString("0.00", CultureInfo.InvariantCulture),
             caja.Depositos.ToString("0.00", CultureInfo.InvariantCulture),
             caja.Salidas.ToString("0.00", CultureInfo.InvariantCulture),
             efectivoContado.ToString("0.00", CultureInfo.InvariantCulture),
@@ -549,7 +551,7 @@ public sealed class CashFlowController : ControllerBase
         var parametros = ids.Select((_, index) => $"@CajaId{index}").ToArray();
         await using var cmd = new SqlCommand($"""
             SELECT c.CajaId,
-                   ISNULL((SELECT SUM(ISNULL(n.Efectivo, 0)) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS Ingresos,
+                   ISNULL((SELECT SUM(ISNULL(n.Efectivo, 0)) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) + ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0)) FROM CajaDetalle d WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'INGRESO' AND ISNULL(d.NotaId, 0) = 0 AND ISNULL(d.NotaIdB, 0) = -1), 0) AS Ingresos,
                    ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0)) FROM CajaDetalle d WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0 AND ISNULL(d.DetalleConcepto, '') NOT LIKE 'VENTA DEL OBS DOCUMENTO%'), 0) AS Salidas,
                    ISNULL((SELECT SUM(ISNULL(m.Monto, 0)) FROM Monedas m WHERE m.CajaId = c.CajaId), 0) AS EfectivoContado
               FROM Caja c
@@ -590,7 +592,8 @@ public sealed class CashFlowController : ControllerBase
                    ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0))
                              FROM CajaDetalle d
                             WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'INGRESO'
-                              AND d.DetalleConcepto IN ('VITRINA', 'REVISTAS', 'COPIAS Y OTROS')), 0) AS IngresosManuales,
+                              AND (d.DetalleConcepto IN ('VITRINA', 'REVISTAS', 'COPIAS Y OTROS')
+                                   OR ISNULL(d.NotaIdB, 0) = -1)), 0) AS IngresosManuales,
                    ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0))
                              FROM CajaDetalle d
                             WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0 AND ISNULL(d.DetalleConcepto, '') NOT LIKE 'VENTA DEL OBS DOCUMENTO%'), 0) AS Salidas
