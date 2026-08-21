@@ -20,6 +20,20 @@ public sealed class PettyCashMovementController : ControllerBase
     {
         "INGRESO", "SALIDA"
     };
+    private static readonly HashSet<string> TiposFormaPago = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "EFECTIVO", "DEPOSITO", "TARJETA", "YAPE", "EFECTIVO/DEPOSITO",
+        "TARJETA/EFECTIVO", "YAPE/EFECTIVO", "YAPE/DEPOSITO", "TARJETA/DEPOSITO"
+    };
+    private static readonly HashSet<string> EntidadesBancarias = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "BCP", "BBVA CONTINENTAL", "INTERBANK"
+    };
+    private static readonly HashSet<string> FormasConEntidadYNroOperacion = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "DEPOSITO", "EFECTIVO/DEPOSITO", "TARJETA/EFECTIVO", "YAPE/EFECTIVO",
+        "YAPE/DEPOSITO", "TARJETA/DEPOSITO"
+    };
 
     private readonly IConfiguration _configuration;
     private readonly IManageImageService _imageService;
@@ -53,7 +67,7 @@ public sealed class PettyCashMovementController : ControllerBase
                    ISNULL(NroOperacion, '') AS NroOperacion, ISNULL(RutaImagen, '') AS RutaImagen
               FROM CajaDetalle
              WHERE CajaId = @CajaId AND ISNULL(NotaId, 0) = 0
-               AND ISNULL(NotaIdB, 0) = -1
+               AND ISNULL(Vista, '') = ''
              ORDER BY DetalleId DESC;
             """, con);
         AddCajaId(cmd, cajaId.Value);
@@ -87,12 +101,16 @@ public sealed class PettyCashMovementController : ControllerBase
         var formaPago = Texto(request.FormaPago).ToUpperInvariant();
         var entidad = Texto(request.Entidad).ToUpperInvariant();
         var nroOperacion = Texto(request.NroOperacion);
-        if (request.Id is < 0 || request.UsuarioId <= 0 || !TiposMovimiento.Contains(movimiento) ||
+        if (request.Id is < 0 || request.UsuarioId <= 0 || !TiposMovimiento.Contains(movimiento) || !TiposFormaPago.Contains(formaPago) ||
             detalle.Length is 0 or > 250 || request.Importe <= 0 || request.Importe > 9999999999999999.99m ||
             formaPago.Length is 0 or > 80 || entidad.Length > 40 || nroOperacion.Length > 40)
             return BadRequest(new { ok = false, mensaje = "Los datos del movimiento no son válidos." });
-        if (formaPago == "DEPOSITO" && (entidad.Length == 0 || nroOperacion.Length == 0))
-            return BadRequest(new { ok = false, mensaje = "Indica la entidad y el número de operación del depósito." });
+        if (FormasConEntidadYNroOperacion.Contains(formaPago) && !EntidadesBancarias.Contains(entidad))
+            return BadRequest(new { ok = false, mensaje = "Selecciona una entidad bancaria válida." });
+        if ((FormasConEntidadYNroOperacion.Contains(formaPago) || formaPago == "TARJETA") && nroOperacion.Length == 0)
+            return BadRequest(new { ok = false, mensaje = "Indica el número de operación." });
+        if ((formaPago == "TARJETA" || formaPago == "YAPE") && entidad != "BCP")
+            return BadRequest(new { ok = false, mensaje = "Tarjeta y Yape usan BCP como entidad." });
         if (imagen is not null && !EsImagenValida(imagen, out var errorImagen))
             return BadRequest(new { ok = false, mensaje = errorImagen });
 
@@ -219,6 +237,63 @@ public sealed class PettyCashMovementController : ControllerBase
             mensaje = "Movimiento de caja chica registrado.",
             movimiento = new PettyCashMovementResponse(detalleId, DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"), movimiento, detalle, request.Importe, formaPago, entidad, nroOperacion, rutaImagen)
         });
+    }
+
+    [HttpDelete("{id:long}")]
+    public async Task<IActionResult> Eliminar(long id, [FromQuery] int usuarioId, CancellationToken cancellationToken)
+    {
+        if (id <= 0 || usuarioId <= 0)
+            return BadRequest(new { ok = false, mensaje = "Movimiento o usuario inválido." });
+
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return StatusCode(500, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
+
+        await using var con = new SqlConnection(connectionString);
+        await con.OpenAsync(cancellationToken);
+        var cajaId = await ObtenerCajaActivaAsync(con, usuarioId, cancellationToken);
+        if (cajaId is null)
+            return BadRequest(new { ok = false, mensaje = "No tienes una caja activa." });
+
+        string formaPago;
+        string entidad;
+        string nroOperacion;
+        string rutaImagen;
+        await using (var movimientoCmd = new SqlCommand("""
+            SELECT ISNULL(FormaPago, ''), ISNULL(EntidadBancaria, ''),
+                   ISNULL(NroOperacion, ''), ISNULL(RutaImagen, '')
+              FROM CajaDetalle
+             WHERE DetalleId = @DetalleId AND CajaId = @CajaId
+               AND ISNULL(NotaId, 0) = 0 AND ISNULL(Vista, '') = '';
+            """, con))
+        {
+            var detalleId = movimientoCmd.Parameters.Add("@DetalleId", SqlDbType.Decimal);
+            detalleId.Precision = 38;
+            detalleId.Scale = 0;
+            detalleId.Value = id;
+            AddCajaId(movimientoCmd, cajaId.Value);
+            await using var reader = await movimientoCmd.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+                return NotFound(new { ok = false, mensaje = "No se encontró el movimiento de caja chica." });
+            formaPago = reader.GetString(0);
+            entidad = reader.GetString(1);
+            nroOperacion = reader.GetString(2);
+            rutaImagen = reader.GetString(3);
+        }
+
+        await using var deleteCmd = new SqlCommand("uspEliminarCajaDetalle", con)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+        deleteCmd.Parameters.Add("@Datas", SqlDbType.VarChar, -1).Value = $"{id}|{formaPago}|{entidad}|{nroOperacion}";
+        var eliminado = await deleteCmd.ExecuteScalarAsync(cancellationToken);
+        if (!string.Equals(eliminado?.ToString(), "true", StringComparison.OrdinalIgnoreCase))
+            return Conflict(new { ok = false, mensaje = "No se pudo eliminar el movimiento." });
+
+        if (rutaImagen.Length > 0)
+            await _imageService.DeleteImage(rutaImagen);
+
+        return Ok(new { ok = true, mensaje = "Movimiento de caja chica eliminado." });
     }
 
     private static async Task<long?> ObtenerCajaActivaAsync(SqlConnection con, int usuarioId, CancellationToken cancellationToken, SqlTransaction? tx = null)
