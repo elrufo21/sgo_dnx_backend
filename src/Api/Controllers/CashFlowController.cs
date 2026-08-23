@@ -267,6 +267,32 @@ public sealed class CashFlowController : ControllerBase
         return Ok((await cmd.ExecuteScalarAsync(cancellationToken))?.ToString() ?? "~[~[~[~");
     }
 
+    [HttpGet("{cajaId:long}/obs-total", Name = "GetCashFlowObsTotal")]
+    public async Task<IActionResult> ObtenerTotalObs(long cajaId, CancellationToken cancellationToken)
+    {
+        if (cajaId <= 0) return BadRequest("Caja inválida.");
+
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return StatusCode(500, "No se encontró la cadena de conexión.");
+
+        await using var con = new SqlConnection(connectionString);
+        await using var cmd = new SqlCommand("""
+            SELECT ISNULL(SUM(T.Importe), CONVERT(decimal(18,2), 0))
+              FROM TABLAOBS T
+              LEFT JOIN NotaPedido n ON n.NotaTransaccion = T.NotaTransaccion
+             WHERE T.TipoVenta = 'OBS' AND n.CajaId = @CajaId;
+            """, con);
+        var parameter = cmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+        parameter.Precision = 38;
+        parameter.Scale = 0;
+        parameter.Value = cajaId;
+
+        await con.OpenAsync(cancellationToken);
+        var total = Convert.ToDecimal(await cmd.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+        return Ok(new { total });
+    }
+
     [HttpPut("{cajaId:long}/manual-income", Name = "UpdateCashFlowManualIncome")]
     public async Task<IActionResult> ActualizarIngresosManuales(
         long cajaId,
