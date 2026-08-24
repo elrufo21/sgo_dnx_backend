@@ -10,6 +10,8 @@ Los pagos de venta se registran en `CajaDetalle` de la caja activa del usuario y
 - En IOC/Cashbill (`ConceptoOBS = VENTA`), un depósito, tarjeta, Yape o la parte digital de un pago mixto crea una `SALIDA`, igual que el escritorio.
 - En Venta Libre (`ConceptoOBS = VENTA LIBRE`) se crea un `INGRESO` por el total; si tiene una parte digital, se crea además su `SALIDA` por el depósito.
 - La salida se guarda con `NotaId = 0`, `NotaIdB = NotaId`, estado `D` y el detalle completo de la venta OBS.
+- Los movimientos automáticos con estado `D` no se pueden eliminar desde Caja Chica; el escritorio también los bloquea. La tabla mantiene el tachito desactivado y gris, y el backend rechaza la eliminación incluso si se intenta invocar el endpoint directamente.
+- Mientras una instancia anterior del backend aún no devuelve el estado, la interfaz reconoce por el detalle las ventas automáticas para mantenerlas bloqueadas.
 - El efectivo no crea una fila automática en `CajaDetalle`, como en el escritorio.
 - Los pagos de documentos pendientes se conservan en `uspInsertarPagoVarios`, que ya usa la lógica del escritorio.
 - El historial de pagos realizados se consulta directamente desde `PagoVarios` por rango de fechas, como el panel histórico del escritorio.

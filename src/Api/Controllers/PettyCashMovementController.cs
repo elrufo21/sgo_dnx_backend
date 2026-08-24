@@ -61,7 +61,7 @@ public sealed class PettyCashMovementController : ControllerBase
 
         var movimientos = new List<PettyCashMovementResponse>();
         await using var cmd = new SqlCommand("""
-            SELECT DetalleId, ISNULL(NotaId, 0) AS NotaId,
+            SELECT DetalleId, ISNULL(NotaId, 0) AS NotaId, ISNULL(Estado, '') AS Estado,
                    CONVERT(varchar(19), DetalleFecha, 126) AS Fecha,
                    DetalleMovimiento, DetalleConcepto, ISNULL(DetalleMonto, 0) AS Importe,
                    ISNULL(FormaPago, '') AS FormaPago, ISNULL(EntidadBancaria, '') AS Entidad,
@@ -76,6 +76,7 @@ public sealed class PettyCashMovementController : ControllerBase
             movimientos.Add(new PettyCashMovementResponse(
                 Convert.ToInt64(reader["DetalleId"], CultureInfo.InvariantCulture),
                 Convert.ToInt64(reader["NotaId"], CultureInfo.InvariantCulture),
+                reader["Estado"]?.ToString() ?? string.Empty,
                 reader["Fecha"]?.ToString() ?? string.Empty,
                 reader["DetalleMovimiento"]?.ToString() ?? string.Empty,
                 reader["DetalleConcepto"]?.ToString() ?? string.Empty,
@@ -236,7 +237,7 @@ public sealed class PettyCashMovementController : ControllerBase
         {
             ok = true,
             mensaje = "Movimiento de caja chica registrado.",
-            movimiento = new PettyCashMovementResponse(detalleId, 0, DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"), movimiento, detalle, request.Importe, formaPago, entidad, nroOperacion, rutaImagen)
+            movimiento = new PettyCashMovementResponse(detalleId, 0, "T", DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"), movimiento, detalle, request.Importe, formaPago, entidad, nroOperacion, rutaImagen)
         });
     }
 
@@ -260,9 +261,10 @@ public sealed class PettyCashMovementController : ControllerBase
         string entidad;
         string nroOperacion;
         string rutaImagen;
+        string estado;
         await using (var movimientoCmd = new SqlCommand("""
             SELECT ISNULL(FormaPago, ''), ISNULL(EntidadBancaria, ''),
-                   ISNULL(NroOperacion, ''), ISNULL(RutaImagen, '')
+                   ISNULL(NroOperacion, ''), ISNULL(RutaImagen, ''), ISNULL(Estado, '')
               FROM CajaDetalle
              WHERE DetalleId = @DetalleId AND CajaId = @CajaId
                AND ISNULL(NotaId, 0) = 0 AND ISNULL(Vista, '') = '';
@@ -280,7 +282,11 @@ public sealed class PettyCashMovementController : ControllerBase
             entidad = reader.GetString(1);
             nroOperacion = reader.GetString(2);
             rutaImagen = reader.GetString(3);
+            estado = reader.GetString(4);
         }
+
+        if (string.Equals(estado, "D", StringComparison.OrdinalIgnoreCase))
+            return Conflict(new { ok = false, mensaje = "Este movimiento automático de venta no se puede eliminar desde Caja Chica." });
 
         await using var deleteCmd = new SqlCommand("uspEliminarCajaDetalle", con)
         {
@@ -337,5 +343,5 @@ public sealed class PettyCashMovementController : ControllerBase
 }
 
 public sealed record CreatePettyCashMovementRequest(long? Id, int UsuarioId, string? Movimiento, string? Detalle, decimal Importe, string? FormaPago, string? Entidad, string? NroOperacion);
-public sealed record PettyCashMovementResponse(long Id, long NotaId, string Fecha, string Movimiento, string Detalle, decimal Importe, string FormaPago, string Entidad, string NroOperacion, string RutaImagen);
+public sealed record PettyCashMovementResponse(long Id, long NotaId, string Estado, string Fecha, string Movimiento, string Detalle, decimal Importe, string FormaPago, string Entidad, string NroOperacion, string RutaImagen);
 public sealed record PettyCashMovementListResponse(long CajaId, IReadOnlyList<PettyCashMovementResponse> Movimientos);
