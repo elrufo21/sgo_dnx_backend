@@ -96,7 +96,7 @@ public sealed class CashFlowController : ControllerBase
         {
             "0", string.Empty,
             request.MontoInicial.ToString("0.00", CultureInfo.InvariantCulture),
-            CajaField(request.Encargado), CajaField(request.Usuario), "ACTIVO",
+            CajaField(request.Encargado), CajaField(request.Encargado), "ACTIVO",
             "0.00", "0.00", "0.00", "0.00",
             request.UsuarioId.ToString(CultureInfo.InvariantCulture), CajaField(request.Observacion)
         });

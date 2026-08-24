@@ -1727,6 +1727,126 @@ public class NotaController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("pago-varios/historial", Name = "GetPagoVariosHistorial")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> ListarPagoVariosHistorial(
+        [FromQuery] DateTime? fechaInicio,
+        [FromQuery] DateTime? fechaFin,
+        CancellationToken cancellationToken = default)
+    {
+        var inicio = (fechaInicio ?? DateTime.Today).Date;
+        var fin = (fechaFin ?? inicio).Date;
+        if (fin < inicio)
+            return BadRequest(new { ok = false, mensaje = "El rango de fechas no es válido." });
+
+        await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await using var cmd = new SqlCommand("""
+            SELECT PagoId, ISNULL(CajaId, 0) AS CajaId,
+                   CONVERT(varchar(10), FechaEmision, 103) AS FechaEmision,
+                   ISNULL(Descripcion, '') AS Descripcion,
+                   ISNULL(FormaPago, '') AS FormaPago, ISNULL(Entidad, '') AS Entidad,
+                   ISNULL(Efectivo, 0) AS Efectivo, ISNULL(Deposito, 0) AS Deposito,
+                   ISNULL(NroOperacion, '') AS NroOperacion, ISNULL(Usuario, '') AS Usuario,
+                   ISNULL(PagoTotal, 0) AS Total
+              FROM PagoVarios
+             WHERE FechaEmision >= @Inicio
+               AND FechaEmision < DATEADD(day, 1, @Fin)
+             ORDER BY PagoId DESC;
+            """, con);
+        cmd.Parameters.AddWithValue("@Inicio", inicio);
+        cmd.Parameters.AddWithValue("@Fin", fin);
+
+        await con.OpenAsync(cancellationToken);
+        var items = new List<PagoVariosHistorialItemResponse>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            items.Add(new PagoVariosHistorialItemResponse
+            {
+                PagoId = Convert.ToInt64(reader["PagoId"], CultureInfo.InvariantCulture),
+                CajaId = Convert.ToInt64(reader["CajaId"], CultureInfo.InvariantCulture),
+                FechaEmision = reader["FechaEmision"]?.ToString() ?? string.Empty,
+                Descripcion = reader["Descripcion"]?.ToString() ?? string.Empty,
+                FormaPago = reader["FormaPago"]?.ToString() ?? string.Empty,
+                Entidad = reader["Entidad"]?.ToString() ?? string.Empty,
+                Efectivo = Convert.ToDecimal(reader["Efectivo"], CultureInfo.InvariantCulture),
+                Deposito = Convert.ToDecimal(reader["Deposito"], CultureInfo.InvariantCulture),
+                NroOperacion = reader["NroOperacion"]?.ToString() ?? string.Empty,
+                Usuario = reader["Usuario"]?.ToString() ?? string.Empty,
+                Total = Convert.ToDecimal(reader["Total"], CultureInfo.InvariantCulture)
+            });
+        }
+
+        return Ok(new { ok = true, items });
+    }
+
+    [AllowAnonymous]
+    [HttpDelete("pago-varios/{pagoId:long}", Name = "DeletePagoVarios")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> EliminarPagoVarios(
+        long pagoId,
+        [FromBody] EliminarPagoVariosRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (pagoId <= 0)
+            return BadRequest(new { ok = false, mensaje = "Pago Varios inválido." });
+
+        var clave = (request?.Clave ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(clave))
+            return BadRequest(new { ok = false, mensaje = "Ingrese la clave de administrador." });
+
+        await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await con.OpenAsync(cancellationToken);
+
+        await using (var validarClave = new SqlCommand("""
+            SELECT TOP (1) 1
+              FROM Usuarios
+             WHERE dbo.desincrectar(UsuarioClave) = @Clave
+               AND Administrador = 1;
+            """, con))
+        {
+            validarClave.Parameters.AddWithValue("@Clave", clave);
+            if (await validarClave.ExecuteScalarAsync(cancellationToken) is null)
+                return Unauthorized(new { ok = false, mensaje = "Clave de administrador inválida." });
+        }
+
+        var detalles = new List<(long DocuId, long NotaId)>();
+        await using (var listarDetalles = new SqlCommand("""
+            SELECT DocuId, NotaId
+              FROM DetallePVarios
+             WHERE PagoId = @PagoId
+             ORDER BY PagoId;
+            """, con))
+        {
+            listarDetalles.Parameters.AddWithValue("@PagoId", pagoId);
+            await using var reader = await listarDetalles.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                detalles.Add((
+                    Convert.ToInt64(reader["DocuId"], CultureInfo.InvariantCulture),
+                    Convert.ToInt64(reader["NotaId"], CultureInfo.InvariantCulture)
+                ));
+            }
+        }
+
+        if (detalles.Count == 0)
+            return NotFound(new { ok = false, mensaje = "No se encontró el pago realizado." });
+
+        var listaOrden = $"{pagoId}[{string.Join(";", detalles.Select(x => $"{x.DocuId}|{x.NotaId}"))}";
+        await using var eliminar = new SqlCommand("uspEliminarPagoV", con)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+        eliminar.Parameters.Add("@ListaOrden", SqlDbType.VarChar, -1).Value = listaOrden;
+        var resultado = (await eliminar.ExecuteScalarAsync(cancellationToken))?.ToString()?.Trim();
+
+        if (!string.Equals(resultado, "true", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { ok = false, mensaje = "No se pudo eliminar el pago realizado." });
+
+        return Ok(new { ok = true, mensaje = "Pago realizado eliminado." });
+    }
+
+    [AllowAnonymous]
     [HttpPost("pago-varios", Name = "RegisterPagoVarios")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     public async Task<IActionResult> RegistrarPagoVarios(
@@ -10846,6 +10966,26 @@ public class PagoVariosItemResponse
     public string RazonSocial { get; set; } = string.Empty;
     public decimal Monto { get; set; }
     public string ConceptoOBS { get; set; } = string.Empty;
+}
+
+public class PagoVariosHistorialItemResponse
+{
+    public long PagoId { get; set; }
+    public long CajaId { get; set; }
+    public string FechaEmision { get; set; } = string.Empty;
+    public string Descripcion { get; set; } = string.Empty;
+    public string FormaPago { get; set; } = string.Empty;
+    public string Entidad { get; set; } = string.Empty;
+    public decimal Efectivo { get; set; }
+    public decimal Deposito { get; set; }
+    public string NroOperacion { get; set; } = string.Empty;
+    public string Usuario { get; set; } = string.Empty;
+    public decimal Total { get; set; }
+}
+
+public class EliminarPagoVariosRequest
+{
+    public string? Clave { get; set; }
 }
 
 public class RegistrarPagoVariosRequest

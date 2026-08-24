@@ -61,13 +61,13 @@ public sealed class PettyCashMovementController : ControllerBase
 
         var movimientos = new List<PettyCashMovementResponse>();
         await using var cmd = new SqlCommand("""
-            SELECT DetalleId, CONVERT(varchar(19), DetalleFecha, 126) AS Fecha,
+            SELECT DetalleId, ISNULL(NotaId, 0) AS NotaId,
+                   CONVERT(varchar(19), DetalleFecha, 126) AS Fecha,
                    DetalleMovimiento, DetalleConcepto, ISNULL(DetalleMonto, 0) AS Importe,
                    ISNULL(FormaPago, '') AS FormaPago, ISNULL(EntidadBancaria, '') AS Entidad,
                    ISNULL(NroOperacion, '') AS NroOperacion, ISNULL(RutaImagen, '') AS RutaImagen
               FROM CajaDetalle
-             WHERE CajaId = @CajaId AND ISNULL(NotaId, 0) = 0
-               AND ISNULL(Vista, '') = ''
+             WHERE CajaId = @CajaId AND ISNULL(Vista, '') = ''
              ORDER BY DetalleId DESC;
             """, con);
         AddCajaId(cmd, cajaId.Value);
@@ -75,6 +75,7 @@ public sealed class PettyCashMovementController : ControllerBase
         while (await reader.ReadAsync(cancellationToken))
             movimientos.Add(new PettyCashMovementResponse(
                 Convert.ToInt64(reader["DetalleId"], CultureInfo.InvariantCulture),
+                Convert.ToInt64(reader["NotaId"], CultureInfo.InvariantCulture),
                 reader["Fecha"]?.ToString() ?? string.Empty,
                 reader["DetalleMovimiento"]?.ToString() ?? string.Empty,
                 reader["DetalleConcepto"]?.ToString() ?? string.Empty,
@@ -235,7 +236,7 @@ public sealed class PettyCashMovementController : ControllerBase
         {
             ok = true,
             mensaje = "Movimiento de caja chica registrado.",
-            movimiento = new PettyCashMovementResponse(detalleId, DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"), movimiento, detalle, request.Importe, formaPago, entidad, nroOperacion, rutaImagen)
+            movimiento = new PettyCashMovementResponse(detalleId, 0, DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"), movimiento, detalle, request.Importe, formaPago, entidad, nroOperacion, rutaImagen)
         });
     }
 
@@ -336,5 +337,5 @@ public sealed class PettyCashMovementController : ControllerBase
 }
 
 public sealed record CreatePettyCashMovementRequest(long? Id, int UsuarioId, string? Movimiento, string? Detalle, decimal Importe, string? FormaPago, string? Entidad, string? NroOperacion);
-public sealed record PettyCashMovementResponse(long Id, string Fecha, string Movimiento, string Detalle, decimal Importe, string FormaPago, string Entidad, string NroOperacion, string RutaImagen);
+public sealed record PettyCashMovementResponse(long Id, long NotaId, string Fecha, string Movimiento, string Detalle, decimal Importe, string FormaPago, string Entidad, string NroOperacion, string RutaImagen);
 public sealed record PettyCashMovementListResponse(long CajaId, IReadOnlyList<PettyCashMovementResponse> Movimientos);
