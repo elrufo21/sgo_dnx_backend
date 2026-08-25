@@ -1781,6 +1781,96 @@ public class NotaController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpGet("pago-varios/{pagoId:long}", Name = "GetPagoVariosDetalle")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    [ProducesResponseType((int)HttpStatusCode.NotFound)]
+    public async Task<IActionResult> ObtenerPagoVariosDetalle(
+        long pagoId,
+        CancellationToken cancellationToken = default)
+    {
+        if (pagoId <= 0)
+            return BadRequest(new { ok = false, mensaje = "Pago Varios inválido." });
+
+        await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await con.OpenAsync(cancellationToken);
+
+        PagoVariosHistorialItemResponse? pago = null;
+        await using (var pagoCmd = new SqlCommand("""
+            SELECT PagoId, ISNULL(CajaId, 0) AS CajaId,
+                   CONVERT(varchar(10), FechaEmision, 103) AS FechaEmision,
+                   ISNULL(Descripcion, '') AS Descripcion,
+                   ISNULL(FormaPago, '') AS FormaPago, ISNULL(Entidad, '') AS Entidad,
+                   ISNULL(Efectivo, 0) AS Efectivo, ISNULL(Deposito, 0) AS Deposito,
+                   ISNULL(NroOperacion, '') AS NroOperacion, ISNULL(Usuario, '') AS Usuario,
+                   ISNULL(PagoTotal, 0) AS Total
+              FROM PagoVarios
+             WHERE PagoId = @PagoId;
+            """, con))
+        {
+            pagoCmd.Parameters.AddWithValue("@PagoId", pagoId);
+            await using var reader = await pagoCmd.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                pago = new PagoVariosHistorialItemResponse
+                {
+                    PagoId = Convert.ToInt64(reader["PagoId"], CultureInfo.InvariantCulture),
+                    CajaId = Convert.ToInt64(reader["CajaId"], CultureInfo.InvariantCulture),
+                    FechaEmision = reader["FechaEmision"]?.ToString() ?? string.Empty,
+                    Descripcion = reader["Descripcion"]?.ToString() ?? string.Empty,
+                    FormaPago = reader["FormaPago"]?.ToString() ?? string.Empty,
+                    Entidad = reader["Entidad"]?.ToString() ?? string.Empty,
+                    Efectivo = Convert.ToDecimal(reader["Efectivo"], CultureInfo.InvariantCulture),
+                    Deposito = Convert.ToDecimal(reader["Deposito"], CultureInfo.InvariantCulture),
+                    NroOperacion = reader["NroOperacion"]?.ToString() ?? string.Empty,
+                    Usuario = reader["Usuario"]?.ToString() ?? string.Empty,
+                    Total = Convert.ToDecimal(reader["Total"], CultureInfo.InvariantCulture)
+                };
+            }
+        }
+
+        if (pago is null)
+            return NotFound(new { ok = false, mensaje = "No se encontró el pago realizado." });
+
+        var items = new List<PagoVariosDetalleItemResponse>();
+        await using (var detalleCmd = new SqlCommand("""
+            SELECT dp.DocuId, dp.NotaId, ISNULL(d.DocuSerie, '') AS Serie,
+                   ISNULL(d.DocuNumero, '') AS Numero, ISNULL(c.ClienteCodigo, '') AS Codigo,
+                   ISNULL(c.ClienteRazon, '') AS RazonSocial, ISNULL(dp.Monto, 0) AS Monto,
+                   ISNULL(dp.ConceptoOBS, '') AS ConceptoOBS, ISNULL(dp.Efectivo, 0) AS Efectivo,
+                   ISNULL(dp.Deposito, 0) AS Deposito
+              FROM DetallePVarios dp
+              LEFT JOIN DocumentoVenta d ON d.DocuId = dp.DocuId
+              LEFT JOIN NotaPedido n ON n.NotaId = dp.NotaId
+              LEFT JOIN Cliente c ON c.ClienteId = n.ClienteId
+             WHERE dp.PagoId = @PagoId
+             ORDER BY dp.NotaId;
+            """, con))
+        {
+            detalleCmd.Parameters.AddWithValue("@PagoId", pagoId);
+            await using var reader = await detalleCmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var serie = reader["Serie"]?.ToString()?.Trim() ?? string.Empty;
+                var numero = reader["Numero"]?.ToString()?.Trim() ?? string.Empty;
+                items.Add(new PagoVariosDetalleItemResponse
+                {
+                    DocuId = Convert.ToInt64(reader["DocuId"], CultureInfo.InvariantCulture),
+                    NotaId = Convert.ToInt64(reader["NotaId"], CultureInfo.InvariantCulture),
+                    Documento = string.Join("-", new[] { serie, numero }.Where(x => x.Length > 0)),
+                    Codigo = reader["Codigo"]?.ToString()?.Trim() ?? string.Empty,
+                    RazonSocial = reader["RazonSocial"]?.ToString()?.Trim() ?? string.Empty,
+                    Monto = Convert.ToDecimal(reader["Monto"], CultureInfo.InvariantCulture),
+                    ConceptoOBS = reader["ConceptoOBS"]?.ToString()?.Trim() ?? string.Empty,
+                    Efectivo = Convert.ToDecimal(reader["Efectivo"], CultureInfo.InvariantCulture),
+                    Deposito = Convert.ToDecimal(reader["Deposito"], CultureInfo.InvariantCulture)
+                });
+            }
+        }
+
+        return Ok(new { ok = true, pago, items });
+    }
+
+    [AllowAnonymous]
     [HttpDelete("pago-varios/{pagoId:long}", Name = "DeletePagoVarios")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     public async Task<IActionResult> EliminarPagoVarios(
@@ -2084,6 +2174,149 @@ public class NotaController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpPost("documentos/{docuId:long}/reenviar-ose", Name = "ReenviarDocumentoPendienteOse")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+    [ProducesResponseType((int)HttpStatusCode.NotFound)]
+    public async Task<IActionResult> ReenviarDocumentoPendienteOse(long docuId, CancellationToken cancellationToken)
+    {
+        if (docuId <= 0)
+        {
+            return BadRequest(new { ok = false, mensaje = "DOCU_ID inválido." });
+        }
+
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            return StatusCode((int)HttpStatusCode.InternalServerError, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
+        }
+
+        long notaId;
+        string tipoCodigo;
+        string serie;
+        string numero;
+        string referencia;
+        string asociado;
+
+        const string sqlDocumento = """
+            SELECT DocuId, ISNULL(NotaId, 0) AS NotaId, ISNULL(TipoCodigo, '') AS TipoCodigo,
+                   ISNULL(DocuSerie, '') AS DocuSerie, ISNULL(DocuNumero, '') AS DocuNumero,
+                   ISNULL(DocuNroGuia, '') AS DocuNroGuia, ISNULL(DocuAsociado, '') AS DocuAsociado
+            FROM DocumentoVenta
+            WHERE DocuId = @DocuId
+              AND TipoCodigo IN ('01', '07')
+              AND LTRIM(RTRIM(ISNULL(EstadoSunat, ''))) = 'PENDIENTE'
+              AND LTRIM(RTRIM(ISNULL(DocuEstado, ''))) <> 'ANULADO';
+            """;
+
+        await using (var con = new SqlConnection(connectionString))
+        await using (var cmd = new SqlCommand(sqlDocumento, con))
+        {
+            cmd.Parameters.AddWithValue("@DocuId", docuId);
+            await con.OpenAsync(cancellationToken);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                return NotFound(new { ok = false, mensaje = "No se encontró un documento pendiente de envío a OSE." });
+            }
+
+            notaId = Convert.ToInt64(reader["NotaId"], CultureInfo.InvariantCulture);
+            tipoCodigo = reader["TipoCodigo"]?.ToString()?.Trim() ?? string.Empty;
+            serie = reader["DocuSerie"]?.ToString()?.Trim() ?? string.Empty;
+            numero = reader["DocuNumero"]?.ToString()?.Trim() ?? string.Empty;
+            referencia = reader["DocuNroGuia"]?.ToString()?.Trim() ?? string.Empty;
+            asociado = reader["DocuAsociado"]?.ToString()?.Trim() ?? string.Empty;
+        }
+
+        if (notaId <= 0)
+        {
+            return BadRequest(new { ok = false, mensaje = "El documento pendiente no tiene una nota asociada para reconstruir el envío." });
+        }
+
+        var nota = await _mediator.ObtenerPorIdAsync(notaId, cancellationToken);
+        if (nota is null)
+        {
+            return NotFound(new { ok = false, mensaje = "No se encontró la venta asociada al documento pendiente." });
+        }
+
+        var detalles = await _mediator.ListarDetalleAsync(notaId, 1, 5000, cancellationToken);
+        var request = await ConstruirRequestFacturaDesdeOrdenAsync(
+            nota,
+            detalles,
+            notaId,
+            numero,
+            cancellationToken);
+        if (request is null)
+        {
+            return BadRequest(new { ok = false, mensaje = "No se pudo reconstruir el documento para reenviarlo a OSE." });
+        }
+
+        request.DOCU_ID = docuId;
+        request.NRO_COMPROBANTE = $"{serie}-{numero}".Trim('-');
+
+        if (tipoCodigo == "01")
+        {
+            request.COD_TIPO_DOCUMENTO = "01";
+            request = NormalizarRequestFactura(request);
+            var errores = ValidarRequestFactura(request);
+            if (errores.Count > 0)
+            {
+                return BadRequest(new { ok = false, mensaje = "Faltan datos para reenviar la factura.", errores });
+            }
+
+            var tipoProceso = ParseTipoProceso(request.TIPO_PROCESO);
+            if (!tipoProceso.HasValue || tipoProceso.Value < 1 || tipoProceso.Value > 3)
+            {
+                return BadRequest(new { ok = false, mensaje = "TIPO_PROCESO inválido." });
+            }
+
+            return Ok(await EjecutarEnvioFacturaAsync(
+                request,
+                tipoProceso.Value,
+                cancellationToken,
+                subirArchivosCpe: true));
+        }
+
+        request.COD_TIPO_DOCUMENTO = "07";
+        request.NRO_DOCUMENTO_MODIFICA = referencia;
+        request.TIPO_COMPROBANTE_MODIFICA = "01";
+        request.COD_TIPO_MOTIVO = "01";
+        request.DESCRIPCION_MOTIVO = string.IsNullOrWhiteSpace(nota.NotaConcepto)
+            ? DocuConceptoNotaCreditoDefault
+            : nota.NotaConcepto.Trim();
+
+        if (long.TryParse(asociado, NumberStyles.Integer, CultureInfo.InvariantCulture, out var docuIdOrigen))
+        {
+            const string sqlOrigen = "SELECT TOP (1) TipoCodigo, DocuSerie, DocuNumero FROM DocumentoVenta WHERE DocuId = @DocuId;";
+            await using var con = new SqlConnection(connectionString);
+            await using var cmd = new SqlCommand(sqlOrigen, con);
+            cmd.Parameters.AddWithValue("@DocuId", docuIdOrigen);
+            await con.OpenAsync(cancellationToken);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                request.TIPO_COMPROBANTE_MODIFICA = reader["TipoCodigo"]?.ToString()?.Trim() ?? "01";
+                request.NRO_DOCUMENTO_MODIFICA = $"{reader["DocuSerie"]?.ToString()?.Trim()}-{reader["DocuNumero"]?.ToString()?.Trim()}".Trim('-');
+            }
+        }
+
+        request = NormalizarRequestNotaCredito(request);
+        var erroresNotaCredito = ValidarRequestNotaCredito(request);
+        if (erroresNotaCredito.Count > 0)
+        {
+            return BadRequest(new { ok = false, mensaje = "Faltan datos para reenviar la nota de crédito.", errores = erroresNotaCredito });
+        }
+
+        var tipoProcesoNotaCredito = ParseTipoProceso(request.TIPO_PROCESO);
+        if (!tipoProcesoNotaCredito.HasValue || tipoProcesoNotaCredito.Value < 1 || tipoProcesoNotaCredito.Value > 3)
+        {
+            return BadRequest(new { ok = false, mensaje = "TIPO_PROCESO inválido." });
+        }
+
+        return Ok(await EjecutarEnvioNotaCreditoAsync(request, tipoProcesoNotaCredito.Value, cancellationToken));
+    }
+
+    [AllowAnonymous]
     [HttpGet("facturas-servicio", Name = "GetFacturasServicioEmitidas")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     public async Task<IActionResult> ListarFacturasServicioEmitidas(
@@ -2092,6 +2325,7 @@ public class NotaController : ControllerBase
         [FromQuery] string? estadoSunat = null,
         [FromQuery] int? companiaId = null,
         [FromQuery] bool soloServicio = true,
+        [FromQuery] bool pendientesOse = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         CancellationToken cancellationToken = default)
@@ -2182,10 +2416,15 @@ public class NotaController : ControllerBase
             LEFT JOIN Cliente c ON c.ClienteId = d.ClienteId
             LEFT JOIN DocumentoVentaCpeWeb w ON w.DocuId = d.DocuId
             LEFT JOIN DetalleDocumento dd ON dd.DocuId = d.DocuId
-            WHERE d.TipoCodigo = '01'
-              AND LTRIM(RTRIM(ISNULL(d.DocuDocumento, ''))) = 'FACTURA'
+            WHERE (
+                    (@PendientesOse = 1 AND d.TipoCodigo IN ('01', '07'))
+                    OR (@PendientesOse = 0
+                        AND d.TipoCodigo = '01'
+                        AND LTRIM(RTRIM(ISNULL(d.DocuDocumento, ''))) = 'FACTURA')
+                  )
               AND (@CompaniaId IS NULL OR d.CompaniaId = @CompaniaId)
               AND (@EstadoSunat IS NULL OR LTRIM(RTRIM(ISNULL(d.EstadoSunat, ''))) = @EstadoSunat)
+              AND (@PendientesOse = 0 OR LTRIM(RTRIM(ISNULL(d.EstadoSunat, ''))) = 'PENDIENTE')
               AND (@FechaInicio IS NULL OR d.DocuEmision >= @FechaInicio)
               AND (@FechaFin IS NULL OR d.DocuEmision <= @FechaFin)
               AND (
@@ -2228,6 +2467,7 @@ public class NotaController : ControllerBase
         cmd.Parameters.AddWithValue("@FechaInicio", (object?)fechaInicio?.Date ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@FechaFin", (object?)fechaFin?.Date ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@SoloServicio", soloServicio ? 1 : 0);
+        cmd.Parameters.AddWithValue("@PendientesOse", pendientesOse ? 1 : 0);
         cmd.Parameters.AddWithValue("@MarcaFacturaServicio", DocuAsociadoFacturaServicioOse);
         cmd.Parameters.AddWithValue("@CondicionFacturaServicio", DocuCondicionFacturaServicio);
         cmd.Parameters.AddWithValue("@Start", ((page - 1) * pageSize) + 1);
@@ -10981,6 +11221,19 @@ public class PagoVariosHistorialItemResponse
     public string NroOperacion { get; set; } = string.Empty;
     public string Usuario { get; set; } = string.Empty;
     public decimal Total { get; set; }
+}
+
+public class PagoVariosDetalleItemResponse
+{
+    public long DocuId { get; set; }
+    public long NotaId { get; set; }
+    public string Documento { get; set; } = string.Empty;
+    public string Codigo { get; set; } = string.Empty;
+    public string RazonSocial { get; set; } = string.Empty;
+    public decimal Monto { get; set; }
+    public string ConceptoOBS { get; set; } = string.Empty;
+    public decimal Efectivo { get; set; }
+    public decimal Deposito { get; set; }
 }
 
 public class EliminarPagoVariosRequest

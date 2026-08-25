@@ -136,47 +136,14 @@ public class CompraRepository : ICompra
     public async Task<IReadOnlyList<Compra>> ListarCrudAsync(string? estado = null, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
     {
         (page, pageSize) = NormalizePagination(page, pageSize);
-        var sql = @"SELECT CompraId,
-                           CompraCorrelativo,
-                           ProveedorId,
-                           CompraRegistro,
-                           CompraEmision,
-                           CompraComputo,
-                           TipoCodigo,
-                           CompraSerie,
-                           CompraNumero,
-                           CompraCondicion,
-                           CompraMoneda,
-                           CompraTipoCambio,
-                           CompraDias,
-                           CompraFechaPago,
-                           CompraUsuario,
-                           CompraTipoIgv,
-                           CompraValorVenta,
-                           CompraDescuento,
-                           CompraSubtotal,
-                           CompraIgv,
-                           CompraTotal,
-                           CompraEstado,
-                           CompraAsociado,
-                           CompraSaldo,
-                           CompraOBS,
-                           CompraTipoSunat,
-                           CompraConcepto,
-                           CompraPercepcion
-                    FROM Compras
-                    WHERE (@Estado IS NULL OR CompraEstado = @Estado)
-                    ORDER BY CompraId DESC
-                    OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
-
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand(sql, con)
+        await using var cmd = new SqlCommand("uspListarComprasweb", con)
         {
             CommandTimeout = 300,
-            CommandType = CommandType.Text
+            CommandType = CommandType.StoredProcedure
         };
         cmd.Parameters.AddWithValue("@Estado", (object?)estado ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@Offset", (page - 1) * pageSize);
+        cmd.Parameters.AddWithValue("@Page", page);
         cmd.Parameters.AddWithValue("@PageSize", pageSize);
         await con.OpenAsync(cancellationToken);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);

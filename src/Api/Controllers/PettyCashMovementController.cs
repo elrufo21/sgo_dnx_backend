@@ -67,7 +67,7 @@ public sealed class PettyCashMovementController : ControllerBase
                    ISNULL(FormaPago, '') AS FormaPago, ISNULL(EntidadBancaria, '') AS Entidad,
                    ISNULL(NroOperacion, '') AS NroOperacion, ISNULL(RutaImagen, '') AS RutaImagen
               FROM CajaDetalle
-             WHERE CajaId = @CajaId AND ISNULL(Vista, '') = ''
+             WHERE CajaId = @CajaId AND ISNULL(NotaId, 0) = 0 AND ISNULL(Vista, '') = ''
              ORDER BY DetalleId DESC;
             """, con);
         AddCajaId(cmd, cajaId.Value);

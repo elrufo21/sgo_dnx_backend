@@ -1,6 +1,5 @@
 using Ecommerce.Application.Contracts.Maquinas;
 using Ecommerce.Domain;
-using Ecommerce.Infrastructure.Persistence;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 using System.Data;
@@ -10,77 +9,83 @@ namespace Ecommerce.Infrastructure.Persistence.Repositories;
 public class MaquinaRepository : IMaquina
 {
     private readonly string _connectionString;
-    private readonly AccesoDatos _accesoDatos;
-
-    public MaquinaRepository(IConfiguration configuration, AccesoDatos accesoDatos)
+    public MaquinaRepository(IConfiguration configuration)
     {
         _connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Missing connection string: DefaultConnection");
-        _accesoDatos = accesoDatos;
     }
 
-    public async Task<string> InsertarAsync(Maquina maquina, CancellationToken cancellationToken = default)
+    public Task<string> InsertarAsync(Maquina maquina, CancellationToken cancellationToken = default)
     {
-        var data = $"{maquina.IdMaquina}|{maquina.NombreMaquina?.Trim()}|{maquina.SerieFactura?.Trim()}|{maquina.SerieNC?.Trim()}|{maquina.SerieBoleta?.Trim()}|{maquina.Tiketera?.Trim()}";
-        var result = await _accesoDatos.EjecutarComandoAsync("uspInsertarMaquina", "@Data", data, cancellationToken);
-        return string.IsNullOrWhiteSpace(result) ? "error" : result;
+        var data = maquina.IdMaquina > 0
+            ? $"ACTUALIZAR|{maquina.IdMaquina}|{maquina.NombreMaquina?.Trim()}|{maquina.SerieFactura?.Trim()}|{maquina.SerieNC?.Trim()}|{maquina.SerieBoleta?.Trim()}|{maquina.Tiketera?.Trim()}"
+            : $"CREAR|{maquina.NombreMaquina?.Trim()}|{maquina.SerieFactura?.Trim()}|{maquina.SerieNC?.Trim()}|{maquina.SerieBoleta?.Trim()}|{maquina.Tiketera?.Trim()}";
+        return EjecutarAsync(data, cancellationToken);
     }
 
     public async Task<bool> EliminarAsync(int id, CancellationToken cancellationToken = default)
     {
-        const string sql = "DELETE FROM MAQUINAS WHERE IdMaquina = @Id";
-        await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand(sql, con);
-        cmd.Parameters.AddWithValue("@Id", id);
-        await con.OpenAsync(cancellationToken);
-        var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
-        return rows > 0;
+        var result = await EjecutarAsync($"ELIMINAR|{id}", cancellationToken);
+        return result.StartsWith("OK|", StringComparison.OrdinalIgnoreCase);
     }
 
     public async Task<IReadOnlyList<Maquina>> ListarAsync(int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
     {
         (page, pageSize) = NormalizePagination(page, pageSize);
 
-        const string sql = """
-            SELECT IdMaquina, Maquina, Registro, SerieFactura, SerieNC, SerieBoleta, Tiketera
-            FROM MAQUINAS
-            ORDER BY IdMaquina DESC
-            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
-            """;
-
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand(sql, con)
-        {
-            CommandTimeout = 300,
-            CommandType = CommandType.Text
-        };
-        cmd.Parameters.AddWithValue("@Offset", (page - 1) * pageSize);
-        cmd.Parameters.AddWithValue("@PageSize", pageSize);
+        await using var cmd = CrearComando(con, "LISTAR");
         await con.OpenAsync(cancellationToken);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
 
-        var lista = new List<Maquina>();
+        var maquinas = new List<Maquina>();
         while (await reader.ReadAsync(cancellationToken))
         {
-            lista.Add(new Maquina
-            {
-                IdMaquina = Convert.ToInt32(reader["IdMaquina"]),
-                NombreMaquina = reader["Maquina"].ToString(),
-                Registro = reader["Registro"].ToString(),
-                SerieFactura = reader["SerieFactura"].ToString(),
-                SerieNC = reader["SerieNC"].ToString(),
-                SerieBoleta = reader["SerieBoleta"].ToString(),
-                Tiketera = reader["Tiketera"].ToString()
-            });
+            var maquina = ParseMaquina(reader["Data"]?.ToString());
+            if (maquina is not null) maquinas.Add(maquina);
         }
 
-        return lista;
+        return maquinas.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+    }
+
+    private async Task<string> EjecutarAsync(string data, CancellationToken cancellationToken)
+    {
+        await using var con = new SqlConnection(_connectionString);
+        await using var cmd = CrearComando(con, data);
+        await con.OpenAsync(cancellationToken);
+        return (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString()?.Trim() ?? string.Empty;
+    }
+
+    private static SqlCommand CrearComando(SqlConnection con, string data)
+    {
+        var cmd = new SqlCommand("dbo.usp_Maquina", con)
+        {
+            CommandTimeout = 300,
+            CommandType = CommandType.StoredProcedure
+        };
+        cmd.Parameters.Add("@Data", SqlDbType.VarChar, -1).Value = data;
+        return cmd;
+    }
+
+    private static Maquina? ParseMaquina(string? raw)
+    {
+        var values = raw?.Split('|', 7) ?? Array.Empty<string>();
+        if (values.Length < 7 || !int.TryParse(values[0], out var id)) return null;
+
+        return new Maquina
+        {
+            IdMaquina = id,
+            NombreMaquina = values[1],
+            Registro = values[2],
+            SerieFactura = values[3],
+            SerieNC = values[4],
+            SerieBoleta = values[5],
+            Tiketera = values[6]
+        };
     }
 
     private static (int page, int pageSize) NormalizePagination(int page, int pageSize)
     {
-        var normalizedPage = page < 1 ? 1 : page;
-        var normalizedPageSize = pageSize < 1 ? 1 : Math.Min(pageSize, 100);
-        return (normalizedPage, normalizedPageSize);
+        return (page < 1 ? 1 : page, pageSize < 1 ? 1 : Math.Min(pageSize, 100));
     }
 }

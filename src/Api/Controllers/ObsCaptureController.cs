@@ -70,7 +70,7 @@ public sealed class ObsCaptureController : ControllerBase
         [FromBody] ObsCaptureRequest? request,
         CancellationToken cancellationToken)
     {
-        var tipo = NormalizarTipo(request?.TipoVenta);
+        var tipoSolicitado = NormalizarTipo(request?.TipoVenta);
         var lines = request?.Lines?
             .Where(line => line is not null)
             .Select(line => new ObsCaptureLine(
@@ -85,7 +85,7 @@ public sealed class ObsCaptureController : ControllerBase
             .ToList() ?? new List<ObsCaptureLine>();
 
         if (lines.Count == 0)
-            return BadRequest(new { ok = false, mensaje = $"No se recibieron transacciones {tipo} válidas." });
+            return BadRequest(new { ok = false, mensaje = $"No se recibieron transacciones {tipoSolicitado} válidas." });
         var connectionString = _configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
             return StatusCode(500, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
@@ -96,6 +96,7 @@ public sealed class ObsCaptureController : ControllerBase
 
         foreach (var line in lines)
         {
+            var tipo = TipoPorTransaccion(line.NotaTransaccion);
             await using var cmd = new SqlCommand("""
                 UPDATE TABLAOBS
                    SET FechaTransaccion = @Fecha,
@@ -122,8 +123,11 @@ public sealed class ObsCaptureController : ControllerBase
         }
 
         await tx.CommitAsync(cancellationToken);
-        return Ok(new { ok = true, cantidad = lines.Count, mensaje = $"Datos {tipo} actualizados correctamente." });
+        return Ok(new { ok = true, cantidad = lines.Count, mensaje = "Datos actualizados correctamente." });
     }
+
+    private static string TipoPorTransaccion(string? transaccion) =>
+        (transaccion ?? string.Empty).Contains("RS", StringComparison.OrdinalIgnoreCase) ? "IOC" : "OBS";
 
     private static string NormalizarTipo(string? tipo) =>
         string.Equals(tipo?.Trim(), "IOC", StringComparison.OrdinalIgnoreCase) ? "IOC" : "OBS";

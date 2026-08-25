@@ -71,7 +71,7 @@ BEGIN
         @NotaFormaPago varchar(60),
         @NotaCondicion varchar(60),
         @NotaDireccion varchar(max),
-        @CompaniaUbigeo varchar(10),
+        @CompaniaUbigeo varchar(250),
 
         @NotaSubtotal decimal(18,2),
         @NotaMovilidad decimal(18,2),
@@ -631,7 +631,7 @@ BEGIN
         RETURN;
     END;
 
-    SELECT @CompaniaUbigeo = NULLIF(LTRIM(RTRIM(CompaniaCodigoUBG)), '')
+    SELECT @CompaniaUbigeo = NULLIF(LTRIM(RTRIM(CompaniaNomUBG)), '')
     FROM Compania
     WHERE CompaniaId = @CompaniaId;
 

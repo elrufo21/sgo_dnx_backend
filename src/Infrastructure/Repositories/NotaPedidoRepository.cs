@@ -152,7 +152,7 @@ public class NotaPedidoRepository : INotaPedido
         }
 
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand("LDdocumentos", con)
+        await using var cmd = new SqlCommand("LDdocumentosweb", con)
         {
             CommandTimeout = 300,
             CommandType = CommandType.StoredProcedure
