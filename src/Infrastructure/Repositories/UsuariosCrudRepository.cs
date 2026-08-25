@@ -1,4 +1,5 @@
 using System.Data;
+using System.Globalization;
 using Ecommerce.Application.Contracts.Usuarios;
 using Ecommerce.Domain;
 using Microsoft.Data.SqlClient;
@@ -193,6 +194,55 @@ public class UsuariosCrudRepository : IUsuariosCrud
         return await reader.ReadAsync(cancellationToken) ? MapWithPersonal(reader) : null;
     }
 
+    public async Task<string> InsertarMantenimientoAsync(UsuarioBd usuario, CancellationToken cancellationToken = default)
+    {
+        var result = await EjecutarMantenimientoAsync(
+            BuildMaintenanceData("CREAR", usuario),
+            usuario.UsuarioClave,
+            cancellationToken);
+        return result.Value ?? string.Empty;
+    }
+
+    public async Task<string> EditarMantenimientoAsync(int id, UsuarioBd usuario, CancellationToken cancellationToken = default)
+    {
+        var result = await EjecutarMantenimientoAsync(
+            BuildMaintenanceData("ACTUALIZAR", usuario, id),
+            usuario.UsuarioClave,
+            cancellationToken);
+        return result.Value ?? string.Empty;
+    }
+
+    public async Task<bool> EliminarMantenimientoAsync(int id, CancellationToken cancellationToken = default)
+    {
+        if (id <= 0) return false;
+        var result = await EjecutarMantenimientoAsync($"ELIMINAR|{id}", null, cancellationToken);
+        return IsMaintenanceSuccess(result.Value);
+    }
+
+    public async Task<IReadOnlyList<UsuarioBd>> ListarMantenimientoAsync(
+        string? estado = "ACTIVO",
+        int page = 1,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        (page, pageSize) = NormalizePagination(page, pageSize);
+        var result = await EjecutarMantenimientoAsync("LISTAR", null, cancellationToken, readRows: true);
+        var rows = result.Rows
+            .Select(ParseMaintenanceRow)
+            .Where(usuario => usuario is not null)
+            .Cast<UsuarioBd>();
+
+        if (!string.IsNullOrWhiteSpace(estado))
+        {
+            rows = rows.Where(usuario => string.Equals(
+                usuario.UsuarioEstado,
+                estado,
+                StringComparison.OrdinalIgnoreCase));
+        }
+
+        return rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+    }
+
     private static UsuarioBd Map(SqlDataReader reader)
     {
         return new UsuarioBd
@@ -207,6 +257,38 @@ public class UsuariosCrudRepository : IUsuariosCrud
             UsuarioEstado = reader["Estado"].ToString()
         };
     }
+
+    private static UsuarioBd? ParseMaintenanceRow(string row)
+    {
+        var values = row.Split('|', StringSplitOptions.None);
+        if (values.Length < 18 || !int.TryParse(values[0], out var id)) return null;
+
+        return new UsuarioBd
+        {
+            UsuarioID = id,
+            PersonalId = int.TryParse(values[1], out var personalId) ? personalId : null,
+            UsuarioAlias = values[2],
+            UsuarioFechaReg = DateTime.TryParse(values[3], CultureInfo.InvariantCulture, DateTimeStyles.None, out var fecha)
+                ? fecha
+                : null,
+            UsuarioEstado = values[4],
+            UsuarioSerie = values[5],
+            EnviaBoleta = ParseBit(values[6]),
+            EnviarFactura = ParseBit(values[7]),
+            EnviaNC = ParseBit(values[8]),
+            EnviaND = ParseBit(values[9]),
+            UserRuta = values[10],
+            UserRutaOBS = values[11],
+            Administrador = ParseBit(values[12]),
+            RutaVentaOBS = values[13],
+            RutaIOC = values[14],
+            RutaApertura = values[15],
+            FechaVencimientoClave = values[16],
+            ClaveConfigurada = values[17] == "1"
+        };
+    }
+
+    private static int ParseBit(string value) => value == "1" ? 1 : 0;
 
     private static UsuarioConPersonal MapWithPersonal(SqlDataReader reader)
     {
@@ -279,6 +361,82 @@ public class UsuariosCrudRepository : IUsuariosCrud
         var clave = usuario.UsuarioClave?.Trim() ?? string.Empty;
         var estado = usuario.UsuarioEstado?.Trim() ?? string.Empty;
         return $"{usuarioId}|{personalId}|{alias}|{clave}|{estado}";
+    }
+
+    private static string BuildMaintenanceData(string action, UsuarioBd usuario, int id = 0)
+    {
+        var values = new List<string>
+        {
+            action,
+            id > 0 ? id.ToString(CultureInfo.InvariantCulture) : string.Empty,
+            (usuario.PersonalId ?? 0).ToString(CultureInfo.InvariantCulture),
+            usuario.UsuarioAlias?.Trim() ?? string.Empty,
+            usuario.UsuarioEstado?.Trim() ?? "ACTIVO",
+            usuario.UsuarioSerie?.Trim() ?? string.Empty,
+            NormalizeBit(usuario.EnviaBoleta),
+            NormalizeBit(usuario.EnviarFactura),
+            NormalizeBit(usuario.EnviaNC),
+            NormalizeBit(usuario.EnviaND),
+            usuario.UserRuta?.Trim() ?? string.Empty,
+            usuario.UserRutaOBS?.Trim() ?? string.Empty,
+            NormalizeBit(usuario.Administrador),
+            usuario.RutaVentaOBS?.Trim() ?? string.Empty,
+            usuario.RutaIOC?.Trim() ?? string.Empty,
+            usuario.RutaApertura?.Trim() ?? string.Empty,
+            NormalizeDate(usuario.FechaVencimientoClave)
+        };
+
+        if (action == "CREAR") values.RemoveAt(1);
+        return string.Join('|', values);
+    }
+
+    private async Task<(string? Value, IReadOnlyList<string> Rows)> EjecutarMantenimientoAsync(
+        string data,
+        string? password,
+        CancellationToken cancellationToken,
+        bool readRows = false)
+    {
+        await using var con = new SqlConnection(_connectionString);
+        await con.OpenAsync(cancellationToken);
+
+        byte[]? encryptedPassword = null;
+        if (!string.IsNullOrWhiteSpace(password))
+        {
+            await using var encryptCommand = new SqlCommand("SELECT dbo.encriptar(@Clave)", con);
+            encryptCommand.Parameters.Add("@Clave", SqlDbType.VarChar, 50).Value = password.Trim();
+            encryptedPassword = await encryptCommand.ExecuteScalarAsync(cancellationToken) as byte[];
+        }
+
+        await using var command = new SqlCommand("dbo.usp_Usuario", con)
+        {
+            CommandTimeout = 300,
+            CommandType = CommandType.StoredProcedure
+        };
+        command.Parameters.Add("@Data", SqlDbType.VarChar, -1).Value = data;
+        command.Parameters.Add("@UsuarioClave", SqlDbType.VarBinary, 500).Value = (object?)encryptedPassword ?? DBNull.Value;
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var rows = new List<string>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var value = reader.IsDBNull(0) ? string.Empty : reader.GetValue(0)?.ToString() ?? string.Empty;
+            rows.Add(value);
+        }
+
+        return (rows.FirstOrDefault(), readRows ? rows : Array.Empty<string>());
+    }
+
+    private static bool IsMaintenanceSuccess(string? result) =>
+        result?.StartsWith("OK|", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static string NormalizeBit(int value) => value == 1 ? "1" : "0";
+
+    private static string NormalizeDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        return DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var date)
+            ? date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            : string.Empty;
     }
 
     private static (int page, int pageSize) NormalizePagination(int page, int pageSize)

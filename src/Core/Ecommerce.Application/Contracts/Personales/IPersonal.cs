@@ -12,4 +12,14 @@ public interface IPersonal
         int page = 1,
         int pageSize = 50,
         CancellationToken cancellationToken = default);
+    Task<string> InsertarMantenimientoAsync(
+        Personal personal,
+        byte[]? huella = null,
+        CancellationToken cancellationToken = default);
+    Task<bool> EliminarMantenimientoAsync(long id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Personal>> ListarMantenimientoAsync(
+        string? estado = "ACTIVO",
+        int page = 1,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default);
 }

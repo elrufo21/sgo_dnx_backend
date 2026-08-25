@@ -90,4 +90,35 @@ public class UsuariosCrudController : ControllerBase
         if (usuario is null) return NotFound();
         return Ok(usuario);
     }
+
+    [Authorize]
+    [HttpPost("maintenance/register", Name = "RegisterMaintenanceUsuario")]
+    public async Task<IActionResult> RegisterMaintenanceUsuario(
+        [FromBody] UsuarioBd usuario,
+        CancellationToken cancellationToken)
+    {
+        var result = usuario.UsuarioID > 0
+            ? await _usuariosCrud.EditarMantenimientoAsync(usuario.UsuarioID, usuario, cancellationToken)
+            : await _usuariosCrud.InsertarMantenimientoAsync(usuario, cancellationToken);
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpDelete("maintenance/{id:int}", Name = "EliminarMaintenanceUsuario")]
+    public async Task<IActionResult> EliminarMaintenanceUsuario(int id, CancellationToken cancellationToken)
+    {
+        return Ok(await _usuariosCrud.EliminarMantenimientoAsync(id, cancellationToken));
+    }
+
+    [AllowAnonymous]
+    [HttpGet("maintenance/list", Name = "GetMaintenanceUsuariosList")]
+    [ProducesResponseType(typeof(IReadOnlyList<UsuarioBd>), (int)HttpStatusCode.OK)]
+    public async Task<ActionResult<IReadOnlyList<UsuarioBd>>> GetMaintenanceUsuariosList(
+        [FromQuery] string? estado = "ACTIVO",
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        return Ok(await _usuariosCrud.ListarMantenimientoAsync(estado, page, pageSize, cancellationToken));
+    }
 }

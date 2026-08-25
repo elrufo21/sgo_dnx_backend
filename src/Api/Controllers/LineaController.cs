@@ -42,4 +42,25 @@ public class LineaController : ControllerBase
     {
         return Ok(await _mediator.ListarAsync(page, pageSize, cancellationToken));
     }
+
+    [HttpPost("maintenance/register", Name = "RegisterMaintenanceSublinea")]
+    public async Task<IActionResult> RegisterMaintenanceSublinea([FromBody] Linea linea, CancellationToken cancellationToken)
+    {
+        return Ok(await _mediator.InsertarMantenimientoAsync(linea, cancellationToken));
+    }
+
+    [HttpDelete("maintenance/{id}", Name = "EliminarMaintenanceSublinea")]
+    public async Task<IActionResult> EliminarMaintenanceSublinea(int id, CancellationToken cancellationToken)
+    {
+        return Ok(await _mediator.EliminarMantenimientoAsync(id, cancellationToken));
+    }
+
+    [HttpGet("maintenance/list", Name = "GetMaintenanceSublineaList")]
+    public async Task<ActionResult<IReadOnlyList<EGeneral>>> GetMaintenanceSublineaList(
+        int page = 1,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        return Ok(await _mediator.ListarMantenimientoAsync(page, pageSize, cancellationToken));
+    }
 }

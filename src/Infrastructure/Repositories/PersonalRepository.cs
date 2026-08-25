@@ -95,6 +95,135 @@ public class PersonalRepository : IPersonal
         return lista;
     }
 
+    public async Task<string> InsertarMantenimientoAsync(
+        Personal personal,
+        byte[]? huella = null,
+        CancellationToken cancellationToken = default)
+    {
+        var id = personal.PersonalId > 0 ? personal.PersonalId : 0;
+        var action = id > 0 ? "ACTUALIZAR" : "CREAR";
+        var values = new[]
+        {
+            action,
+            id > 0 ? id.ToString(CultureInfo.InvariantCulture) : null,
+            personal.PersonalNombres,
+            personal.PersonalApellidos,
+            personal.AreaId?.ToString(CultureInfo.InvariantCulture),
+            personal.PersonalCodigo,
+            FormatDate(personal.PersonalNacimiento),
+            FormatDate(personal.PersonalIngreso),
+            personal.PersonalDNI,
+            personal.PersonalDireccion,
+            personal.PersonalTelefono,
+            personal.PersonalTelefonoAsi,
+            personal.PersonalEmail,
+            personal.PersonalSueldo?.ToString(CultureInfo.InvariantCulture),
+            personal.PersonalEstado,
+            personal.PersonalBajaFecha,
+            personal.PersonalRuc,
+            personal.PersonalImagen,
+            personal.CompaniaId?.ToString(CultureInfo.InvariantCulture)
+        };
+
+        var data = string.Join("|", id > 0 ? values : values.Where((_, index) => index != 1));
+        var result = await EjecutarMantenimientoAsync(data, huella, cancellationToken);
+        return string.IsNullOrWhiteSpace(result) ? "ERROR|No se obtuvo respuesta." : result;
+    }
+
+    public async Task<bool> EliminarMantenimientoAsync(long id, CancellationToken cancellationToken = default)
+    {
+        if (id <= 0) return false;
+        var result = await EjecutarMantenimientoAsync(
+            $"ELIMINAR|{id.ToString(CultureInfo.InvariantCulture)}",
+            null,
+            cancellationToken);
+        return result.StartsWith("OK|", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public async Task<IReadOnlyList<Personal>> ListarMantenimientoAsync(
+        string? estado = "ACTIVO",
+        int page = 1,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default)
+    {
+        var all = new List<Personal>();
+        await using var con = new SqlConnection(_connectionString);
+        await using var cmd = new SqlCommand("usp_Personal", con)
+        {
+            CommandTimeout = 300,
+            CommandType = CommandType.StoredProcedure
+        };
+        cmd.Parameters.Add("@Data", SqlDbType.VarChar, -1).Value = "LISTAR";
+
+        await con.OpenAsync(cancellationToken);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var data = reader.IsDBNull(0) ? string.Empty : reader.GetString(0);
+            var fields = data.Split('|', 19, StringSplitOptions.None);
+            if (fields.Length < 19) continue;
+            all.Add(MapMaintenance(fields));
+        }
+
+        var filtered = string.IsNullOrWhiteSpace(estado)
+            ? all
+            : all.Where(x => string.Equals(x.PersonalEstado?.Trim(), estado.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+        var normalizedPage = page < 1 ? 1 : page;
+        var normalizedSize = pageSize < 1 ? 1 : Math.Min(pageSize, 100);
+        return filtered.Skip((normalizedPage - 1) * normalizedSize).Take(normalizedSize).ToList();
+    }
+
+    private async Task<string> EjecutarMantenimientoAsync(
+        string data,
+        byte[]? huella,
+        CancellationToken cancellationToken)
+    {
+        await using var con = new SqlConnection(_connectionString);
+        await using var cmd = new SqlCommand("usp_Personal", con)
+        {
+            CommandTimeout = 300,
+            CommandType = CommandType.StoredProcedure
+        };
+        cmd.Parameters.Add("@Data", SqlDbType.VarChar, -1).Value = data;
+        cmd.Parameters.Add("@Huella", SqlDbType.VarBinary, -1).Value = (object?)huella ?? DBNull.Value;
+        await con.OpenAsync(cancellationToken);
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+        return result?.ToString() ?? string.Empty;
+    }
+
+    private static Personal MapMaintenance(string[] fields)
+    {
+        return new Personal
+        {
+            PersonalId = long.TryParse(fields[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : 0,
+            PersonalNombres = fields[1].Trim(),
+            PersonalApellidos = fields[2].Trim(),
+            AreaId = long.TryParse(fields[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var area) ? area : null,
+            PersonalCodigo = fields[4].Trim(),
+            PersonalNacimiento = ParseDate(fields[5]),
+            PersonalIngreso = ParseDate(fields[6]),
+            PersonalDNI = fields[7].Trim(),
+            PersonalDireccion = fields[8].Trim(),
+            PersonalTelefono = fields[9].Trim(),
+            PersonalTelefonoAsi = fields[10].Trim(),
+            PersonalEmail = fields[11].Trim(),
+            PersonalSueldo = decimal.TryParse(fields[12], NumberStyles.Any, CultureInfo.InvariantCulture, out var sueldo) ? sueldo : null,
+            PersonalEstado = fields[13].Trim(),
+            PersonalBajaFecha = fields[14].Trim(),
+            PersonalRuc = fields[15].Trim(),
+            PersonalImagen = fields[16].Trim(),
+            CompaniaId = int.TryParse(fields[17], NumberStyles.Integer, CultureInfo.InvariantCulture, out var compania) ? compania : null,
+            HuellaRegistrada = fields[18].Trim() == "1"
+        };
+    }
+
+    private static DateTime? ParseDate(string value)
+    {
+        return DateTime.TryParseExact(value.Trim(), "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date)
+            ? date
+            : null;
+    }
+
     private static Personal MapPersonal(SqlDataReader reader)
     {
         return new Personal

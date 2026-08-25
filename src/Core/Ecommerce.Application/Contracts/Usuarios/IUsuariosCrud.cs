@@ -18,4 +18,12 @@ public interface IUsuariosCrud
         int pageSize = 50,
         CancellationToken cancellationToken = default);
     Task<UsuarioConPersonal?> ObtenerPorIdConPersonalAsync(int id, CancellationToken cancellationToken = default);
+    Task<string> InsertarMantenimientoAsync(UsuarioBd usuario, CancellationToken cancellationToken = default);
+    Task<string> EditarMantenimientoAsync(int id, UsuarioBd usuario, CancellationToken cancellationToken = default);
+    Task<bool> EliminarMantenimientoAsync(int id, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<UsuarioBd>> ListarMantenimientoAsync(
+        string? estado = "ACTIVO",
+        int page = 1,
+        int pageSize = 50,
+        CancellationToken cancellationToken = default);
 }
