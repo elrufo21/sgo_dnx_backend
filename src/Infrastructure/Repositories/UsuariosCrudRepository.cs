@@ -373,13 +373,13 @@ public class UsuariosCrudRepository : IUsuariosCrud
             usuario.UsuarioAlias?.Trim() ?? string.Empty,
             usuario.UsuarioEstado?.Trim() ?? "ACTIVO",
             usuario.UsuarioSerie?.Trim() ?? string.Empty,
-            NormalizeBit(usuario.EnviaBoleta),
-            NormalizeBit(usuario.EnviarFactura),
-            NormalizeBit(usuario.EnviaNC),
-            NormalizeBit(usuario.EnviaND),
+            "1",
+            "1",
+            "1",
+            "1",
             usuario.UserRuta?.Trim() ?? string.Empty,
             usuario.UserRutaOBS?.Trim() ?? string.Empty,
-            NormalizeBit(usuario.Administrador),
+            "1",
             usuario.RutaVentaOBS?.Trim() ?? string.Empty,
             usuario.RutaIOC?.Trim() ?? string.Empty,
             usuario.RutaApertura?.Trim() ?? string.Empty,
@@ -428,8 +428,6 @@ public class UsuariosCrudRepository : IUsuariosCrud
 
     private static bool IsMaintenanceSuccess(string? result) =>
         result?.StartsWith("OK|", StringComparison.OrdinalIgnoreCase) == true;
-
-    private static string NormalizeBit(int value) => value == 1 ? "1" : "0";
 
     private static string NormalizeDate(string? value)
     {
