@@ -240,7 +240,11 @@ public class UsuariosCrudRepository : IUsuariosCrud
                 StringComparison.OrdinalIgnoreCase));
         }
 
-        return rows.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return rows
+            .OrderByDescending(usuario => usuario.UsuarioID)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToList();
     }
 
     private static UsuarioBd Map(SqlDataReader reader)

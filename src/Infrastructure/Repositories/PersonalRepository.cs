@@ -170,7 +170,11 @@ public class PersonalRepository : IPersonal
             : all.Where(x => string.Equals(x.PersonalEstado?.Trim(), estado.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
         var normalizedPage = page < 1 ? 1 : page;
         var normalizedSize = pageSize < 1 ? 1 : Math.Min(pageSize, 100);
-        return filtered.Skip((normalizedPage - 1) * normalizedSize).Take(normalizedSize).ToList();
+        return filtered
+            .OrderByDescending(personal => personal.PersonalId)
+            .Skip((normalizedPage - 1) * normalizedSize)
+            .Take(normalizedSize)
+            .ToList();
     }
 
     private async Task<string> EjecutarMantenimientoAsync(

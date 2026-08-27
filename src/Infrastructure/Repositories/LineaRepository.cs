@@ -79,33 +79,12 @@ public class LineaRepository : ILinea
 
     public async Task<string> InsertarMantenimientoAsync(Linea linea, CancellationToken cancellationToken = default)
     {
-        var idSublinea = linea.IdSubLinea > 0 ? linea.IdSubLinea : 0;
-        var accion = idSublinea > 0 ? "ACTUALIZAR" : "CREAR";
-        var vista = string.IsNullOrWhiteSpace(linea.Vista) ? "V" : linea.Vista.Trim();
-        var data = idSublinea > 0
-            ? $"{accion}|{idSublinea}|{linea.IdLinea}|{linea.NombreSublinea?.Trim()}|{linea.CodigoSunat?.Trim()}|{vista}"
-            : $"{accion}|{linea.IdLinea}|{linea.NombreSublinea?.Trim()}|{linea.CodigoSunat?.Trim()}|{vista}";
-
-        var result = await _accesoDatos.EjecutarComandoAsync(
-            "usp_Sublinea",
-            "@Data",
-            data,
-            cancellationToken);
-
-        return string.IsNullOrWhiteSpace(result) ? "ERROR|No se obtuvo respuesta." : result;
+        return await InsertarAsync(linea, cancellationToken);
     }
 
     public async Task<bool> EliminarMantenimientoAsync(int id, CancellationToken cancellationToken = default)
     {
-        if (id <= 0) return false;
-
-        var result = await _accesoDatos.EjecutarComandoAsync(
-            "usp_Sublinea",
-            "@Data",
-            $"ELIMINAR|{id}",
-            cancellationToken);
-
-        return result.StartsWith("OK|", StringComparison.OrdinalIgnoreCase);
+        return await EliminarAsync(id, cancellationToken);
     }
 
     public async Task<IReadOnlyList<EGeneral>> ListarMantenimientoAsync(
@@ -113,36 +92,6 @@ public class LineaRepository : ILinea
         int pageSize = 50,
         CancellationToken cancellationToken = default)
     {
-
-        await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand("usp_Sublinea", con)
-        {
-            CommandTimeout = 300,
-            CommandType = CommandType.StoredProcedure
-        };
-        cmd.Parameters.AddWithValue("@Data", "LISTAR");
-
-        await con.OpenAsync(cancellationToken);
-        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-
-        var lista = new List<EGeneral>();
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            var data = reader.IsDBNull(0) ? string.Empty : reader.GetString(0);
-            var fields = data.Split('|', 5, StringSplitOptions.None);
-            if (fields.Length < 5 || string.IsNullOrWhiteSpace(fields[0])) continue;
-
-            lista.Add(new EGeneral
-            {
-                Id = fields[0].Trim(),
-                IdLinea = fields[1].Trim(),
-                Nombre = fields[2].Trim(),
-                nombreSublinea = fields[2].Trim(),
-                CodigoSunat = fields[3].Trim(),
-                Vista = string.IsNullOrWhiteSpace(fields[4]) ? "V" : fields[4].Trim()
-            });
-        }
-
-        return lista;
+        return await ListarAsync(page, pageSize, cancellationToken);
     }
 }
