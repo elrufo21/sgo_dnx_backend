@@ -595,6 +595,7 @@ BEGIN
     END;
 
     IF @Deposito > 0
+       AND @NotaCondicion <> 'PAGO/VARIOS'
        AND NULLIF(LTRIM(RTRIM(@NroOperacion)), '') IS NULL
     BEGIN
         SELECT 'OPERACION_REQUERIDA';
