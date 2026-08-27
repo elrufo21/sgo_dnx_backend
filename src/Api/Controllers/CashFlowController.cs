@@ -1,7 +1,6 @@
 using System.Data;
 using System.Globalization;
 using System.Text.Json.Serialization;
-using Ecommerce.Application.Contracts.Usuarios;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 
@@ -12,12 +11,10 @@ namespace Ecommerce.Api.Controllers;
 public sealed class CashFlowController : ControllerBase
 {
     private readonly IConfiguration _configuration;
-    private readonly IUsuariosCrud _usuariosCrud;
 
-    public CashFlowController(IConfiguration configuration, IUsuariosCrud usuariosCrud)
+    public CashFlowController(IConfiguration configuration)
     {
         _configuration = configuration;
-        _usuariosCrud = usuariosCrud;
     }
 
     [HttpGet(Name = "GetCashFlows")]
@@ -80,14 +77,9 @@ public sealed class CashFlowController : ControllerBase
         if (request.MontoInicial < 0)
             return BadRequest(new { ok = false, mensaje = "El monto inicial no puede ser negativo." });
 
-        var usuario = await _usuariosCrud.ObtenerPorIdConPersonalAsync(request.UsuarioId, cancellationToken);
-        var encargado = string.Join(' ', new[]
-        {
-            usuario?.Personal?.PersonalNombres?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault(),
-            usuario?.Personal?.PersonalApellidos?.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()
-        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+        var encargado = CajaField(request.Encargado);
         if (string.IsNullOrWhiteSpace(encargado))
-            return BadRequest(new { ok = false, mensaje = "El usuario no tiene nombre y apellido paterno registrados." });
+            return BadRequest(new { ok = false, mensaje = "No se pudo identificar al encargado de la caja." });
 
         var connectionString = _configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
