@@ -1986,7 +1986,7 @@ public class NotaController : ControllerBase
             efectivo.ToString("0.00", CultureInfo.InvariantCulture),
             deposito.ToString("0.00", CultureInfo.InvariantCulture),
             (request.NroOperacion ?? string.Empty).Trim(),
-            (request.Descripcion ?? "PAGO VARIOS").Trim(),
+            (request.Descripcion ?? "PAGO VARIOS").Trim().ToUpperInvariant(),
             (request.Usuario ?? "USUARIO").Trim(),
             request.UsuarioId.ToString(CultureInfo.InvariantCulture),
             concepto,
