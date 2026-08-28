@@ -601,6 +601,15 @@ public class NotaController : ControllerBase
             });
         }
 
+        var bloqueo = ReglasAnulacionDocumento.ObtenerBloqueo(
+            origen.TipoCodigo,
+            origen.Emision,
+            ObtenerAhoraCpe());
+        if (bloqueo is not null)
+        {
+            return Conflict(new { ok = false, mensaje = bloqueo });
+        }
+
         var listaOrden = ConstruirListaOrdenAnulacionBoleta(origen);
         if (soloValidar)
         {
@@ -7875,6 +7884,15 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         if (string.Equals(origen.Estado, "ANULADO", StringComparison.OrdinalIgnoreCase))
         {
             return (null, (int)HttpStatusCode.Conflict, "El documento ya se encuentra ANULADO.");
+        }
+
+        var bloqueo = ReglasAnulacionDocumento.ObtenerBloqueo(
+            origen.TipoCodigo,
+            origen.Emision,
+            ObtenerAhoraCpe());
+        if (bloqueo is not null)
+        {
+            return (null, (int)HttpStatusCode.Conflict, bloqueo);
         }
 
         if (origen.CompaniaId <= 0)

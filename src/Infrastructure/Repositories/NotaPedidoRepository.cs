@@ -50,6 +50,45 @@ public class NotaPedidoRepository : INotaPedido
 
         try
         {
+            string tipoCodigo;
+            DateTime fechaEmision;
+            DateTime fechaActual;
+            await using (var cmd = new SqlCommand("""
+                SELECT TOP (1)
+                    ISNULL(d.TipoCodigo, '') AS TipoCodigo,
+                    d.DocuEmision,
+                    CONVERT(date, GETDATE()) AS FechaActual
+                FROM DocumentoVenta d
+                WHERE d.DocuId = @DocuId
+                  AND d.NotaId = @NotaId;
+                """, con, (SqlTransaction)tx))
+            {
+                cmd.Parameters.AddWithValue("@DocuId", anulacion.DocuId);
+                cmd.Parameters.AddWithValue("@NotaId", anulacion.NotaId);
+                await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+                if (!await reader.ReadAsync(cancellationToken))
+                {
+                    await tx.RollbackAsync(cancellationToken);
+                    return "error: No se encontró el documento a anular.";
+                }
+
+                tipoCodigo = reader["TipoCodigo"]?.ToString()?.Trim() ?? string.Empty;
+                fechaEmision = reader["DocuEmision"] == DBNull.Value
+                    ? default
+                    : Convert.ToDateTime(reader["DocuEmision"], CultureInfo.InvariantCulture);
+                fechaActual = Convert.ToDateTime(reader["FechaActual"], CultureInfo.InvariantCulture);
+            }
+
+            var bloqueo = ReglasAnulacionDocumento.ObtenerBloqueo(
+                tipoCodigo,
+                fechaEmision,
+                fechaActual);
+            if (bloqueo is not null)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return $"error: {bloqueo}";
+            }
+
             await using (var cmd = new SqlCommand("""
                 UPDATE DocumentoVenta
                    SET DocuEstado = 'ANULADO'
