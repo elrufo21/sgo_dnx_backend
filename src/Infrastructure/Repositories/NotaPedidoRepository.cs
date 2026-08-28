@@ -53,12 +53,17 @@ public class NotaPedidoRepository : INotaPedido
             string tipoCodigo;
             DateTime fechaEmision;
             DateTime fechaActual;
+            string notaCondicion;
+            string notaEstado;
             await using (var cmd = new SqlCommand("""
                 SELECT TOP (1)
                     ISNULL(d.TipoCodigo, '') AS TipoCodigo,
                     d.DocuEmision,
+                    ISNULL(n.NotaCondicion, '') AS NotaCondicion,
+                    ISNULL(n.NotaEstado, '') AS NotaEstado,
                     CONVERT(date, GETDATE()) AS FechaActual
                 FROM DocumentoVenta d
+                INNER JOIN NotaPedido n ON n.NotaId = d.NotaId
                 WHERE d.DocuId = @DocuId
                   AND d.NotaId = @NotaId;
                 """, con, (SqlTransaction)tx))
@@ -77,6 +82,8 @@ public class NotaPedidoRepository : INotaPedido
                     ? default
                     : Convert.ToDateTime(reader["DocuEmision"], CultureInfo.InvariantCulture);
                 fechaActual = Convert.ToDateTime(reader["FechaActual"], CultureInfo.InvariantCulture);
+                notaCondicion = reader["NotaCondicion"]?.ToString()?.Trim() ?? string.Empty;
+                notaEstado = reader["NotaEstado"]?.ToString()?.Trim() ?? string.Empty;
             }
 
             var bloqueo = ReglasAnulacionDocumento.ObtenerBloqueo(
@@ -87,6 +94,13 @@ public class NotaPedidoRepository : INotaPedido
             {
                 await tx.RollbackAsync(cancellationToken);
                 return $"error: {bloqueo}";
+            }
+
+            if (string.Equals(notaCondicion, "PAGO/VARIOS", StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(notaEstado, "CANCELADO", StringComparison.OrdinalIgnoreCase))
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return "error: No se puede anular una venta PAGO/VARIOS que ya fue pagada.";
             }
 
             await using (var cmd = new SqlCommand("""

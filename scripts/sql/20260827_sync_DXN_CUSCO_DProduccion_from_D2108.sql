@@ -10005,7 +10005,125 @@ IF @@TRANCOUNT = 0
 
 GO
 GO
-EXECUTE sp_refreshsqlmodule N'[dbo].[uspinsertarRB]';
+ALTER PROCEDURE [dbo].[uspinsertarRB]
+@ListaOrden varchar(Max)
+AS
+BEGIN
+    DECLARE @pos int, @orden varchar(max), @detalle varchar(max)
+    SET @pos = CHARINDEX('[', @ListaOrden, 0)
+    SET @orden = SUBSTRING(@ListaOrden, 1, @pos - 1)
+    SET @detalle = SUBSTRING(@ListaOrden, @pos + 1, LEN(@ListaOrden) - @pos)
+
+    DECLARE @c1 int, @c2 int, @c3 int, @c4 int, @c5 int, @c6 int, @c7 int,
+            @c8 int, @c9 int, @c10 int, @c11 int, @c12 int, @c13 int, @c14 int
+    DECLARE @CompaniaId int, @ResumenSerie varchar(250), @Secuencia numeric(38),
+            @FechaReferencia date, @SubTotal decimal(18,2), @IGV decimal(18,2),
+            @Total decimal(18,2), @ResumenTiket varchar(250), @CodigoSunat varchar(80),
+            @HASHCDR varchar(max), @Usuario varchar(80), @Status int, @Estado char(1),
+            @RangoNumero varchar(80), @ICBPER decimal(18,2)
+
+    SET @c1 = CHARINDEX('|', @orden, 0)
+    SET @c2 = CHARINDEX('|', @orden, @c1 + 1)
+    SET @c3 = CHARINDEX('|', @orden, @c2 + 1)
+    SET @c4 = CHARINDEX('|', @orden, @c3 + 1)
+    SET @c5 = CHARINDEX('|', @orden, @c4 + 1)
+    SET @c6 = CHARINDEX('|', @orden, @c5 + 1)
+    SET @c7 = CHARINDEX('|', @orden, @c6 + 1)
+    SET @c8 = CHARINDEX('|', @orden, @c7 + 1)
+    SET @c9 = CHARINDEX('|', @orden, @c8 + 1)
+    SET @c10 = CHARINDEX('|', @orden, @c9 + 1)
+    SET @c11 = CHARINDEX('|', @orden, @c10 + 1)
+    SET @c12 = CHARINDEX('|', @orden, @c11 + 1)
+    SET @c13 = CHARINDEX('|', @orden, @c12 + 1)
+    SET @c14 = LEN(@orden) + 1
+    SET @CompaniaId = CONVERT(int, SUBSTRING(@orden, 1, @c1 - 1))
+    SET @ResumenSerie = SUBSTRING(@orden, @c1 + 1, @c2 - @c1 - 1)
+    SET @Secuencia = CONVERT(int, SUBSTRING(@orden, @c2 + 1, @c3 - @c2 - 1))
+    SET @FechaReferencia = CONVERT(date, SUBSTRING(@orden, @c3 + 1, @c4 - @c3 - 1))
+    SET @SubTotal = CONVERT(decimal(18,2), SUBSTRING(@orden, @c4 + 1, @c5 - @c4 - 1))
+    SET @IGV = CONVERT(decimal(18,2), SUBSTRING(@orden, @c5 + 1, @c6 - @c5 - 1))
+    SET @Total = CONVERT(decimal(18,2), SUBSTRING(@orden, @c6 + 1, @c7 - @c6 - 1))
+    SET @ResumenTiket = SUBSTRING(@orden, @c7 + 1, @c8 - @c7 - 1)
+    SET @CodigoSunat = SUBSTRING(@orden, @c8 + 1, @c9 - @c8 - 1)
+    SET @HASHCDR = SUBSTRING(@orden, @c9 + 1, @c10 - @c9 - 1)
+    SET @Usuario = SUBSTRING(@orden, @c10 + 1, @c11 - @c10 - 1)
+    SET @Status = SUBSTRING(@orden, @c11 + 1, @c12 - @c11 - 1)
+    SET @RangoNumero = SUBSTRING(@orden, @c12 + 1, @c13 - @c12 - 1)
+    SET @ICBPER = SUBSTRING(@orden, @c13 + 1, @c14 - @c13 - 1)
+
+    IF @Status = 3
+    BEGIN
+        SET @SubTotal = -@SubTotal
+        SET @IGV = -@IGV
+        SET @ICBPER = -@ICBPER
+        SET @Total = -@Total
+        SET @Estado = 'B'
+    END
+    ELSE
+    BEGIN
+        SET @Estado = 'E'
+    END
+
+    BEGIN TRANSACTION
+    INSERT INTO [dbo].[ResumenBoletas] (
+        [CompaniaId], [ResumenSerie], [Secuencia], [FechaReferencia], [FechaEnvio],
+        [SubTotal], [IGV], [Total], [ResumenTiket], [CodigoSunat], [HASHCDR],
+        [MensajeSunat], [Usuario], [ESTADO], [RangoNumero], [ICBPER]
+    ) VALUES (
+        @CompaniaId, @ResumenSerie, @Secuencia, @FechaReferencia, GETDATE(),
+        @SubTotal, @IGV, @Total, @ResumenTiket, @CodigoSunat, @HASHCDR, '',
+        @Usuario, @Estado, @RangoNumero, @ICBPER
+    )
+
+    DECLARE Tabla CURSOR FOR SELECT * FROM [dbo].[fnSplitString](@detalle, ';')
+    OPEN Tabla
+    DECLARE @Columna varchar(max), @DocuId numeric(38), @p1 int
+    FETCH NEXT FROM Tabla INTO @Columna
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        SET @p1 = LEN(@Columna) + 1
+        SET @DocuId = CONVERT(numeric(38), SUBSTRING(@Columna, 1, @p1 - 1))
+        IF @Status = 1
+        BEGIN
+            UPDATE [dbo].[DocumentoVenta]
+            SET [DocuHash] = @HASHCDR, [EstadoSunat] = 'ENVIADO'
+            WHERE [DocuId] = @DocuId
+        END
+        ELSE
+        BEGIN
+            UPDATE [dbo].[DocumentoVenta]
+            SET [DocuHash] = @HASHCDR, [DocuEstado] = 'BAJA', [EstadoSunat] = 'ENVIADO',
+                [DocuSubTotal] = 0, [DocuIgv] = 0, [DocuTotal] = 0, [ICBPER] = 0
+            WHERE [DocuId] = @DocuId
+        END
+        FETCH NEXT FROM Tabla INTO @Columna
+    END
+    CLOSE Tabla
+    DEALLOCATE Tabla
+    COMMIT TRANSACTION
+
+    SELECT ISNULL((
+        SELECT STUFF((
+            SELECT '¬' + CONVERT(varchar, r.[ResumenId]) + '|' + CONVERT(varchar, r.[CompaniaId]) + '|' +
+                ISNULL(CONVERT(varchar, r.[FechaReferencia], 103), '') + '|' +
+                ISNULL(CONVERT(varchar, r.[FechaEnvio], 103), '') + ' ' + ISNULL(SUBSTRING(CONVERT(varchar, r.[FechaEnvio], 114), 1, 8), '') + '|' +
+                r.[ResumenSerie] + '-' + CONVERT(varchar, r.[Secuencia]) + '|' + r.[RangoNumero] + '|' +
+                CONVERT(varchar(50), CAST(r.[SubTotal] AS money), 1) + '|' +
+                CONVERT(varchar(50), CAST(r.[IGV] AS money), 1) + '|' +
+                CONVERT(varchar(50), CAST(r.[ICBPER] AS money), 1) + '|' +
+                CONVERT(varchar(50), CAST(r.[Total] AS money), 1) + '|' +
+                r.[ResumenTiket] + '|' + r.[CodigoSunat] + '|' + r.[HASHCDR] + '|' + r.[MensajeSunat] + '|' +
+                r.[Usuario] + '|' + c.[CompaniaRUC] + '|' + c.[CompaniaUserSecun] + '|' +
+                c.[ComapaniaPWD] + '|' + r.[Estado] + '||' + c.[TokenApi] + '|' + [ClienIdToken]
+            FROM [dbo].[ResumenBoletas] r
+            INNER JOIN [dbo].[Compania] c ON c.[CompaniaId] = r.[CompaniaId]
+            WHERE MONTH(r.[FechaReferencia]) = MONTH(GETDATE())
+                AND YEAR(r.[FechaReferencia]) = YEAR(GETDATE())
+            ORDER BY r.[CompaniaId], r.[FechaEnvio] ASC
+            FOR XML PATH('')
+        ), 1, 1, '')
+    ), '~')
+END
 
 
 GO
@@ -10680,7 +10798,22 @@ IF @@TRANCOUNT = 0
 
 GO
 GO
-EXECUTE sp_refreshsqlmodule N'[dbo].[ingresarUsuario]';
+ALTER PROCEDURE [dbo].[ingresarUsuario]
+    @PersonalId numeric(20),
+    @UsuarioAlias varchar(60),
+    @UsuarioClave varchar(40),
+    @UsuarioEstado varchar(40)
+AS
+BEGIN
+    INSERT INTO [dbo].[Usuarios] (
+        [PersonalId], [UsuarioAlias], [UsuarioClave], [UsuarioFechaReg], [UsuarioEstado],
+        [UsuarioSerie], [EnviaBoleta], [EnviarFactura], [EnviaNC], [EnviaND],
+        [UserRuta], [UserRutaOBS], [Administrador], [RutaVentaOBS], [RutaIOC], [RutaApertura]
+    ) VALUES (
+        @PersonalId, @UsuarioAlias, [dbo].[encriptar](@UsuarioClave), GETDATE(), @UsuarioEstado,
+        '', 0, 0, 0, 0, '', '', 0, '', '', ''
+    )
+END
 
 
 GO
@@ -10865,4 +10998,3 @@ IF (SELECT OBJECT_ID('tempdb..#tmpErrors')) IS NOT NULL DROP TABLE #tmpErrors
 GO
 GO
 GO
-

@@ -601,6 +601,11 @@ public class NotaController : ControllerBase
             });
         }
 
+        if (EsPagoVariosPagado(origen))
+        {
+            return Conflict(new { ok = false, mensaje = "No se puede anular una venta PAGO/VARIOS que ya fue pagada." });
+        }
+
         var bloqueo = ReglasAnulacionDocumento.ObtenerBloqueo(
             origen.TipoCodigo,
             origen.Emision,
@@ -2035,7 +2040,7 @@ public class NotaController : ControllerBase
             });
         }
         if (string.Equals(raw, "OPERACION", StringComparison.OrdinalIgnoreCase))
-            return BadRequest(new { ok = false, resultado = raw, mensaje = "El numero de operacion ya existe." });
+            return BadRequest(new { ok = false, codigo = "OPERACION", resultado = raw, mensaje = "El numero de operacion ya existe." });
 
         return Ok(new { ok = false, resultado = raw, mensaje = raw });
     }
@@ -7886,6 +7891,11 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             return (null, (int)HttpStatusCode.Conflict, "El documento ya se encuentra ANULADO.");
         }
 
+        if (EsPagoVariosPagado(origen))
+        {
+            return (null, (int)HttpStatusCode.Conflict, "No se puede anular una venta PAGO/VARIOS que ya fue pagada.");
+        }
+
         var bloqueo = ReglasAnulacionDocumento.ObtenerBloqueo(
             origen.TipoCodigo,
             origen.Emision,
@@ -9860,6 +9870,12 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                string.Equals(origen.EstadoSunat, "ACEPTADO", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool EsPagoVariosPagado(NotaCreditoOrigenBd origen)
+    {
+        return string.Equals(origen.Condicion, "PAGO/VARIOS", StringComparison.OrdinalIgnoreCase) &&
+               string.Equals(origen.NotaEstado, "CANCELADO", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static string ConstruirListaOrdenAnulacionBoleta(NotaCreditoOrigenBd origen)
     {
         var usuario = string.IsNullOrWhiteSpace(origen.Usuario) ? "SYSTEM" : origen.Usuario.Trim();
@@ -10198,6 +10214,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 d.NroOperacion,
                 d.Efectivo,
                 d.Deposito,
+                COALESCE(n.NotaCondicion, '') AS NotaCondicion,
+                COALESCE(n.NotaEstado, '') AS NotaEstado,
                 d.DocuSubTotal,
                 d.DocuIgv,
                 d.DocuTotal,
@@ -10211,6 +10229,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 d.DocuSerie,
                 d.DocuNumero
             FROM DocumentoVenta d
+            LEFT JOIN NotaPedido n ON n.NotaId = d.NotaId
             LEFT JOIN DocumentoVentaCpeWeb w ON w.DocuId = d.DocuId
             LEFT JOIN Cliente c ON c.ClienteId = d.ClienteId
             WHERE d.TipoCodigo IN ('01', '03')
@@ -10252,6 +10271,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             TipoCodigo = reader["TipoCodigo"]?.ToString()?.Trim() ?? string.Empty,
             Estado = reader["DocuEstado"]?.ToString()?.Trim() ?? string.Empty,
             EstadoSunat = reader["EstadoSunat"]?.ToString()?.Trim() ?? string.Empty,
+            Condicion = reader["NotaCondicion"]?.ToString()?.Trim() ?? string.Empty,
+            NotaEstado = reader["NotaEstado"]?.ToString()?.Trim() ?? string.Empty,
             CompaniaId = reader["CompaniaId"] == DBNull.Value ? 0 : Convert.ToInt32(reader["CompaniaId"]),
             NotaId = notaId,
             ClienteId = reader["ClienteId"] == DBNull.Value ? 0L : Convert.ToInt64(reader["ClienteId"]),
@@ -10885,6 +10906,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         public string TipoCodigo { get; set; } = string.Empty;
         public string Estado { get; set; } = string.Empty;
         public string EstadoSunat { get; set; } = string.Empty;
+        public string Condicion { get; set; } = string.Empty;
+        public string NotaEstado { get; set; } = string.Empty;
         public int CompaniaId { get; set; }
         public long NotaId { get; set; }
         public long ClienteId { get; set; }
