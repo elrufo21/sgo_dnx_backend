@@ -39,140 +39,9 @@ public class NotaPedidoRepository : INotaPedido
 
     public async Task<string> AnularDocumentoAsync(string listaOrden, CancellationToken cancellationToken = default)
     {
-        if (!TryParseAnularDocumento(listaOrden, out var anulacion, out var error))
-        {
-            return $"error: {error}";
-        }
-
-        await using var con = new SqlConnection(_connectionString);
-        await con.OpenAsync(cancellationToken);
-        await using var tx = await con.BeginTransactionAsync(cancellationToken);
-
-        try
-        {
-            string tipoCodigo;
-            DateTime fechaEmision;
-            DateTime fechaActual;
-            string notaCondicion;
-            string notaEstado;
-            await using (var cmd = new SqlCommand("""
-                SELECT TOP (1)
-                    ISNULL(d.TipoCodigo, '') AS TipoCodigo,
-                    d.DocuEmision,
-                    ISNULL(n.NotaCondicion, '') AS NotaCondicion,
-                    ISNULL(n.NotaEstado, '') AS NotaEstado,
-                    CONVERT(date, GETDATE()) AS FechaActual
-                FROM DocumentoVenta d
-                INNER JOIN NotaPedido n ON n.NotaId = d.NotaId
-                WHERE d.DocuId = @DocuId
-                  AND d.NotaId = @NotaId;
-                """, con, (SqlTransaction)tx))
-            {
-                cmd.Parameters.AddWithValue("@DocuId", anulacion.DocuId);
-                cmd.Parameters.AddWithValue("@NotaId", anulacion.NotaId);
-                await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-                if (!await reader.ReadAsync(cancellationToken))
-                {
-                    await tx.RollbackAsync(cancellationToken);
-                    return "error: No se encontró el documento a anular.";
-                }
-
-                tipoCodigo = reader["TipoCodigo"]?.ToString()?.Trim() ?? string.Empty;
-                fechaEmision = reader["DocuEmision"] == DBNull.Value
-                    ? default
-                    : Convert.ToDateTime(reader["DocuEmision"], CultureInfo.InvariantCulture);
-                fechaActual = Convert.ToDateTime(reader["FechaActual"], CultureInfo.InvariantCulture);
-                notaCondicion = reader["NotaCondicion"]?.ToString()?.Trim() ?? string.Empty;
-                notaEstado = reader["NotaEstado"]?.ToString()?.Trim() ?? string.Empty;
-            }
-
-            var bloqueo = ReglasAnulacionDocumento.ObtenerBloqueo(
-                tipoCodigo,
-                fechaEmision,
-                fechaActual);
-            if (bloqueo is not null)
-            {
-                await tx.RollbackAsync(cancellationToken);
-                return $"error: {bloqueo}";
-            }
-
-            if (string.Equals(notaCondicion, "PAGO/VARIOS", StringComparison.OrdinalIgnoreCase) &&
-                string.Equals(notaEstado, "CANCELADO", StringComparison.OrdinalIgnoreCase))
-            {
-                await tx.RollbackAsync(cancellationToken);
-                return "error: No se puede anular una venta PAGO/VARIOS que ya fue pagada.";
-            }
-
-            await using (var cmd = new SqlCommand("""
-                UPDATE DocumentoVenta
-                   SET DocuEstado = 'ANULADO'
-                 WHERE DocuId = @DocuId;
-
-                UPDATE NotaPedido
-                   SET ModificadoPor = @Usuario,
-                       FechaEdita = CONVERT(varchar, GETDATE(), 103) + ' ' + SUBSTRING(CONVERT(varchar, GETDATE(), 114), 1, 8),
-                       NotaEstado = 'ANULADO',
-                       NotaSaldo = NotaPagar,
-                       NotaAcuenta = 0
-                 WHERE NotaId = @NotaId;
-
-                DELETE FROM CajaDetalle
-                 WHERE NotaId = @NotaId;
-                """, con, (SqlTransaction)tx))
-            {
-                cmd.Parameters.AddWithValue("@DocuId", anulacion.DocuId);
-                cmd.Parameters.AddWithValue("@NotaId", anulacion.NotaId);
-                cmd.Parameters.AddWithValue("@Usuario", Limitar(anulacion.Usuario, 60));
-                await cmd.ExecuteNonQueryAsync(cancellationToken);
-            }
-
-            foreach (var item in anulacion.Detalles.Where(x => x.AplicaInv && x.IdProducto > 0))
-            {
-                await using var cmd = new SqlCommand("""
-                    DECLARE @IniciaStock decimal(18,2) =
-                        ISNULL((SELECT TOP 1 ProductoCantidad FROM Producto WHERE IdProducto = @IdProducto), 0);
-                    DECLARE @CantidadIngreso decimal(18,2) = @Cantidad * @ValorUM;
-                    DECLARE @StockFinal decimal(18,2) = @IniciaStock + @CantidadIngreso;
-
-                    INSERT INTO Kardex (
-                        IdProducto,
-                        KardexFecha,
-                        KardexMotivo,
-                        KardexDocumento,
-                        StockInicial,
-                        CantidadIngreso,
-                        CantidadSalida,
-                        PrecioCosto,
-                        StockFinal,
-                        KadexConcepto,
-                        Usuario
-                    )
-                    VALUES (@IdProducto, GETDATE(), 'Anulacion por Venta', @Documento,
-                            @IniciaStock, @CantidadIngreso, 0, @Costo, @StockFinal,
-                            'INGRESO', @Usuario);
-
-                    UPDATE Producto
-                       SET ProductoCantidad = ISNULL(ProductoCantidad, 0) + @CantidadIngreso
-                     WHERE IdProducto = @IdProducto;
-                    """, con, (SqlTransaction)tx);
-
-                cmd.Parameters.AddWithValue("@IdProducto", item.IdProducto);
-                cmd.Parameters.AddWithValue("@Cantidad", item.Cantidad);
-                cmd.Parameters.AddWithValue("@ValorUM", item.ValorUm);
-                cmd.Parameters.AddWithValue("@Costo", item.Costo);
-                cmd.Parameters.AddWithValue("@Documento", Limitar(anulacion.Documento, 60));
-                cmd.Parameters.AddWithValue("@Usuario", Limitar(anulacion.Usuario, 60));
-                await cmd.ExecuteNonQueryAsync(cancellationToken);
-            }
-
-            await tx.CommitAsync(cancellationToken);
-            return "true";
-        }
-        catch (Exception ex)
-        {
-            await tx.RollbackAsync(cancellationToken);
-            return $"error: {ex.Message}";
-        }
+        var result = await _accesoDatos.EjecutarComandoAsync(
+            "anularDocumento", "@ListaOrden", listaOrden, cancellationToken);
+        return string.IsNullOrWhiteSpace(result) ? "error" : result;
     }
 
     public async Task<string> ListarDocumentosAsync(string data, CancellationToken cancellationToken = default)
@@ -679,14 +548,12 @@ public class NotaPedidoRepository : INotaPedido
                                         SELECT TOP (1) d.DocuId
                                         FROM DocumentoVenta d
                                         WHERE d.NotaId = NotaPedido.NotaId
-                                          AND d.TipoCodigo IN ('01', '03')
                                         ORDER BY d.DocuId DESC
                                      ) AS DocuId,
                                      (
                                         SELECT TOP (1) d.DocuEstado
                                         FROM DocumentoVenta d
                                         WHERE d.NotaId = NotaPedido.NotaId
-                                          AND d.TipoCodigo IN ('01', '03')
                                         ORDER BY d.DocuId DESC
                                      ) AS DocuEstado
                               FROM NotaPedido
@@ -1265,118 +1132,4 @@ public class NotaPedidoRepository : INotaPedido
         return (normalizedPage, normalizedPageSize);
     }
 
-    private static bool TryParseAnularDocumento(string listaOrden, out AnulacionDocumento anulacion, out string error)
-    {
-        anulacion = new AnulacionDocumento(0, 0, string.Empty, string.Empty, Array.Empty<AnulacionDetalle>());
-        error = string.Empty;
-
-        var firstBracket = listaOrden.IndexOf('[', StringComparison.Ordinal);
-        if (firstBracket <= 0)
-        {
-            error = "ListaOrden no contiene detalle.";
-            return false;
-        }
-
-        var secondBracket = listaOrden.IndexOf('[', firstBracket + 1);
-        var orden = listaOrden[..firstBracket].Trim();
-        var detalle = secondBracket > firstBracket
-            ? listaOrden.Substring(firstBracket + 1, secondBracket - firstBracket - 1)
-            : listaOrden[(firstBracket + 1)..];
-
-        var header = orden.Split('|');
-        if (header.Length < 4 ||
-            !TryParseLong(header[0], out var docuId) ||
-            !TryParseLong(header[1], out var notaId))
-        {
-            error = "Cabecera de anulación inválida.";
-            return false;
-        }
-
-        var detalles = new List<AnulacionDetalle>();
-        foreach (var raw in detalle.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-        {
-            var parts = raw.Split('|');
-            if (parts.Length >= 7)
-            {
-                if (!TryParseLong(parts[0], out var idProducto) ||
-                    !TryParseDecimal(parts[2], out var cantidad) ||
-                    !TryParseDecimal(parts[4], out var costo))
-                {
-                    error = "Detalle de anulación inválido.";
-                    return false;
-                }
-
-                var valorUm = TryParseDecimal(parts[5], out var parsedValorUm) && parsedValorUm > 0
-                    ? parsedValorUm
-                    : 1;
-                detalles.Add(new AnulacionDetalle(
-                    idProducto,
-                    cantidad,
-                    costo,
-                    valorUm,
-                    string.Equals(parts[6].Trim(), "S", StringComparison.OrdinalIgnoreCase)));
-                continue;
-            }
-
-            if (parts.Length >= 3 &&
-                TryParseLong(parts[0], out var legacyIdProducto) &&
-                TryParseDecimal(parts[1], out var legacyCantidad))
-            {
-                var legacyCosto = TryParseDecimal(parts[2], out var parsedLegacyCosto) ? parsedLegacyCosto : 0;
-                detalles.Add(new AnulacionDetalle(legacyIdProducto, legacyCantidad, legacyCosto, 1, true));
-                continue;
-            }
-
-            error = "Detalle de anulación inválido.";
-            return false;
-        }
-
-        if (detalles.Count == 0)
-        {
-            error = "ListaOrden no contiene productos.";
-            return false;
-        }
-
-        anulacion = new AnulacionDocumento(
-            docuId,
-            notaId,
-            header[2].Trim(),
-            string.Join("|", header.Skip(3)).Trim(),
-            detalles);
-        return true;
-    }
-
-    private static bool TryParseLong(string value, out long result) =>
-        long.TryParse(value.Trim(), NumberStyles.Any, CultureInfo.InvariantCulture, out result) ||
-        long.TryParse(value.Trim(), NumberStyles.Any, CultureInfo.CurrentCulture, out result);
-
-    private static bool TryParseDecimal(string value, out decimal result)
-    {
-        var text = value.Trim();
-        var normalized = text.Contains(',', StringComparison.Ordinal) && !text.Contains('.', StringComparison.Ordinal)
-            ? text.Replace(",", ".", StringComparison.Ordinal)
-            : text.Replace(",", "", StringComparison.Ordinal);
-        return decimal.TryParse(normalized, NumberStyles.Any, CultureInfo.InvariantCulture, out result) ||
-               decimal.TryParse(text, NumberStyles.Any, CultureInfo.CurrentCulture, out result);
-    }
-
-    private static string Limitar(string value, int maxLength)
-    {
-        var text = (value ?? string.Empty).Trim();
-        return text.Length <= maxLength ? text : text[..maxLength];
-    }
-
-    private sealed record AnulacionDocumento(
-        long DocuId,
-        long NotaId,
-        string Usuario,
-        string Documento,
-        IReadOnlyList<AnulacionDetalle> Detalles);
-
-    private sealed record AnulacionDetalle(
-        long IdProducto,
-        decimal Cantidad,
-        decimal Costo,
-        decimal ValorUm,
-        bool AplicaInv);
 }

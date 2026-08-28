@@ -502,17 +502,9 @@ public class NotaController : ControllerBase
         var listaOrden = string.IsNullOrWhiteSpace(request.ListaOrden)
             ? request.Data
             : request.ListaOrden;
-
-        if (string.IsNullOrWhiteSpace(listaOrden))
-        {
-            return BadRequest(new
-            {
-                ok = false,
-                mensaje = "ListaOrden es requerido."
-            });
-        }
-
-        var resultado = await _mediator.AnularDocumentoAsync(listaOrden.Trim(), cancellationToken);
+        var resultado = string.IsNullOrWhiteSpace(listaOrden)
+            ? "error: ListaOrden es requerido."
+            : await _mediator.AnularDocumentoAsync(listaOrden.Trim(), cancellationToken);
         if (resultado.StartsWith("error", StringComparison.OrdinalIgnoreCase))
         {
             return BadRequest(new
@@ -9901,12 +9893,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         var detalle = string.Join(";", origen.Detalles.Select(item => string.Join("|", new[]
         {
             item.IdProducto.ToString(CultureInfo.InvariantCulture),
-            SanitizarCampoListaOrden(item.Descripcion),
             FormatearDecimalListaOrden(item.Cantidad),
-            FormatearDecimalListaOrden(item.Precio),
-            FormatearDecimalListaOrden(item.Costo),
-            FormatearDecimalListaOrden(item.ValorUm <= 0m ? 1m : item.ValorUm),
-            string.Equals(item.AplicaInv, "S", StringComparison.OrdinalIgnoreCase) ? "S" : "N"
+            FormatearDecimalListaOrden(item.Costo)
         })));
 
         return $"{cabecera}[{detalle}";

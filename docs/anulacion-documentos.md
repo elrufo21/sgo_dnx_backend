@@ -16,6 +16,8 @@ Evitar anulaciones fuera del plazo permitido antes de alterar inventario, caja o
 
 Las reglas se aplican en el backend a los endpoints `POST /api/v1/Nota/boleta/anular-individual`, `POST /api/v1/Nota/factura/anular-individual` y `POST /api/v1/Nota/anular-documento`. Las validaciones individuales se ejecutan antes de comunicarse con SUNAT/OSE y la anulación local vuelve a comprobarlas dentro de la transacción.
 
+Las Proformas V envían el documento, nota y detalles a `POST /api/v1/Nota/anular-documento`. El backend invoca el procedimiento almacenado existente `dbo.anularDocumento`, igual que el escritorio. El procedimiento conserva los registros, marca `DocumentoVenta.DocuEstado` y `NotaPedido.NotaEstado` como `ANULADO`, gestiona caja y repone stock según la entrega. Los demás documentos continúan con su flujo de anulación vigente.
+
 Cuando una regla bloquea la operación, la API devuelve `ok = false` y un mensaje explicativo. Los endpoints individuales responden `409 Conflict`; el endpoint heredado responde `400 Bad Request` con el mensaje devuelto por la capa de persistencia.
 
 La comprobación mínima se ejecuta con `dotnet run --project scripts/verificar-reglas-anulacion/VerificarReglasAnulacion.csproj` desde la carpeta del backend.
