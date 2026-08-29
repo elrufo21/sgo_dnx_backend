@@ -181,12 +181,22 @@ public class CorreoController : ControllerBase
 
         string destinatarios;
         var nombreCompania = "SGO";
+        var nombreResponsable = "Equipo de caja";
         await using (var connection = new SqlConnection(connectionString))
         await using (var command = new SqlCommand("""
             SELECT compania.CorreosAdmin,
                    COALESCE(NULLIF(LTRIM(RTRIM(compania.CompaniaComercial)), ''),
                             NULLIF(LTRIM(RTRIM(compania.CompaniaRazonSocial)), ''),
-                            'SGO') AS NombreCompania
+                            'SGO') AS NombreCompania,
+                   COALESCE(
+                       NULLIF(LTRIM(RTRIM(CONCAT(
+                           SUBSTRING(ISNULL(personal.PersonalNombres, ''), 1, CHARINDEX(' ', ISNULL(personal.PersonalNombres, '') + ' ') - 1),
+                           ' ',
+                           SUBSTRING(ISNULL(personal.PersonalApellidos, ''), 1, CHARINDEX(' ', ISNULL(personal.PersonalApellidos, '') + ' ') - 1)
+                       ))), ''),
+                       NULLIF(LTRIM(RTRIM(caja.CajaEncargado)), ''),
+                       'Equipo de caja'
+                   ) AS NombreResponsable
               FROM Caja caja
               INNER JOIN Usuarios usuario ON usuario.UsuarioID = caja.UsuarioId
               INNER JOIN Personal personal ON personal.PersonalId = usuario.PersonalId
@@ -201,6 +211,7 @@ public class CorreoController : ControllerBase
             {
                 destinatarios = reader["CorreosAdmin"]?.ToString()?.Trim() ?? string.Empty;
                 nombreCompania = reader["NombreCompania"]?.ToString()?.Trim() ?? nombreCompania;
+                nombreResponsable = reader["NombreResponsable"]?.ToString()?.Trim() ?? nombreResponsable;
             }
             else
             {
@@ -230,7 +241,7 @@ public class CorreoController : ControllerBase
             {
                 From = new MailAddress(emisor, string.IsNullOrWhiteSpace(_emailSettings.DisplayName) ? null : _emailSettings.DisplayName.Trim()),
                 Subject = $"DXN CIERRE DE CAJA GENERAL DEL DIA {fechaTexto}",
-                Body = ConstruirCuerpoCierreCaja(nombreCompania, fecha, request.CajaId, diferencial),
+                Body = ConstruirCuerpoCierreCaja(nombreCompania, nombreResponsable, fecha, request.CajaId, diferencial),
                 IsBodyHtml = true
             };
 
@@ -493,6 +504,7 @@ public class CorreoController : ControllerBase
     }
     private static string ConstruirCuerpoCierreCaja(
         string? nombreCompania,
+        string? nombreResponsable,
         DateTime fecha,
         long cajaId,
         decimal diferencial)
@@ -500,6 +512,9 @@ public class CorreoController : ControllerBase
         var compania = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(nombreCompania)
             ? "SGO"
             : nombreCompania.Trim());
+        var responsable = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(nombreResponsable)
+            ? "Equipo de caja"
+            : nombreResponsable.Trim());
         var cultura = CultureInfo.GetCultureInfo("es-PE");
         var fechaLarga = fecha.ToString("dddd, dd 'de' MMMM 'de' yyyy", cultura);
         var fechaVisible = WebUtility.HtmlEncode(char.ToUpper(fechaLarga[0], cultura) + fechaLarga[1..]);
@@ -549,7 +564,7 @@ public class CorreoController : ControllerBase
                       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:16px;background:#f8fafc;border-radius:10px;">
                         <tr><td style="padding:14px 16px;color:#475569;font-size:13px;line-height:1.5;">Archivo adjunto: <strong>Reporte de cierre de caja en formato PDF.</strong></td></tr>
                       </table>
-                      <p style="margin:26px 0 0;font-size:15px;line-height:1.6;">Saludos cordiales,<br><strong>{compania}</strong></p>
+                      <p style="margin:26px 0 0;font-size:15px;line-height:1.6;">Saludos cordiales,<br><strong>{responsable}</strong></p>
                     </td></tr>
                     <tr><td style="padding:18px 32px;background:#f8fafc;color:#6b7280;text-align:center;font-size:12px;line-height:1.5;">Este es un mensaje automático. Por favor, no responda a este correo.</td></tr>
                   </table>

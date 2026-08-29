@@ -6,7 +6,7 @@
 SET XACT_ABORT ON;
 GO
 
-CREATE OR ALTER PROCEDURE dbo.uspCajaInsertaCsv
+CREATE OR ALTER PROCEDURE dbo.uspCajaInsertaCsvWeb
     @Data varchar(max)
 AS
 BEGIN
@@ -139,7 +139,7 @@ BEGIN
 END;
 GO
 
-CREATE OR ALTER PROCEDURE dbo.uspValidaCantCajas
+CREATE OR ALTER PROCEDURE dbo.uspValidaCantCajasWeb
     @CajaId numeric(38, 0),
     @UsuarioId int
 AS

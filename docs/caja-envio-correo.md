@@ -10,12 +10,12 @@ En **Configuración > Caja**, registrar los destinatarios. En la pantalla de una
 
 En esa misma vista, **Permitir múltiples cajas abiertas** administra `Compania.FlagCaja`: con valor `0` solo puede existir una caja activa por compañía; con valor `1` se permiten varias cajas activas.
 
-El asunto conserva el formato del escritorio: `DXN CIERRE DE CAJA GENERAL DEL DIA dd-MM-yyyy`. El correo usa una plantilla HTML con el número de caja, fecha, estado del cuadre, detalle de la diferencia y el aviso del PDF adjunto.
+El asunto conserva el formato del escritorio: `DXN CIERRE DE CAJA GENERAL DEL DIA dd-MM-yyyy`. El correo usa una plantilla HTML con el número de caja, fecha, estado del cuadre, detalle de la diferencia y el aviso del PDF adjunto. La firma muestra el primer nombre y apellido del responsable de la caja.
 
 ## Alcance técnico
 
 - El endpoint `POST /api/v1/Correo/enviar-cierre-caja` requiere sesión autenticada.
-- `Compania.FlagCaja` controla el límite de cajas activas y se valida en los procedimientos de Caja. Su valor inicial es `0`.
+- `Compania.FlagCaja` controla el límite de cajas activas y se valida en los procedimientos propios de DNX (`uspCajaInsertaCsvWeb` y `uspValidaCantCajasWeb`). Su valor inicial es `0`; los procedimientos heredados no se modifican.
 - El destinatario se obtiene únicamente de `Compania.CorreosAdmin`, identificando la compañía desde la caja; no se recibe desde el navegador.
 - Se usa exclusivamente `EmailSettings` para la conexión SMTP, que mantiene las mismas credenciales de correo de SGO. No se usa ninguna credencial SUNAT/OSE.
 - Se acepta un único PDF de hasta 10 MB.

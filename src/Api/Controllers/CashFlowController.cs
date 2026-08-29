@@ -505,7 +505,7 @@ public sealed class CashFlowController : ControllerBase
 
         if (estado == "ACTIVO")
         {
-            await using var validarCmd = new SqlCommand("uspValidaCantCajas", con, tx)
+            await using var validarCmd = new SqlCommand("uspValidaCantCajasWeb", con, tx)
             {
                 CommandType = CommandType.StoredProcedure
             };
@@ -551,7 +551,7 @@ public sealed class CashFlowController : ControllerBase
         string data,
         CancellationToken cancellationToken)
     {
-        await using var cmd = new SqlCommand("uspCajaInsertaCsv", con, tx)
+        await using var cmd = new SqlCommand("uspCajaInsertaCsvWeb", con, tx)
         {
             CommandType = CommandType.StoredProcedure
         };
