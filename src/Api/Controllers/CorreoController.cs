@@ -4,6 +4,7 @@ using System.Net.Mail;
 using Ecommerce.Application.Models.Email;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
 
 namespace Ecommerce.Api.Controllers;
@@ -152,6 +153,112 @@ public class CorreoController : ControllerBase
                 mensaje = "No se pudo enviar el correo.",
                 detalle = ex.Message
             });
+        }
+    }
+
+    [Authorize]
+    [HttpPost("enviar-cierre-caja", Name = "EnviarCorreoCierreCaja")]
+    [RequestSizeLimit(25 * 1024 * 1024)]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+    [ProducesResponseType((int)HttpStatusCode.InternalServerError)]
+    public async Task<IActionResult> EnviarCierreCaja(
+        [FromForm] EnviarCierreCajaRequest request,
+        [FromServices] IConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        if (request.CajaId <= 0)
+            return BadRequest(new { ok = false, mensaje = "No se pudo identificar la caja." });
+        if (request.Pdf is null || request.Pdf.Length <= 0)
+            return BadRequest(new { ok = false, mensaje = "Debe adjuntar el PDF del cierre de caja." });
+        if (request.Pdf.Length > MaxArchivoBytes ||
+            !string.Equals(Path.GetExtension(request.Pdf.FileName), ".pdf", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { ok = false, mensaje = "El adjunto debe ser un PDF de hasta 10 MB." });
+
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return StatusCode((int)HttpStatusCode.InternalServerError, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
+
+        string destinatarios;
+        var nombreCompania = "SGO";
+        await using (var connection = new SqlConnection(connectionString))
+        await using (var command = new SqlCommand("""
+            SELECT compania.CorreosAdmin,
+                   COALESCE(NULLIF(LTRIM(RTRIM(compania.CompaniaComercial)), ''),
+                            NULLIF(LTRIM(RTRIM(compania.CompaniaRazonSocial)), ''),
+                            'SGO') AS NombreCompania
+              FROM Caja caja
+              INNER JOIN Usuarios usuario ON usuario.UsuarioID = caja.UsuarioId
+              INNER JOIN Personal personal ON personal.PersonalId = usuario.PersonalId
+              INNER JOIN Compania compania ON compania.CompaniaId = personal.CompaniaId
+             WHERE caja.CajaId = @CajaId
+            """, connection))
+        {
+            command.Parameters.AddWithValue("@CajaId", request.CajaId);
+            await connection.OpenAsync(cancellationToken);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                destinatarios = reader["CorreosAdmin"]?.ToString()?.Trim() ?? string.Empty;
+                nombreCompania = reader["NombreCompania"]?.ToString()?.Trim() ?? nombreCompania;
+            }
+            else
+            {
+                destinatarios = string.Empty;
+            }
+        }
+
+        var correos = SepararCorreos(destinatarios);
+        if (correos.Count == 0)
+            return BadRequest(new { ok = false, mensaje = "La compañía no tiene correos administrativos configurados." });
+        if (correos.Any(correo => !MailAddress.TryCreate(correo, out _)))
+            return BadRequest(new { ok = false, mensaje = "Hay correos administrativos inválidos en la compañía." });
+
+        var emisor = (_emailSettings.Email ?? string.Empty).Trim();
+        var clave = (_emailSettings.Key ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(emisor) || string.IsNullOrWhiteSpace(clave))
+            return StatusCode((int)HttpStatusCode.InternalServerError, new { ok = false, mensaje = "No está configurado el correo de envío." });
+
+        var fecha = request.FechaReporte?.Date ?? DateTime.Today;
+        var fechaTexto = fecha.ToString("dd-MM-yyyy", CultureInfo.InvariantCulture);
+        var diferencial = request.Diferencial;
+
+        try
+        {
+            await using var pdfStream = request.Pdf.OpenReadStream();
+            using var mail = new MailMessage
+            {
+                From = new MailAddress(emisor, string.IsNullOrWhiteSpace(_emailSettings.DisplayName) ? null : _emailSettings.DisplayName.Trim()),
+                Subject = $"DXN CIERRE DE CAJA GENERAL DEL DIA {fechaTexto}",
+                Body = ConstruirCuerpoCierreCaja(nombreCompania, fecha, request.CajaId, diferencial),
+                IsBodyHtml = true
+            };
+
+            foreach (var correo in correos)
+                mail.To.Add(correo);
+
+            mail.Attachments.Add(new Attachment(pdfStream, request.Pdf.FileName, "application/pdf"));
+
+            using var smtp = new SmtpClient
+            {
+                Host = string.IsNullOrWhiteSpace(_emailSettings.Host) ? "smtp.gmail.com" : _emailSettings.Host.Trim(),
+                Port = _emailSettings.Port.GetValueOrDefault(587),
+                EnableSsl = _emailSettings.EnableSsl ?? true,
+                DeliveryMethod = SmtpDeliveryMethod.Network,
+                UseDefaultCredentials = false,
+                Credentials = new NetworkCredential(emisor, clave)
+            };
+            await smtp.SendMailAsync(mail, cancellationToken);
+
+            return Ok(new { ok = true, mensaje = "Correo de cierre de caja enviado correctamente.", para = correos });
+        }
+        catch (SmtpException ex)
+        {
+            return StatusCode((int)HttpStatusCode.InternalServerError, new { ok = false, mensaje = "No se pudo enviar el correo por SMTP.", detalle = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode((int)HttpStatusCode.InternalServerError, new { ok = false, mensaje = "No se pudo enviar el correo de cierre de caja.", detalle = ex.Message });
         }
     }
 
@@ -384,6 +491,75 @@ public class CorreoController : ControllerBase
             </html>
             """;
     }
+    private static string ConstruirCuerpoCierreCaja(
+        string? nombreCompania,
+        DateTime fecha,
+        long cajaId,
+        decimal diferencial)
+    {
+        var compania = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(nombreCompania)
+            ? "SGO"
+            : nombreCompania.Trim());
+        var cultura = CultureInfo.GetCultureInfo("es-PE");
+        var fechaLarga = fecha.ToString("dddd, dd 'de' MMMM 'de' yyyy", cultura);
+        var fechaVisible = WebUtility.HtmlEncode(char.ToUpper(fechaLarga[0], cultura) + fechaLarga[1..]);
+        var cajaVisible = WebUtility.HtmlEncode(cajaId.ToString(CultureInfo.InvariantCulture));
+        var esCuadre = diferencial == 0m;
+        var esSobrante = diferencial > 0m;
+        var importe = Math.Abs(diferencial).ToString("N2", cultura);
+        var estado = esCuadre ? "Caja cuadrada" : esSobrante ? "Sobrante de efectivo" : "Faltante de efectivo";
+        var detalle = esCuadre
+            ? "La caja cuadró correctamente."
+            : esSobrante
+                ? $"Se registró un sobrante de efectivo de S/ {importe}."
+                : $"Se registró un faltante de efectivo de S/ {importe}.";
+        var colorEstado = esCuadre ? "#16794a" : esSobrante ? "#b45309" : "#b42318";
+        var fondoEstado = esCuadre ? "#eaf8ef" : esSobrante ? "#fff7e8" : "#fff0f0";
+
+        return $"""
+            <!doctype html>
+            <html lang="es">
+            <body style="margin:0;padding:0;background:#f4f7fb;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:32px 16px;background:#f4f7fb;">
+                <tr><td align="center">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,.10);">
+                    <tr><td style="padding:26px 32px;background:#9f3028;color:#ffffff;">
+                      <div style="font-size:20px;font-weight:700;letter-spacing:.2px;">{compania}</div>
+                      <div style="margin-top:7px;font-size:13px;opacity:.9;">Resumen de cierre de caja</div>
+                    </td></tr>
+                    <tr><td style="padding:32px 32px 26px;">
+                      <div style="font-size:21px;font-weight:700;color:#172033;">Cierre de caja confirmado</div>
+                      <div style="width:44px;height:3px;margin:16px 0 22px;background:#b23636;border-radius:2px;"></div>
+                      <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Buen día,</p>
+                      <p style="margin:0;font-size:15px;line-height:1.65;">Se ha generado el reporte de cierre de caja. Encontrará el documento PDF adjunto a este correo.</p>
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border:1px solid #e5e7eb;border-radius:10px;">
+                        <tr>
+                          <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">Caja</td>
+                          <td align="right" style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#172033;font-size:14px;font-weight:700;">#{cajaVisible}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding:14px 16px;color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">Fecha de cierre</td>
+                          <td align="right" style="padding:14px 16px;color:#172033;font-size:14px;font-weight:700;">{fechaVisible}</td>
+                        </tr>
+                      </table>
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:16px;background:{fondoEstado};border-radius:10px;">
+                        <tr><td style="padding:15px 16px;color:{colorEstado};font-size:14px;font-weight:700;">{estado}</td></tr>
+                        <tr><td style="padding:0 16px 15px;color:#334155;font-size:14px;line-height:1.55;">{detalle}</td></tr>
+                      </table>
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:16px;background:#f8fafc;border-radius:10px;">
+                        <tr><td style="padding:14px 16px;color:#475569;font-size:13px;line-height:1.5;">Archivo adjunto: <strong>Reporte de cierre de caja en formato PDF.</strong></td></tr>
+                      </table>
+                      <p style="margin:26px 0 0;font-size:15px;line-height:1.6;">Saludos cordiales,<br><strong>{compania}</strong></p>
+                    </td></tr>
+                    <tr><td style="padding:18px 32px;background:#f8fafc;color:#6b7280;text-align:center;font-size:12px;line-height:1.5;">Este es un mensaje automático. Por favor, no responda a este correo.</td></tr>
+                  </table>
+                </td></tr>
+              </table>
+            </body>
+            </html>
+            """;
+    }
+
     private static string? ObtenerPrimerValor(params string?[] valores)
     {
         return valores.FirstOrDefault(valor => !string.IsNullOrWhiteSpace(valor))?.Trim();
@@ -442,4 +618,12 @@ public class EnviarCorreoComprobanteRequest
     public IFormFile? Xml { get; set; }
     public IFormFile? Cdr { get; set; }
     public List<IFormFile>? Archivos { get; set; }
+}
+
+public sealed class EnviarCierreCajaRequest
+{
+    public long CajaId { get; set; }
+    public DateTime? FechaReporte { get; set; }
+    public decimal Diferencial { get; set; }
+    public IFormFile? Pdf { get; set; }
 }

@@ -516,15 +516,10 @@ public sealed class CashFlowController : ControllerBase
             validarCmd.Parameters.Add("@UsuarioId", SqlDbType.Int).Value = caja.UsuarioId;
             var validacion = (await validarCmd.ExecuteScalarAsync(cancellationToken))?.ToString()?.Trim().ToUpperInvariant();
 
-            if (validacion == "USUARIO_ACTIVO")
+            if (validacion == "SOLO_UNA_CAJA")
             {
                 await tx.RollbackAsync(cancellationToken);
-                return Conflict(new { ok = false, mensaje = "No puedes activar esta caja cerrada porque el usuario ya tiene una caja abierta." });
-            }
-            if (validacion == "NO CERRO")
-            {
-                await tx.RollbackAsync(cancellationToken);
-                return Conflict(new { ok = false, mensaje = "Ya hay tres cajas abiertas. Cierra una antes de activar otra." });
+                return Conflict(new { ok = false, mensaje = "Solo se permite una caja abierta. Cierra la caja activa antes de activar otra." });
             }
         }
 
@@ -650,6 +645,7 @@ public sealed class CashFlowController : ControllerBase
 
     private static string MensajeCajaInserta(string raw) => raw.ToUpperInvariant() switch
     {
+        "SOLO_UNA_CAJA" => "Solo se permite una caja abierta. Cierra la caja activa antes de abrir una nueva.",
         "EXISTE" => "Ya tienes una caja abierta. Ciérrala antes de abrir una nueva.",
         "NO CERRO" => "Hay cajas pendientes de cierre. Ciérralas antes de abrir una nueva.",
         _ => string.IsNullOrWhiteSpace(raw) ? "No se pudo registrar la caja." : raw

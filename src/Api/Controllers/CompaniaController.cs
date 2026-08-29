@@ -110,6 +110,36 @@ public class CompaniaController : ControllerBase
     }
 
     [Authorize]
+    [HttpPatch("{id}/caja-configuracion", Name = "ActualizarConfiguracionCaja")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+    [ProducesResponseType((int)HttpStatusCode.NotFound)]
+    public async Task<IActionResult> ActualizarConfiguracionCaja(
+        int id,
+        [FromBody] ActualizarConfiguracionCajaRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (id <= 0) return BadRequest("Id inválido.");
+        if (request is null) return BadRequest("Payload requerido.");
+
+        var actualizado = await _mediator.ActualizarConfiguracionCajaAsync(
+            id,
+            request.FlagCaja,
+            request.CorreosAdmin,
+            cancellationToken);
+        if (!actualizado)
+            return NotFound(new { ok = false, mensaje = $"No se encontró la compañía con id {id}." });
+
+        return Ok(new
+        {
+            ok = true,
+            companiaId = id,
+            flagCaja = request.FlagCaja,
+            correosAdmin = request.CorreosAdmin?.Trim() ?? string.Empty
+        });
+    }
+
+    [Authorize]
     [HttpDelete("{id}", Name = "EliminarCompania")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     public async Task<IActionResult> EliminarCompania(int id, CancellationToken cancellationToken)
@@ -148,4 +178,10 @@ public class ActualizarBoletaPorLoteRequest
 public class ActualizarFlagCapturaRequest
 {
     public bool FlagCaptura { get; set; }
+}
+
+public class ActualizarConfiguracionCajaRequest
+{
+    public bool FlagCaja { get; set; }
+    public string? CorreosAdmin { get; set; }
 }

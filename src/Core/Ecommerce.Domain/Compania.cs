@@ -31,4 +31,5 @@ public class Compania
     public string? CorreosAdmin { get; set; }
     public bool BoletaPorLote { get; set; } = true;
     public bool FlagCaptura { get; set; }
+    public bool FlagCaja { get; set; }
 }

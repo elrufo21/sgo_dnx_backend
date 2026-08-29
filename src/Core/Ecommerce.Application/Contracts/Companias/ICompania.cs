@@ -8,6 +8,7 @@ public interface ICompania
     Task<bool> EditarAsync(int id, Compania compania, CancellationToken cancellationToken = default);
     Task<bool> ActualizarBoletaPorLoteAsync(int id, bool boletaPorLote, CancellationToken cancellationToken = default);
     Task<bool> ActualizarFlagCapturaAsync(int id, bool flagCaptura, CancellationToken cancellationToken = default);
+    Task<bool> ActualizarConfiguracionCajaAsync(int id, bool flagCaja, string? correosAdmin, CancellationToken cancellationToken = default);
     Task<bool> EliminarAsync(int id, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Compania>> ListarAsync(int page = 1, int pageSize = 50, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<EGeneral>> ListarComboAsync(int page = 1, int pageSize = 50, CancellationToken cancellationToken = default);

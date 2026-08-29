@@ -42,9 +42,10 @@ public class CompaniaRepository : ICompania
                                 RenovacionSome,
                                 CorreoSGO,
                                 PasswordCorreo,
-                                CorreosAdmin,
-                                BoletaPorLote,
-                                FlagCaptura)
+                                 CorreosAdmin,
+                                 BoletaPorLote,
+                                 FlagCaptura,
+                                 FlagCaja)
                               VALUES (
                                 @CompaniaRazonSocial,
                                 @CompaniaRUC,
@@ -70,9 +71,10 @@ public class CompaniaRepository : ICompania
                                 @RenovacionSome,
                                 @CorreoSGO,
                                 @PasswordCorreo,
-                                @CorreosAdmin,
-                                @BoletaPorLote,
-                                @FlagCaptura)";
+                                 @CorreosAdmin,
+                                 @BoletaPorLote,
+                                 @FlagCaptura,
+                                 @FlagCaja)";
 
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sql, con);
@@ -109,9 +111,10 @@ public class CompaniaRepository : ICompania
                                 RenovacionSome = @RenovacionSome,
                                 CorreoSGO = @CorreoSGO,
                                 PasswordCorreo = @PasswordCorreo,
-                                CorreosAdmin = @CorreosAdmin,
-                                BoletaPorLote = @BoletaPorLote,
-                                FlagCaptura = @FlagCaptura
+                                 CorreosAdmin = @CorreosAdmin,
+                                 BoletaPorLote = @BoletaPorLote,
+                                 FlagCaptura = @FlagCaptura,
+                                 FlagCaja = @FlagCaja
                               WHERE CompaniaId = @Id";
 
         await using var con = new SqlConnection(_connectionString);
@@ -157,6 +160,22 @@ public class CompaniaRepository : ICompania
         return rows > 0;
     }
 
+    public async Task<bool> ActualizarConfiguracionCajaAsync(
+        int id,
+        bool flagCaja,
+        string? correosAdmin,
+        CancellationToken cancellationToken = default)
+    {
+        const string sql = "UPDATE Compania SET FlagCaja = @FlagCaja, CorreosAdmin = @CorreosAdmin WHERE CompaniaId = @Id";
+        await using var con = new SqlConnection(_connectionString);
+        await using var cmd = new SqlCommand(sql, con);
+        cmd.Parameters.AddWithValue("@Id", id);
+        cmd.Parameters.AddWithValue("@FlagCaja", flagCaja);
+        cmd.Parameters.AddWithValue("@CorreosAdmin", (object?)correosAdmin?.Trim() ?? DBNull.Value);
+        await con.OpenAsync(cancellationToken);
+        return await cmd.ExecuteNonQueryAsync(cancellationToken) > 0;
+    }
+
     public async Task<bool> EliminarAsync(int id, CancellationToken cancellationToken = default)
     {
         const string sql = "DELETE FROM Compania WHERE CompaniaId = @Id";
@@ -197,9 +216,10 @@ public class CompaniaRepository : ICompania
                                     RenovacionSome,
                                     CorreoSGO,
                                     PasswordCorreo,
-                                    CorreosAdmin,
-                                    BoletaPorLote,
-                                    FlagCaptura,
+                                     CorreosAdmin,
+                                     BoletaPorLote,
+                                     FlagCaptura,
+                                     FlagCaja,
                                     ROW_NUMBER() OVER (ORDER BY CompaniaId DESC) AS RowNum
                              FROM Compania
                              )
@@ -247,7 +267,8 @@ public class CompaniaRepository : ICompania
                 PasswordCorreo = reader["PasswordCorreo"].ToString(),
                 CorreosAdmin = reader["CorreosAdmin"].ToString(),
                 BoletaPorLote = reader["BoletaPorLote"] != DBNull.Value && Convert.ToBoolean(reader["BoletaPorLote"]),
-                FlagCaptura = reader["FlagCaptura"] != DBNull.Value && Convert.ToBoolean(reader["FlagCaptura"])
+                FlagCaptura = reader["FlagCaptura"] != DBNull.Value && Convert.ToBoolean(reader["FlagCaptura"]),
+                FlagCaja = reader["FlagCaja"] != DBNull.Value && Convert.ToBoolean(reader["FlagCaja"])
             });
         }
 
@@ -329,6 +350,7 @@ public class CompaniaRepository : ICompania
         cmd.Parameters.AddWithValue("@CorreosAdmin", (object?)compania.CorreosAdmin ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@BoletaPorLote", compania.BoletaPorLote);
         cmd.Parameters.AddWithValue("@FlagCaptura", compania.FlagCaptura);
+        cmd.Parameters.AddWithValue("@FlagCaja", compania.FlagCaja);
     }
 
     private static (int page, int pageSize) NormalizePagination(int page, int pageSize)
