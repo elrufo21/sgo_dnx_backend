@@ -6,7 +6,7 @@ Permitir que una caja cerrada envíe por correo su mismo reporte PDF generado en
 
 ## Uso
 
-En **Configuración > Caja**, registrar los destinatarios. En la pantalla de una caja cerrada aparecerá el botón con el ícono de correo cuando haya al menos un destinatario; el sistema genera el PDF del cierre y lo envía a las direcciones configuradas en `Compania.CorreosAdmin`. Admite varias direcciones separadas por coma o punto y coma.
+En **Configuración > Caja**, registrar los destinatarios. En la pantalla de una caja cerrada siempre aparecerá el botón con el ícono de correo, sin depender de `Compania.FlagCaja`, para permitir reintentos ante fallas de conexión. El sistema genera el PDF del cierre y lo envía a las direcciones configuradas en `Compania.CorreosAdmin`. Admite varias direcciones separadas por coma o punto y coma.
 
 En esa misma vista, **Permitir múltiples cajas abiertas** administra `Compania.FlagCaja`: con valor `0` solo puede existir una caja activa por compañía; con valor `1` se permiten varias cajas activas.
 
