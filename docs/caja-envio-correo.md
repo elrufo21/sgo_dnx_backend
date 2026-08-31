@@ -16,6 +16,7 @@ El asunto conserva el formato del escritorio: `DXN CIERRE DE CAJA GENERAL DEL DI
 
 - El endpoint `POST /api/v1/Correo/enviar-cierre-caja` requiere sesión autenticada.
 - `Compania.FlagCaja` controla el límite de cajas activas y se valida en los procedimientos propios de DNX (`uspCajaInsertaCsvWeb` y `uspValidaCantCajasWeb`). Su valor inicial es `0`; los procedimientos heredados no se modifican.
+- Antes de abrir, la API también valida si el usuario ya tiene una caja activa para devolver un mensaje útil sin intentar crear otra.
 - El destinatario se obtiene únicamente de `Compania.CorreosAdmin`, identificando la compañía desde la caja; no se recibe desde el navegador.
 - Se usa exclusivamente `EmailSettings` para la conexión SMTP, que mantiene las mismas credenciales de correo de SGO. No se usa ninguna credencial SUNAT/OSE.
 - Se acepta un único PDF de hasta 10 MB.

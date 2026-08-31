@@ -88,6 +88,18 @@ public sealed class CashFlowController : ControllerBase
         await using var con = new SqlConnection(connectionString);
         await con.OpenAsync(cancellationToken);
 
+        await using (var activeCmd = new SqlCommand("""
+            SELECT TOP 1 CajaId FROM Caja
+             WHERE UsuarioId = @UsuarioId AND CajaEstado = 'ACTIVO'
+             ORDER BY CajaId DESC
+            """, con))
+        {
+            activeCmd.Parameters.Add("@UsuarioId", SqlDbType.Int).Value = request.UsuarioId;
+            var activeCajaId = await activeCmd.ExecuteScalarAsync(cancellationToken);
+            if (activeCajaId is not null && activeCajaId != DBNull.Value)
+                return Conflict(new { ok = false, mensaje = $"Ya tienes la caja activa N.º {activeCajaId}. Ciérrala antes de abrir otra." });
+        }
+
         var data = string.Join("|", new[]
         {
             "0", string.Empty,

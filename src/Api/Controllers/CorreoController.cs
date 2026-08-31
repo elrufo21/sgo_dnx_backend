@@ -241,7 +241,7 @@ public class CorreoController : ControllerBase
             {
                 From = new MailAddress(emisor, string.IsNullOrWhiteSpace(_emailSettings.DisplayName) ? null : _emailSettings.DisplayName.Trim()),
                 Subject = $"DXN CIERRE DE CAJA GENERAL DEL DIA {fechaTexto}",
-                Body = ConstruirCuerpoCierreCaja(nombreCompania, nombreResponsable, fecha, request.CajaId, diferencial),
+                Body = ConstruirCuerpoCierreCaja(nombreCompania, nombreResponsable, fecha, "Caja", request.CajaId, diferencial),
                 IsBodyHtml = true
             };
 
@@ -271,6 +271,49 @@ public class CorreoController : ControllerBase
         {
             return StatusCode((int)HttpStatusCode.InternalServerError, new { ok = false, mensaje = "No se pudo enviar el correo de cierre de caja.", detalle = ex.Message });
         }
+    }
+
+    [Authorize]
+    [HttpPost("enviar-informe-caja-final", Name = "EnviarCorreoInformeCajaFinal")]
+    [RequestSizeLimit(25 * 1024 * 1024)]
+    public async Task<IActionResult> EnviarInformeCajaFinal([FromForm] EnviarInformeCajaFinalRequest request, [FromServices] IConfiguration configuration, CancellationToken cancellationToken)
+    {
+        if (request.ConteoId <= 0 || request.Pdf is null || request.Pdf.Length <= 0 || request.Pdf.Length > MaxArchivoBytes || !string.Equals(Path.GetExtension(request.Pdf.FileName), ".pdf", StringComparison.OrdinalIgnoreCase)) return BadRequest(new { ok = false, mensaje = "Debe adjuntar un PDF válido de hasta 10 MB." });
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString)) return StatusCode(500, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
+        string destinatarios = string.Empty, compania = "SGO", responsable = "Equipo de caja";
+        await using (var connection = new SqlConnection(connectionString))
+        await using (var command = new SqlCommand("""
+            SELECT compania.CorreosAdmin,
+                   COALESCE(NULLIF(LTRIM(RTRIM(compania.CompaniaComercial)), ''), NULLIF(LTRIM(RTRIM(compania.CompaniaRazonSocial)), ''), 'SGO'),
+                   COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(SUBSTRING(ISNULL(personal.PersonalNombres, ''), 1, CHARINDEX(' ', ISNULL(personal.PersonalNombres, '') + ' ') - 1), ' ', SUBSTRING(ISNULL(personal.PersonalApellidos, ''), 1, CHARINDEX(' ', ISNULL(personal.PersonalApellidos, '') + ' ') - 1)))), ''), 'Equipo de caja')
+              FROM ConteoMonedas conteo
+              INNER JOIN Usuarios usuario ON usuario.UsuarioID = conteo.UsuarioId
+              INNER JOIN Personal personal ON personal.PersonalId = usuario.PersonalId
+              INNER JOIN Compania compania ON compania.CompaniaId = personal.CompaniaId
+             WHERE conteo.ConteoId = @ConteoId
+            """, connection))
+        {
+            command.Parameters.AddWithValue("@ConteoId", request.ConteoId); await connection.OpenAsync(cancellationToken);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            if (await reader.ReadAsync(cancellationToken)) { destinatarios = reader.GetValue(0)?.ToString()?.Trim() ?? string.Empty; compania = reader.GetValue(1)?.ToString()?.Trim() ?? compania; responsable = reader.GetValue(2)?.ToString()?.Trim() ?? responsable; }
+        }
+        var correos = SepararCorreos(destinatarios);
+        if (correos.Count == 0 || correos.Any(correo => !MailAddress.TryCreate(correo, out _))) return BadRequest(new { ok = false, mensaje = "La compañía no tiene correos administrativos válidos configurados." });
+        var emisor = (_emailSettings.Email ?? string.Empty).Trim(); var clave = (_emailSettings.Key ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(emisor) || string.IsNullOrWhiteSpace(clave)) return StatusCode(500, new { ok = false, mensaje = "No está configurado el correo de envío." });
+        try
+        {
+            var fecha = request.FechaReporte?.Date ?? DateTime.Today;
+            await using var pdfStream = request.Pdf.OpenReadStream();
+            using var mail = new MailMessage { From = new MailAddress(emisor, string.IsNullOrWhiteSpace(_emailSettings.DisplayName) ? null : _emailSettings.DisplayName.Trim()), Subject = $"DXN INFORME FINAL DE CAJA DEL DIA {fecha:dd-MM-yyyy}", Body = ConstruirCuerpoCierreCaja(compania, responsable, fecha, "Informe final", request.ConteoId, request.Diferencial), IsBodyHtml = true };
+            foreach (var correo in correos) mail.To.Add(correo);
+            mail.Attachments.Add(new Attachment(pdfStream, request.Pdf.FileName, "application/pdf"));
+            using var smtp = new SmtpClient { Host = string.IsNullOrWhiteSpace(_emailSettings.Host) ? "smtp.gmail.com" : _emailSettings.Host.Trim(), Port = _emailSettings.Port.GetValueOrDefault(587), EnableSsl = _emailSettings.EnableSsl ?? true, DeliveryMethod = SmtpDeliveryMethod.Network, UseDefaultCredentials = false, Credentials = new NetworkCredential(emisor, clave) };
+            await smtp.SendMailAsync(mail, cancellationToken);
+            return Ok(new { ok = true, mensaje = "Correo del informe final enviado correctamente.", para = correos });
+        }
+        catch (Exception ex) { return StatusCode(500, new { ok = false, mensaje = "No se pudo enviar el correo del informe final.", detalle = ex.Message }); }
     }
 
     private static List<string> ValidarRequest(EnviarCorreoComprobanteRequest request)
@@ -506,6 +549,7 @@ public class CorreoController : ControllerBase
         string? nombreCompania,
         string? nombreResponsable,
         DateTime fecha,
+        string etiquetaRegistro,
         long cajaId,
         decimal diferencial)
     {
@@ -549,7 +593,7 @@ public class CorreoController : ControllerBase
                       <p style="margin:0;font-size:15px;line-height:1.65;">Se ha generado el reporte de cierre de caja. Encontrará el documento PDF adjunto a este correo.</p>
                       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border:1px solid #e5e7eb;border-radius:10px;">
                         <tr>
-                          <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">Caja</td>
+                          <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">{WebUtility.HtmlEncode(etiquetaRegistro)}</td>
                           <td align="right" style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#172033;font-size:14px;font-weight:700;">#{cajaVisible}</td>
                         </tr>
                         <tr>
@@ -638,6 +682,14 @@ public class EnviarCorreoComprobanteRequest
 public sealed class EnviarCierreCajaRequest
 {
     public long CajaId { get; set; }
+    public DateTime? FechaReporte { get; set; }
+    public decimal Diferencial { get; set; }
+    public IFormFile? Pdf { get; set; }
+}
+
+public sealed class EnviarInformeCajaFinalRequest
+{
+    public long ConteoId { get; set; }
     public DateTime? FechaReporte { get; set; }
     public decimal Diferencial { get; set; }
     public IFormFile? Pdf { get; set; }
