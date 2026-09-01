@@ -4,6 +4,9 @@ namespace Ecommerce.Application.Contracts.Productos;
 public interface IProducto
 {
     Task<string> InsertarAsync(Producto producto, CancellationToken cancellationToken = default);
+    Task<GuardarListaPreciosPdfResultado> GuardarListaPreciosPdfAsync(
+        IReadOnlyCollection<Producto> productos,
+        CancellationToken cancellationToken = default);
     Task<bool> EliminarAsync(long id, CancellationToken cancellationToken = default);
     Task<Producto?> ObtenerPorIdAsync(long id, CancellationToken cancellationToken = default);
     Task<Producto?> ObtenerPorCodigoAsync(string codigo, CancellationToken cancellationToken = default);
@@ -34,3 +37,5 @@ public interface IProducto
         GuardarUnidadMedidaProductoRequest request,
         CancellationToken cancellationToken = default);
 }
+
+public sealed record GuardarListaPreciosPdfResultado(int Registrados, int Actualizados);

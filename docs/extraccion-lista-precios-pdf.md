@@ -4,7 +4,9 @@
 
 El servicio usa las coordenadas del PDF para reconstruir las filas y replica los precios de celdas combinadas, como los filtros de la sección de electrodomésticos. En este documento, 30 filas se dibujan como vectores sin texto extraíble; sus valores verificados se completan solo cuando reconoce esta lista por su vigencia y código `FB007`.
 
-Después de revisar la vista previa, el frontend envía los productos a `POST /api/v1/Productos/lista-precios-pdf/guardar`. El endpoint registra cada fila en la tabla `Producto` mediante el flujo normal del repositorio y conserva el código del PDF (por ejemplo, `FB007`). Si el código ya existe, actualiza ese producto. Guarda código, nombre, observación, usuario y cualquier otro texto en mayúsculas; usa `IdSubLinea = 1` y `ProductoUM = "UNIDAD"`. El precio de distribuidor va a costo, el de menudeo a venta, y PV/SV se conservan en sus campos correspondientes. El resultado informa registrados, actualizados y errores.
+Después de revisar la vista previa, el frontend envía los productos a `POST /api/v1/Productos/lista-precios-pdf/guardar`. La lista completa se registra mediante `dbo.uspGuardarListaPreciosPdf` en una sola transacción: si la base de datos rechaza una fila, no se guarda ninguna. Si el código ya existe, se actualiza; de lo contrario se crea.
+
+Los valores fijos de la importación son `IdSubLinea = 1`, `ProductoMarca = "DNX"`, `ProductoINV = "S"`, `AlmacenId = 1`, `ProductoUbicacion = ""` y `ProductoUM = "UNIDAD"`. El prefijo inicial `DNX` se quita de `ProductoNombre`; el precio de distribuidor se guarda tanto como costo como venta; PV y SV se conservan. `ProductoUsuario` usa el primer nombre y apellido paterno del usuario de sesión, en mayúsculas. Los demás datos operativos existentes, como stock y estado, se preservan al actualizar.
 
 Para obtener un archivo JSON y validar la estructura del documento:
 

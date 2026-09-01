@@ -70,20 +70,19 @@ public class ProductosController : ControllerBase
             return BadRequest("No hay productos para guardar.");
         }
 
-        var usuario = NormalizarTexto(User.Identity?.Name);
+        var usuario = NormalizarUsuarioRegistro(request.Usuario);
         if (string.IsNullOrWhiteSpace(usuario))
         {
             usuario = "IMPORTACION PDF";
         }
 
-        var registrados = 0;
-        var actualizados = 0;
         var errores = new List<string>();
+        var productos = new List<Producto>();
 
         foreach (var item in request.Productos)
         {
             var codigo = NormalizarTexto(item.Codigo);
-            var nombre = NormalizarTexto(item.Nombre);
+            var nombre = QuitarMarcaDxn(item.Nombre);
             if (string.IsNullOrWhiteSpace(codigo) || string.IsNullOrWhiteSpace(nombre))
             {
                 errores.Add(string.IsNullOrWhiteSpace(codigo) ? "SIN CODIGO" : codigo);
@@ -91,72 +90,38 @@ public class ProductosController : ControllerBase
             }
 
             var costo = item.PrecioDistribuidor ?? 0m;
-            var venta = item.PrecioMenudeo ?? costo;
-            Producto? existente;
-            try
+            productos.Add(new Producto
             {
-                existente = await _mediator.ObtenerPorCodigoAsync(codigo, cancellationToken);
-            }
-            catch
-            {
-                errores.Add(codigo);
-                continue;
-            }
-
-            var producto = new Producto
-            {
-                IdProducto = existente?.IdProducto ?? 0,
                 IdSubLinea = 1,
                 ProductoCodigo = codigo,
                 ProductoNombre = nombre,
                 ProductoUM = "UNIDAD",
                 ProductoCosto = costo,
-                ProductoVenta = venta,
-                ProductoVentaB = venta,
-                ProductoCantidad = existente?.ProductoCantidad ?? 0m,
-                ProductoEstado = existente?.ProductoEstado ?? "ACTIVO",
+                ProductoVenta = costo,
                 ProductoUsuario = usuario,
-                ProductoImagen = existente?.ProductoImagen ?? string.Empty,
-                ValorCritico = existente?.ValorCritico ?? 0m,
-                AplicaINV = existente?.AplicaINV ?? "S",
-                ProductoINV = existente?.ProductoINV ?? "S",
-                ProductoMarca = existente?.ProductoMarca ?? string.Empty,
-                ProductoTipoCambio = existente?.ProductoTipoCambio ?? 0m,
-                ProductoCostoDolar = existente?.ProductoCostoDolar ?? 0m,
-                AlmacenId = existente?.AlmacenId,
-                ProductoUbicacion = existente?.ProductoUbicacion,
+                ProductoINV = "S",
+                ProductoMarca = "DNX",
+                AlmacenId = 1,
                 ProductoObs = $"CATEGORIA: {NormalizarTexto(item.Categoria)}; CONTENIDO: {NormalizarTexto(item.Contenido)}",
                 ProductoPV = item.PV ?? 0m,
                 ProductoSV = item.SV ?? 0m,
-                ProductoxCaja = existente?.ProductoxCaja ?? 0m,
-                AplicaFB = existente?.AplicaFB ?? "S"
-            };
-
-            try
-            {
-                var resultado = await _mediator.InsertarAsync(producto, cancellationToken);
-                if (string.IsNullOrWhiteSpace(resultado) ||
-                    string.Equals(resultado, "error", StringComparison.OrdinalIgnoreCase) ||
-                    resultado.Contains("existe", StringComparison.OrdinalIgnoreCase))
-                {
-                    errores.Add(codigo);
-                }
-                else if (existente is not null)
-                {
-                    actualizados++;
-                }
-                else
-                {
-                    registrados++;
-                }
-            }
-            catch
-            {
-                errores.Add(codigo);
-            }
+            });
         }
 
-        return Ok(new GuardarListaPreciosPdfResponse(registrados, actualizados, errores));
+        if (productos.Count == 0)
+        {
+            return BadRequest("No hay productos válidos para guardar.");
+        }
+
+        try
+        {
+            var resultado = await _mediator.GuardarListaPreciosPdfAsync(productos, cancellationToken);
+            return Ok(new GuardarListaPreciosPdfResponse(resultado.Registrados, resultado.Actualizados, errores));
+        }
+        catch
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, "No se pudo guardar la lista de precios.");
+        }
     }
 
     [Authorize]
@@ -424,6 +389,15 @@ public class ProductosController : ControllerBase
 
     private static string NormalizarTexto(string? value) => (value ?? string.Empty).Trim().ToUpperInvariant();
 
+    private static string QuitarMarcaDxn(string? value)
+    {
+        var nombre = NormalizarTexto(value);
+        return nombre.StartsWith("DNX ", StringComparison.Ordinal) ? nombre[4..].Trim() : nombre;
+    }
+
+    private static string NormalizarUsuarioRegistro(string? value) => string.Join(' ',
+        NormalizarTexto(value).Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2));
+
     private IReadOnlyList<IFormFile> GetUnidadMedidaImageFiles(IFormFile? imagenUnidad)
     {
         if (imagenUnidad is not null)
@@ -596,6 +570,7 @@ public class ProductosController : ControllerBase
 public sealed class GuardarListaPreciosPdfRequest
 {
     public List<ProductoPdfParaGuardar> Productos { get; init; } = new();
+    public string? Usuario { get; init; }
 }
 
 public sealed class ProductoPdfParaGuardar

@@ -1,5 +1,7 @@
 using System.Data;
 using System.Globalization;
+using System.Xml;
+using System.Xml.Linq;
 using Ecommerce.Application.Contracts.Productos;
 using Ecommerce.Domain;
 using Ecommerce.Infrastructure.Persistence;
@@ -37,6 +39,40 @@ public class ProductoRepository : IProducto
         {
             return await GuardarProductoLegacyAsync(producto, rawData, cancellationToken);
         }
+    }
+
+    public async Task<GuardarListaPreciosPdfResultado> GuardarListaPreciosPdfAsync(
+        IReadOnlyCollection<Producto> productos,
+        CancellationToken cancellationToken = default)
+    {
+        var usuario = productos.FirstOrDefault()?.ProductoUsuario?.Trim() ?? "IMPORTACION PDF";
+        var xml = new XDocument(new XElement("productos", productos.Select(producto => new XElement("producto",
+            new XAttribute("codigo", producto.ProductoCodigo?.Trim() ?? string.Empty),
+            new XAttribute("nombre", producto.ProductoNombre?.Trim() ?? string.Empty),
+            new XAttribute("costo", XmlConvert.ToString(producto.ProductoCosto ?? 0m)),
+            new XAttribute("observacion", producto.ProductoObs?.Trim() ?? string.Empty),
+            new XAttribute("pv", XmlConvert.ToString(producto.ProductoPV ?? 0m)),
+            new XAttribute("sv", XmlConvert.ToString(producto.ProductoSV ?? 0m))))));
+
+        await using var con = new SqlConnection(_connectionString);
+        await using var cmd = new SqlCommand("uspGuardarListaPreciosPdf", con)
+        {
+            CommandTimeout = 300,
+            CommandType = CommandType.StoredProcedure
+        };
+        cmd.Parameters.Add("@Productos", SqlDbType.Xml).Value = xml.ToString(SaveOptions.DisableFormatting);
+        cmd.Parameters.Add("@ProductoUsuario", SqlDbType.VarChar, 60).Value = usuario;
+
+        await con.OpenAsync(cancellationToken);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken))
+        {
+            throw new InvalidOperationException("El lote de productos no devolvió un resultado.");
+        }
+
+        return new GuardarListaPreciosPdfResultado(
+            Convert.ToInt32(reader["Registrados"], CultureInfo.InvariantCulture),
+            Convert.ToInt32(reader["Actualizados"], CultureInfo.InvariantCulture));
     }
 
     private async Task<string> GuardarProductoLegacyAsync(Producto producto, string rawData, CancellationToken cancellationToken)
