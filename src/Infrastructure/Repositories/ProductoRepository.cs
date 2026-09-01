@@ -196,6 +196,18 @@ public class ProductoRepository : IProducto
         return await reader.ReadAsync(cancellationToken) ? MapProducto(reader) : null;
     }
 
+    public async Task<Producto?> ObtenerPorCodigoAsync(string codigo, CancellationToken cancellationToken = default)
+    {
+        const string sql = "SELECT TOP 1 * FROM Producto WHERE ProductoCodigo = @Codigo;";
+
+        await using var con = new SqlConnection(_connectionString);
+        await using var cmd = new SqlCommand(sql, con);
+        cmd.Parameters.AddWithValue("@Codigo", codigo.Trim());
+        await con.OpenAsync(cancellationToken);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        return await reader.ReadAsync(cancellationToken) ? MapProducto(reader) : null;
+    }
+
     public async Task<string> ListarCrudRawAsync(string? estado = "ACTIVO", CancellationToken cancellationToken = default)
     {
         try

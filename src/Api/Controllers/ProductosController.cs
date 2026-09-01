@@ -14,6 +14,7 @@ namespace Ecommerce.Api.Controllers;
 [Route("api/v1/[controller]")]
 public class ProductosController : ControllerBase
 {
+    private const string CodigoPdfPrefix = "251-";
     private const long MaxImageSizeBytes = 5 * 1024 * 1024; // 5 MB
     private const long MaxPdfSizeBytes = 10 * 1024 * 1024; // 10 MB
     private static readonly HashSet<string> AllowedImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
@@ -57,6 +58,107 @@ public class ProductosController : ControllerBase
         {
             return BadRequest(ex.Message);
         }
+    }
+
+    [Authorize]
+    [HttpPost("lista-precios-pdf/guardar", Name = "GuardarListaPreciosPdf")]
+    public async Task<IActionResult> GuardarListaPreciosPdf(
+        [FromBody] GuardarListaPreciosPdfRequest? request,
+        CancellationToken cancellationToken = default)
+    {
+        if (request?.Productos is null || request.Productos.Count == 0)
+        {
+            return BadRequest("No hay productos para guardar.");
+        }
+
+        var usuario = NormalizarTexto(User.Identity?.Name);
+        if (string.IsNullOrWhiteSpace(usuario))
+        {
+            usuario = "IMPORTACION PDF";
+        }
+
+        var registrados = 0;
+        var actualizados = 0;
+        var errores = new List<string>();
+
+        foreach (var item in request.Productos)
+        {
+            var codigoOriginal = NormalizarTexto(item.Codigo);
+            var codigo = $"{CodigoPdfPrefix}{codigoOriginal}";
+            var nombre = NormalizarTexto(item.Nombre);
+            if (string.IsNullOrWhiteSpace(codigoOriginal) || string.IsNullOrWhiteSpace(nombre))
+            {
+                errores.Add(string.IsNullOrWhiteSpace(codigoOriginal) ? "SIN CODIGO" : codigo);
+                continue;
+            }
+
+            var costo = item.PrecioDistribuidor ?? 0m;
+            var venta = item.PrecioMenudeo ?? costo;
+            Producto? existente;
+            try
+            {
+                existente = await _mediator.ObtenerPorCodigoAsync(codigo, cancellationToken);
+            }
+            catch
+            {
+                errores.Add(codigo);
+                continue;
+            }
+
+            var producto = new Producto
+            {
+                IdProducto = existente?.IdProducto ?? 0,
+                IdSubLinea = 1,
+                ProductoCodigo = codigo,
+                ProductoNombre = nombre,
+                ProductoUM = "UNIDAD",
+                ProductoCosto = costo,
+                ProductoVenta = venta,
+                ProductoVentaB = venta,
+                ProductoCantidad = existente?.ProductoCantidad ?? 0m,
+                ProductoEstado = existente?.ProductoEstado ?? "ACTIVO",
+                ProductoUsuario = usuario,
+                ProductoImagen = existente?.ProductoImagen ?? string.Empty,
+                ValorCritico = existente?.ValorCritico ?? 0m,
+                AplicaINV = existente?.AplicaINV ?? "S",
+                ProductoINV = existente?.ProductoINV ?? "S",
+                ProductoMarca = existente?.ProductoMarca ?? string.Empty,
+                ProductoTipoCambio = existente?.ProductoTipoCambio ?? 0m,
+                ProductoCostoDolar = existente?.ProductoCostoDolar ?? 0m,
+                AlmacenId = existente?.AlmacenId,
+                ProductoUbicacion = existente?.ProductoUbicacion,
+                ProductoObs = $"CATEGORIA: {NormalizarTexto(item.Categoria)}; CONTENIDO: {NormalizarTexto(item.Contenido)}",
+                ProductoPV = item.PV ?? 0m,
+                ProductoSV = item.SV ?? 0m,
+                ProductoxCaja = existente?.ProductoxCaja ?? 0m,
+                AplicaFB = existente?.AplicaFB ?? "S"
+            };
+
+            try
+            {
+                var resultado = await _mediator.InsertarAsync(producto, cancellationToken);
+                if (string.IsNullOrWhiteSpace(resultado) ||
+                    string.Equals(resultado, "error", StringComparison.OrdinalIgnoreCase) ||
+                    resultado.Contains("existe", StringComparison.OrdinalIgnoreCase))
+                {
+                    errores.Add(codigo);
+                }
+                else if (existente is not null)
+                {
+                    actualizados++;
+                }
+                else
+                {
+                    registrados++;
+                }
+            }
+            catch
+            {
+                errores.Add(codigo);
+            }
+        }
+
+        return Ok(new GuardarListaPreciosPdfResponse(registrados, actualizados, errores));
     }
 
     [Authorize]
@@ -322,6 +424,8 @@ public class ProductosController : ControllerBase
         return true;
     }
 
+    private static string NormalizarTexto(string? value) => (value ?? string.Empty).Trim().ToUpperInvariant();
+
     private IReadOnlyList<IFormFile> GetUnidadMedidaImageFiles(IFormFile? imagenUnidad)
     {
         if (imagenUnidad is not null)
@@ -490,3 +594,22 @@ public class ProductosController : ControllerBase
         return false;
     }
 }
+
+public sealed class GuardarListaPreciosPdfRequest
+{
+    public List<ProductoPdfParaGuardar> Productos { get; init; } = new();
+}
+
+public sealed class ProductoPdfParaGuardar
+{
+    public string? Categoria { get; init; }
+    public string? Codigo { get; init; }
+    public string? Nombre { get; init; }
+    public string? Contenido { get; init; }
+    public decimal? PrecioDistribuidor { get; init; }
+    public decimal? PrecioMenudeo { get; init; }
+    public decimal? SV { get; init; }
+    public decimal? PV { get; init; }
+}
+
+public sealed record GuardarListaPreciosPdfResponse(int Registrados, int Actualizados, IReadOnlyList<string> Errores);
