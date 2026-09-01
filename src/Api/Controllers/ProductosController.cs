@@ -14,7 +14,6 @@ namespace Ecommerce.Api.Controllers;
 [Route("api/v1/[controller]")]
 public class ProductosController : ControllerBase
 {
-    private const string CodigoPdfPrefix = "251-";
     private const long MaxImageSizeBytes = 5 * 1024 * 1024; // 5 MB
     private const long MaxPdfSizeBytes = 10 * 1024 * 1024; // 10 MB
     private static readonly HashSet<string> AllowedImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
@@ -83,12 +82,11 @@ public class ProductosController : ControllerBase
 
         foreach (var item in request.Productos)
         {
-            var codigoOriginal = NormalizarTexto(item.Codigo);
-            var codigo = $"{CodigoPdfPrefix}{codigoOriginal}";
+            var codigo = NormalizarTexto(item.Codigo);
             var nombre = NormalizarTexto(item.Nombre);
-            if (string.IsNullOrWhiteSpace(codigoOriginal) || string.IsNullOrWhiteSpace(nombre))
+            if (string.IsNullOrWhiteSpace(codigo) || string.IsNullOrWhiteSpace(nombre))
             {
-                errores.Add(string.IsNullOrWhiteSpace(codigoOriginal) ? "SIN CODIGO" : codigo);
+                errores.Add(string.IsNullOrWhiteSpace(codigo) ? "SIN CODIGO" : codigo);
                 continue;
             }
 
