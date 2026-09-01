@@ -6,7 +6,7 @@ El servicio usa las coordenadas del PDF para reconstruir las filas y replica los
 
 Después de revisar la vista previa, el frontend envía los productos a `POST /api/v1/Productos/lista-precios-pdf/guardar`. La lista completa se registra mediante `dbo.uspGuardarListaPreciosPdf` en una sola transacción: si la base de datos rechaza una fila, no se guarda ninguna. Si el código ya existe, se actualiza; de lo contrario se crea.
 
-Los valores fijos de la importación son `IdSubLinea = 1`, `ProductoMarca = "DNX"`, `ProductoINV = "S"`, `AlmacenId = 1`, `ProductoUbicacion = ""` y `ProductoUM = "UNIDAD"`. El prefijo inicial `DNX` se quita de `ProductoNombre`; el precio de distribuidor se guarda tanto como costo como venta; PV y SV se conservan. `ProductoUsuario` usa el primer nombre y apellido paterno del usuario de sesión, en mayúsculas. Los demás datos operativos existentes, como stock y estado, se preservan al actualizar.
+Los valores fijos de la importación son `IdSubLinea = 1`, `ProductoMarca = "DXN"`, `ProductoINV = "S"`, `AlmacenId = 1`, `ProductoUbicacion = ""`, `ProductoxCaja = 1` y `ProductoUM = "UNIDAD"`. El prefijo inicial `DXN` y los apóstrofes se quitan de `ProductoNombre`; los puntos y coma se eliminan de `ProductoObs`. El precio de distribuidor se guarda tanto como costo como venta; PV y SV se conservan. `ProductoUsuario` usa el primer nombre y apellido paterno del usuario de sesión, en mayúsculas. Los demás datos operativos existentes, como stock y estado, se preservan al actualizar.
 
 Para obtener un archivo JSON y validar la estructura del documento:
 

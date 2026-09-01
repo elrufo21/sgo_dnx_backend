@@ -100,9 +100,9 @@ public class ProductosController : ControllerBase
                 ProductoVenta = costo,
                 ProductoUsuario = usuario,
                 ProductoINV = "S",
-                ProductoMarca = "DNX",
+                ProductoMarca = "DXN",
                 AlmacenId = 1,
-                ProductoObs = $"CATEGORIA: {NormalizarTexto(item.Categoria)}; CONTENIDO: {NormalizarTexto(item.Contenido)}",
+                ProductoObs = $"CATEGORIA: {NormalizarTexto(item.Categoria)} CONTENIDO: {NormalizarTexto(item.Contenido)}".Replace(";", string.Empty),
                 ProductoPV = item.PV ?? 0m,
                 ProductoSV = item.SV ?? 0m,
             });
@@ -391,8 +391,8 @@ public class ProductosController : ControllerBase
 
     private static string QuitarMarcaDxn(string? value)
     {
-        var nombre = NormalizarTexto(value);
-        return nombre.StartsWith("DNX ", StringComparison.Ordinal) ? nombre[4..].Trim() : nombre;
+        var nombre = NormalizarTexto(value).Replace("'", string.Empty);
+        return nombre.StartsWith("DXN ", StringComparison.Ordinal) ? nombre[4..].Trim() : nombre;
     }
 
     private static string NormalizarUsuarioRegistro(string? value) => string.Join(' ',

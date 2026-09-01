@@ -25,15 +25,26 @@ BEGIN
         SV decimal(18,2) NOT NULL
     );
 
+    ;WITH ProductosXml AS
+    (
+        SELECT
+            Codigo = UPPER(LTRIM(RTRIM(Fila.value('@codigo', 'varchar(300)')))),
+            Nombre = UPPER(LTRIM(RTRIM(Fila.value('@nombre', 'varchar(1000)')))),
+            Costo = Fila.value('@costo', 'decimal(18,4)'),
+            Observacion = UPPER(LTRIM(RTRIM(Fila.value('@observacion', 'varchar(300)')))),
+            PV = Fila.value('@pv', 'decimal(18,2)'),
+            SV = Fila.value('@sv', 'decimal(18,2)')
+        FROM @Productos.nodes('/productos/producto') AS Datos(Fila)
+    )
     INSERT INTO @Filas (Codigo, Nombre, Costo, Observacion, PV, SV)
     SELECT
-        UPPER(LTRIM(RTRIM(Fila.value('@codigo', 'varchar(300)')))),
-        UPPER(LTRIM(RTRIM(Fila.value('@nombre', 'varchar(1000)')))),
-        Fila.value('@costo', 'decimal(18,4)'),
-        UPPER(LTRIM(RTRIM(Fila.value('@observacion', 'varchar(300)')))),
-        Fila.value('@pv', 'decimal(18,2)'),
-        Fila.value('@sv', 'decimal(18,2)')
-    FROM @Productos.nodes('/productos/producto') AS Datos(Fila);
+        Codigo,
+        REPLACE(CASE WHEN LEFT(Nombre, 4) = 'DXN ' THEN LTRIM(SUBSTRING(Nombre, 5, 1000)) ELSE Nombre END, '''', ''),
+        Costo,
+        REPLACE(Observacion, ';', ''),
+        PV,
+        SV
+    FROM ProductosXml;
 
     IF NOT EXISTS (SELECT 1 FROM @Filas)
     BEGIN
@@ -67,7 +78,7 @@ BEGIN
         SET
             IdSubLinea = 1,
             ProductoNombre = Filas.Nombre,
-            ProductoMarca = 'DNX',
+            ProductoMarca = 'DXN',
             ProductoUM = 'UNIDAD',
             ProductoCosto = Filas.Costo,
             ProductoVenta = Filas.Costo,
@@ -78,7 +89,8 @@ BEGIN
             ProductoUsuario = @ProductoUsuario,
             ProductoFecha = GETDATE(),
             ProductoPV = Filas.PV,
-            ProductoSV = Filas.SV
+            ProductoSV = Filas.SV,
+            ProductoxCaja = 1
         OUTPUT INSERTED.IdProducto, INSERTED.ProductoCantidad, INSERTED.ProductoCosto
             INTO @Actualizados (IdProducto, Stock, Costo)
         FROM Producto
@@ -95,11 +107,11 @@ BEGIN
         )
         OUTPUT INSERTED.ProductoCodigo INTO @Nuevos (Codigo)
         SELECT
-            1, Filas.Codigo, Filas.Nombre, 'DNX',
+            1, Filas.Codigo, Filas.Nombre, 'DXN',
             0, 0, 'UNIDAD', Filas.Costo,
             Filas.Costo, 1, '', 0,
             Filas.Observacion, 'BUENO', @ProductoUsuario, GETDATE(),
-            '', 0, Filas.PV, Filas.SV, 0,
+            '', 0, Filas.PV, Filas.SV, 1,
             N'S', N'S', NULL
         FROM @Filas AS Filas
         WHERE NOT EXISTS

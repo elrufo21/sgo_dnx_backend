@@ -5,7 +5,7 @@ BEGIN TRANSACTION;
 
 DECLARE @Productos xml = N'
 <productos>
-  <producto codigo="ZZ-CODEX-LOTE" nombre="ALOE V HYDRATING MASK" costo="168.00" observacion="PRUEBA" pv="1" sv="2" />
+  <producto codigo="ZZ-CODEX-LOTE" nombre="DXN SPIRULINA TABLET 120'S" costo="168.00" observacion="PRUEBA; CON PUNTO Y COMA" pv="1" sv="2" />
 </productos>';
 
 EXEC dbo.uspGuardarListaPreciosPdf @Productos, 'ANDRE RAMIREZ';
@@ -16,13 +16,15 @@ IF NOT EXISTS
     FROM Producto
     WHERE ProductoCodigo = 'ZZ-CODEX-LOTE'
       AND IdSubLinea = 1
-      AND ProductoNombre = 'ALOE V HYDRATING MASK'
-      AND ProductoMarca = 'DNX'
+      AND ProductoNombre = 'SPIRULINA TABLET 120S'
+      AND ProductoMarca = 'DXN'
       AND ProductoCosto = 168
       AND ProductoVenta = 168
       AND ProductoINV = N'S'
       AND AlmacenId = 1
       AND ProductoUbicacion = ''
+      AND ProductoxCaja = 1
+      AND CHARINDEX(';', ProductoObs) = 0
       AND ProductoUsuario = 'ANDRE RAMIREZ'
 )
 BEGIN
@@ -46,6 +48,7 @@ IF NOT EXISTS
       AND ProductoVenta = 169
       AND ProductoPV = 3
       AND ProductoSV = 4
+      AND ProductoxCaja = 1
 )
 BEGIN
     RAISERROR('La verificación de actualización del lote no pasó.', 16, 1);
