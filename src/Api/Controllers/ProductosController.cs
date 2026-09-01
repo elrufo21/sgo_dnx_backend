@@ -3,6 +3,7 @@ using Ecommerce.Application.Contracts.Productos;
 using Ecommerce.Application.Contracts.Infrastructure;
 using Ecommerce.Application.Models.ImageManagement;
 using Ecommerce.Domain;
+using Ecommerce.Infrastructure.Pdf;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,6 +15,7 @@ namespace Ecommerce.Api.Controllers;
 public class ProductosController : ControllerBase
 {
     private const long MaxImageSizeBytes = 5 * 1024 * 1024; // 5 MB
+    private const long MaxPdfSizeBytes = 10 * 1024 * 1024; // 10 MB
     private static readonly HashSet<string> AllowedImageContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/jpeg",
@@ -28,6 +30,33 @@ public class ProductosController : ControllerBase
     {
         _mediator = mediador;
         _imageService = imageService;
+    }
+
+    [Authorize]
+    [RequestSizeLimit(MaxPdfSizeBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxPdfSizeBytes)]
+    [HttpPost("lista-precios-pdf", Name = "LeerListaPreciosPdf")]
+    public async Task<IActionResult> LeerListaPreciosPdf([FromForm] IFormFile? archivo)
+    {
+        if (archivo is null || archivo.Length <= 0)
+        {
+            return BadRequest("Debe seleccionar un archivo PDF.");
+        }
+
+        if (archivo.Length > MaxPdfSizeBytes || !string.Equals(Path.GetExtension(archivo.FileName), ".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("El archivo debe ser un PDF de hasta 10 MB.");
+        }
+
+        try
+        {
+            await using var stream = archivo.OpenReadStream();
+            return Ok(new ProductoPdfService().LeerProductos(stream));
+        }
+        catch (InvalidDataException ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 
     [Authorize]
