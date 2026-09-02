@@ -12,6 +12,7 @@ SET
     ProductoUbicacion = '',
     ProductoxCaja = 1,
     ProductoObs = REPLACE(ProductoObs, ';', '')
-WHERE ProductoObs LIKE 'CATEGORIA:%';
+WHERE ProductoObs LIKE 'CATEGORIA:%'
+  AND UPPER(LTRIM(RTRIM(ProductoEstado))) = 'BUENO';
 
 COMMIT TRANSACTION;

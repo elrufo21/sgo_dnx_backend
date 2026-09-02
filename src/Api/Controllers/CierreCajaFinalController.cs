@@ -29,6 +29,8 @@ public sealed class CierreCajaFinalController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Listar([FromQuery] DateOnly fechaInicio, [FromQuery] DateOnly fechaFin, CancellationToken ct)
     {
+        if (fechaInicio > fechaFin)
+            return BadRequest(new { ok = false, mensaje = "La fecha inicio no puede ser mayor que la fecha fin." });
         await using var con = await Abrir(ct); var raw = await Scalar(con, "usplistaConteo", null, null, ct, fechaInicio, fechaFin);
         return Ok(raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Where(x => x != "~").Select(x => x.Split('|')).Where(x => x.Length > 10).Select(x => new { id = Number(x[0]), fecha = Fecha(x[1]), cajeros = x[2], totalObs = Money(x[3]), salidas = Money(x[4]), diferencia = Money(x[5]), totalEsperado = Money(x[6]), usuario = x[7], observaciones = x[10] }));
     }
@@ -58,7 +60,18 @@ public sealed class CierreCajaFinalController : ControllerBase
         var monedas = conteoId == 0
             ? string.Join(";", request.Monedas.Select(x => $"{x.Cantidad}|{Dinero(x.Denominacion)}|{Dinero(x.Cantidad * x.Denominacion)}|"))
             : string.Join(";", request.Monedas.Select(x => $"{x.Id}|{x.Cantidad}|{Dinero(x.Cantidad * x.Denominacion)}"));
-        await using var con = await Abrir(ct); var result = await Scalar(con, conteoId == 0 ? "uspInsertarConteoCajaWEB" : "uspEditarConteoCajaWEB", "@ListaOrden", $"{header}[{movimientos}[{monedas}", ct);
+        await using var con = await Abrir(ct);
+        if (conteoId == 0)
+        {
+            var existe = (await Scalar(con, "usplistaConteo", null, null, ct, request.Fecha, request.Fecha))
+                .Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Any(x => x != "~");
+            if (existe)
+                return Conflict(new { mensaje = "Ya existe un informe final para la fecha seleccionada." });
+            var validacion = await Scalar(con, "uspValidarApertura", "@Fecha", request.Fecha.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture), ct);
+            if (validacion.Equals("PAGO/VARIOS", StringComparison.OrdinalIgnoreCase))
+                return Conflict(new { mensaje = "Hay documentos con la condición PAGO/VARIOS que aún no se han liquidado." });
+        }
+        var result = await Scalar(con, conteoId == 0 ? "uspInsertarConteoCajaWEB" : "uspEditarConteoCajaWEB", "@ListaOrden", $"{header}[{movimientos}[{monedas}", ct);
         var insertedId = long.TryParse(result, out var id) && id > 0 ? id : 0;
         return string.IsNullOrWhiteSpace(result) || result.Equals("true", StringComparison.OrdinalIgnoreCase) || insertedId > 0
             ? Ok(new { ok = true, id = insertedId, mensaje = conteoId == 0 ? "Informe final registrado." : "Informe final actualizado." })

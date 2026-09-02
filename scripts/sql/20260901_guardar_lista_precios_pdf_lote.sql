@@ -94,7 +94,8 @@ BEGIN
         OUTPUT INSERTED.IdProducto, INSERTED.ProductoCantidad, INSERTED.ProductoCosto
             INTO @Actualizados (IdProducto, Stock, Costo)
         FROM Producto
-        INNER JOIN @Filas AS Filas ON Filas.Codigo = Producto.ProductoCodigo;
+        INNER JOIN @Filas AS Filas ON Filas.Codigo = Producto.ProductoCodigo
+        WHERE UPPER(LTRIM(RTRIM(Producto.ProductoEstado))) = 'BUENO';
 
         INSERT INTO Producto
         (

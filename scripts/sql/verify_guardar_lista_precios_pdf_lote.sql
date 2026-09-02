@@ -54,4 +54,28 @@ BEGIN
     RAISERROR('La verificación de actualización del lote no pasó.', 16, 1);
 END;
 
+UPDATE Producto
+SET ProductoEstado = 'MALO'
+WHERE ProductoCodigo = 'ZZ-CODEX-LOTE';
+
+SET @Productos = N'
+<productos>
+  <producto codigo="ZZ-CODEX-LOTE" nombre="DXN NO DEBE ACTUALIZARSE" costo="170.00" observacion="PRUEBA" pv="5" sv="6" />
+</productos>';
+
+EXEC dbo.uspGuardarListaPreciosPdf @Productos, 'ANDRE RAMIREZ';
+
+IF NOT EXISTS
+(
+    SELECT 1
+    FROM Producto
+    WHERE ProductoCodigo = 'ZZ-CODEX-LOTE'
+      AND ProductoEstado = 'MALO'
+      AND ProductoNombre = 'ALOE V HYDRATING MASK ACTUALIZADO'
+      AND ProductoCosto = 169
+)
+BEGIN
+    RAISERROR('Un producto que no está BUENO fue modificado.', 16, 1);
+END;
+
 ROLLBACK TRANSACTION;
