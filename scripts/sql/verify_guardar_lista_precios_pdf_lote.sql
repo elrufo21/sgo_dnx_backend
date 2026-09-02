@@ -31,6 +31,32 @@ BEGIN
     RAISERROR('La verificación del lote no pasó.', 16, 1);
 END;
 
+INSERT INTO Producto
+(
+    IdSubLinea, ProductoCodigo, ProductoNombre, ProductoMarca,
+    ProductoTipoCambio, ProductoCostoDolar, ProductoUM, ProductoCosto,
+    ProductoVenta, AlmacenId, ProductoUbicacion, ProductoCantidad,
+    ProductoObs, ProductoEstado, ProductoUsuario, ProductoFecha,
+    ProductoImagen, ValorCritico, ProductoPV, ProductoSV, ProductoxCaja,
+    ProductoINV, AplicaFB, UltimoINV
+)
+SELECT
+    IdSubLinea, '251ZZ-CODEX-LOTE', ProductoNombre, ProductoMarca,
+    ProductoTipoCambio, ProductoCostoDolar, ProductoUM, ProductoCosto,
+    ProductoVenta, AlmacenId, ProductoUbicacion, ProductoCantidad,
+    ProductoObs, ProductoEstado, ProductoUsuario, ProductoFecha,
+    ProductoImagen, ValorCritico, ProductoPV, ProductoSV, ProductoxCaja,
+    ProductoINV, AplicaFB, UltimoINV
+FROM Producto
+WHERE ProductoCodigo = 'ZZ-CODEX-LOTE';
+
+UPDATE Producto
+SET ProductoNombre = 'NOMBRE HISTORICO 251',
+    ProductoCantidad = 77,
+    ProductoUsuario = 'USUARIO ANTERIOR',
+    ProductoFecha = '20000101'
+WHERE ProductoCodigo = '251ZZ-CODEX-LOTE';
+
 SET @Productos = N'
 <productos>
   <producto codigo="ZZ-CODEX-LOTE" nombre="ALOE V HYDRATING MASK ACTUALIZADO" costo="169.00" observacion="PRUEBA ACTUALIZADA" pv="3" sv="4" />
@@ -52,6 +78,24 @@ IF NOT EXISTS
 )
 BEGIN
     RAISERROR('La verificación de actualización del lote no pasó.', 16, 1);
+END;
+
+IF NOT EXISTS
+(
+    SELECT 1
+    FROM Producto
+    WHERE ProductoCodigo = '251ZZ-CODEX-LOTE'
+      AND ProductoCosto = 169
+      AND ProductoVenta = 169
+      AND ProductoPV = 1
+      AND ProductoSV = 4
+      AND ProductoNombre = 'NOMBRE HISTORICO 251'
+      AND ProductoCantidad = 77
+      AND ProductoUsuario = 'ANDRE RAMIREZ'
+      AND ProductoFecha > '20000101'
+)
+BEGIN
+    RAISERROR('La verificación del precio o preservación del código 251 no pasó.', 16, 1);
 END;
 
 UPDATE Producto

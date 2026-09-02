@@ -97,6 +97,19 @@ BEGIN
         INNER JOIN @Filas AS Filas ON Filas.Codigo = Producto.ProductoCodigo
         WHERE UPPER(LTRIM(RTRIM(Producto.ProductoEstado))) = 'BUENO';
 
+        UPDATE Producto
+        SET
+            ProductoCosto = Filas.Costo,
+            ProductoVenta = Filas.Costo,
+            ProductoUsuario = @ProductoUsuario,
+            ProductoFecha = GETDATE(),
+            ProductoSV = Filas.SV
+        OUTPUT INSERTED.IdProducto, INSERTED.ProductoCantidad, INSERTED.ProductoCosto
+            INTO @Actualizados (IdProducto, Stock, Costo)
+        FROM Producto
+        INNER JOIN @Filas AS Filas ON Producto.ProductoCodigo = CONCAT('251', Filas.Codigo)
+        WHERE UPPER(LTRIM(RTRIM(Producto.ProductoEstado))) = 'BUENO';
+
         INSERT INTO Producto
         (
             IdSubLinea, ProductoCodigo, ProductoNombre, ProductoMarca,
