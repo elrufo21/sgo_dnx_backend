@@ -8,7 +8,7 @@ Permitir que una caja cerrada envíe por correo su mismo reporte PDF generado en
 
 En **Configuración > Caja**, registrar los destinatarios. En la pantalla de una caja cerrada siempre aparecerá el botón con el ícono de correo, sin depender de `Compania.FlagCaja`, para permitir reintentos ante fallas de conexión. El sistema genera el PDF del cierre y lo envía a las direcciones configuradas en `Compania.CorreosAdmin`. Admite varias direcciones separadas por coma o punto y coma.
 
-En esa misma vista, **Permitir múltiples cajas abiertas** administra `Compania.FlagCaja`: con valor `0` solo puede existir una caja activa por compañía; con valor `1` se permiten varias cajas activas.
+En esa misma vista, **Permitir múltiples cajas abiertas** administra `Compania.FlagCaja`: con valor `0` solo puede existir una caja activa por compañía y no se muestra el módulo **Generar informe final**; con valor `1` se permiten varias cajas activas y el módulo está disponible en el menú.
 
 El asunto conserva el formato del escritorio: `DXN CIERRE DE CAJA GENERAL DEL DIA dd-MM-yyyy`. El correo usa una plantilla HTML con el número de caja, fecha, estado del cuadre, detalle de la diferencia y el aviso del PDF adjunto. La firma muestra el primer nombre y apellido del responsable de la caja.
 
