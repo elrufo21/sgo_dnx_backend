@@ -1792,7 +1792,8 @@ public class NotaController : ControllerBase
         await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await using var cmd = new SqlCommand("""
             SELECT PagoId, ISNULL(CajaId, 0) AS CajaId,
-                   CONVERT(varchar(10), FechaEmision, 103) AS FechaEmision,
+                   COALESCE(CONVERT(char(10), FehaRegistro, 103) + ' ' + CONVERT(char(8), FehaRegistro, 108),
+                            CONVERT(char(10), FechaEmision, 103)) AS FechaEmision,
                    ISNULL(Descripcion, '') AS Descripcion,
                    ISNULL(FormaPago, '') AS FormaPago, ISNULL(Entidad, '') AS Entidad,
                    ISNULL(Efectivo, 0) AS Efectivo, ISNULL(Deposito, 0) AS Deposito,
@@ -1847,7 +1848,8 @@ public class NotaController : ControllerBase
         PagoVariosHistorialItemResponse? pago = null;
         await using (var pagoCmd = new SqlCommand("""
             SELECT PagoId, ISNULL(CajaId, 0) AS CajaId,
-                   CONVERT(varchar(10), FechaEmision, 103) AS FechaEmision,
+                   COALESCE(CONVERT(char(10), FehaRegistro, 103) + ' ' + CONVERT(char(8), FehaRegistro, 108),
+                            CONVERT(char(10), FechaEmision, 103)) AS FechaEmision,
                    ISNULL(Descripcion, '') AS Descripcion,
                    ISNULL(FormaPago, '') AS FormaPago, ISNULL(Entidad, '') AS Entidad,
                    ISNULL(Efectivo, 0) AS Efectivo, ISNULL(Deposito, 0) AS Deposito,
