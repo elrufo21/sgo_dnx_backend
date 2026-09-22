@@ -288,7 +288,7 @@ public sealed class PettyCashMovementController : ControllerBase
         if (string.Equals(estado, "D", StringComparison.OrdinalIgnoreCase))
             return Conflict(new { ok = false, mensaje = "Este movimiento automático de venta no se puede eliminar desde Caja Chica." });
 
-        await using var deleteCmd = new SqlCommand("uspEliminarCajaDetalle", con)
+        await using var deleteCmd = new SqlCommand("uspEliminarCajaDetalleWEB", con)
         {
             CommandType = CommandType.StoredProcedure
         };

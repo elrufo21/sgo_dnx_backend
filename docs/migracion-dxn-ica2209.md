@@ -2,7 +2,7 @@
 
 El script `scripts/sql/20260922_migrar_dxn_ica2209_a_dxn_ica_completo.sql` adapta la estructura de una base virgen `DXN_ICA2209` a la versión vigente de `DXN_ICA`, inventariada el 22 de septiembre de 2026.
 
-Incluye las tablas, columnas, defaults, restricciones, índices, claves foráneas y procedimientos almacenados que difieren. Es autocontenido: durante su ejecución no consulta `DXN_ICA` ni `DXN_CUSCO_D2108`.
+Incluye las tablas, columnas, defaults, restricciones, índices, claves foráneas y procedimientos almacenados que difieren. Es autocontenido: durante su ejecución no consulta `DXN_ICA` ni `DXN_CUSCO_D2108`. Los diez procedimientos compartidos que difieren se crean con sufijo `WEB`, preservando las versiones existentes del escritorio.
 
 No mueve datos de negocio. Antes de reducir un tipo de datos valida que no se vaya a truncar información; si encuentra incompatibilidades, revierte toda la ejecución y muestra el motivo.
 

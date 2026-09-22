@@ -116,7 +116,11 @@ IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Migracion_Detall
     ALTER TABLE dbo.DetallesPVS WITH CHECK ADD CONSTRAINT FK_Migracion_DetallesPVS_NotaPedido FOREIGN KEY (NotaId) REFERENCES dbo.NotaPedido (NotaId);
 GO
 
-/* Procedimientos almacenados: definición estática tomada de DXN_ICA. */
+/*
+  Procedimientos almacenados: definición estática tomada de DXN_ICA.
+  Los procedimientos compartidos que difieren se instalan como WEB, sin
+  alterar sus equivalentes del escritorio en DXN_ICA2209.
+*/
 
 CREATE OR ALTER PROCEDURE [dbo].[cargaPrincipal]
 as
@@ -6461,7 +6465,7 @@ BEGIN
 END
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[uspEliminarCajaDetalle]
+CREATE OR ALTER PROCEDURE [dbo].[uspEliminarCajaDetalleWEB]
 @Datas varchar(max)
 as
 begin
@@ -6631,7 +6635,7 @@ end
 end
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[uspEliminarPagoV]  
+CREATE OR ALTER PROCEDURE [dbo].[uspEliminarPagoVWEB]
 @ListaOrden varchar(Max)  
 as  
 begin  
@@ -7392,7 +7396,7 @@ end
 end
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[uspInsertarConteoCaja]  
+CREATE OR ALTER PROCEDURE [dbo].[uspInsertarConteoCajaWEB]
 @ListaOrden varchar(Max)  
 as  
 Declare @pos1 int,@pos2 int,@pos3 int  
@@ -7496,16 +7500,6 @@ END
  Select convert(varchar,@ConteoId);
 GO
 
-/* uspInsertarConteoCajaWEB */
-/* Adaptador WEB: no crea tablas ni modifica procedimientos del escritorio. */
-CREATE OR ALTER PROCEDURE dbo.uspInsertarConteoCajaWEB
-    @ListaOrden varchar(max)
-AS
-BEGIN
-    SET NOCOUNT ON;
-    EXEC dbo.uspInsertarConteoCaja @ListaOrden = @ListaOrden;
-END;
-GO
 CREATE OR ALTER PROCEDURE [dbo].[uspinsertarNotaB]            
 @ListaOrden varchar(Max)            
 as            
@@ -8089,7 +8083,7 @@ end
 end
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[uspInsertarPagoVarios]          
+CREATE OR ALTER PROCEDURE [dbo].[uspInsertarPagoVariosWEB]
 @ListaOrden varchar(Max)          
 as          
 begin          
@@ -9279,7 +9273,7 @@ for xml path('')),1,1,'')),'~')+'['+@RutaOBS+'['+@RutaIOC
 end
 GO
 
-CREATE OR ALTER PROCEDURE usplistarPagoVarios    
+CREATE OR ALTER PROCEDURE usplistarPagoVariosWEB
 @UsuarioId varchar(20)    
 as    
 begin    
@@ -9608,7 +9602,7 @@ for xml path('')),1,1,'')),'0')
 end
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[usptraerCajeros]
+CREATE OR ALTER PROCEDURE [dbo].[usptraerCajerosWEB]
 @Fecha Date
 as
 begin
@@ -9744,7 +9738,7 @@ FOR XML path ('')),1,1,'')),'~')
 End
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[uspTraerGastos]    
+CREATE OR ALTER PROCEDURE [dbo].[uspTraerGastosWEB]
 @Fecha date    
 as    
 begin    
@@ -9830,7 +9824,7 @@ end
 end
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[uspTraerGastosA]
+CREATE OR ALTER PROCEDURE [dbo].[uspTraerGastosAWEB]
 @CajaId numeric(38)
 as
 begin
@@ -9937,7 +9931,7 @@ end
 end
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[uspTraeTodasMonedas]
+CREATE OR ALTER PROCEDURE [dbo].[uspTraeTodasMonedasWEB]
 @Fecha date
 as
 begin
@@ -10091,7 +10085,7 @@ BEGIN
 END;
 GO
 
-CREATE OR ALTER PROCEDURE [dbo].[uspValidarApertura]
+CREATE OR ALTER PROCEDURE [dbo].[uspValidarAperturaWEB]
 @Fecha date
 as
 begin
@@ -10408,6 +10402,19 @@ IF COL_LENGTH(N'dbo.Compania', N'FlagCaja') IS NULL OR COL_LENGTH(N'dbo.Producto
     THROW 51000, 'Faltan columnas requeridas después de la migración.', 1;
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_Migracion_DetalleCompra_Producto')
     THROW 51000, 'Falta una relación requerida después de la migración.', 1;
+IF EXISTS
+(
+    SELECT 1
+    FROM (VALUES
+        (N'uspEliminarCajaDetalleWEB'), (N'uspEliminarPagoVWEB'),
+        (N'uspInsertarConteoCajaWEB'), (N'uspInsertarPagoVariosWEB'),
+        (N'usplistarPagoVariosWEB'), (N'usptraerCajerosWEB'),
+        (N'uspTraerGastosWEB'), (N'uspTraerGastosAWEB'),
+        (N'uspTraeTodasMonedasWEB'), (N'uspValidarAperturaWEB')
+    ) AS esperados(Nombre)
+    WHERE OBJECT_ID(N'dbo.' + esperados.Nombre, N'P') IS NULL
+)
+    THROW 51000, 'Falta un procedimiento WEB requerido después de la migración.', 1;
 
 COMMIT TRANSACTION;
 SELECT N'OK: DXN_ICA2209 quedó adaptada a la estructura SQL de DXN_ICA.' AS Resultado;

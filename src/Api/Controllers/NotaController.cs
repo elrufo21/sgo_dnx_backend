@@ -1730,7 +1730,7 @@ public class NotaController : ControllerBase
             return BadRequest(new { ok = false, mensaje = "usuarioId es requerido." });
 
         await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-        await using var cmd = new SqlCommand("usplistarPagoVarios", con)
+        await using var cmd = new SqlCommand("usplistarPagoVariosWEB", con)
         {
             CommandType = CommandType.StoredProcedure
         };
@@ -1759,7 +1759,7 @@ public class NotaController : ControllerBase
             return Ok(new { ok = true, count = 0 });
 
         await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-        await using var cmd = new SqlCommand("usplistarPagoVarios", con)
+        await using var cmd = new SqlCommand("usplistarPagoVariosWEB", con)
         {
             CommandType = CommandType.StoredProcedure
         };
@@ -1975,7 +1975,7 @@ public class NotaController : ControllerBase
             return NotFound(new { ok = false, mensaje = "No se encontró el pago realizado." });
 
         var listaOrden = $"{pagoId}[{string.Join(";", detalles.Select(x => $"{x.DocuId}|{x.NotaId}"))}";
-        await using var eliminar = new SqlCommand("uspEliminarPagoV", con)
+        await using var eliminar = new SqlCommand("uspEliminarPagoVWEB", con)
         {
             CommandType = CommandType.StoredProcedure
         };
@@ -2054,7 +2054,7 @@ public class NotaController : ControllerBase
         }));
 
         await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-        await using var cmd = new SqlCommand("uspInsertarPagoVarios", con)
+        await using var cmd = new SqlCommand("uspInsertarPagoVariosWEB", con)
         {
             CommandType = CommandType.StoredProcedure
         };

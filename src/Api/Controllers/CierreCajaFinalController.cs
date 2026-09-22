@@ -16,9 +16,9 @@ public sealed class CierreCajaFinalController : ControllerBase
     public async Task<IActionResult> Preparacion([FromQuery] DateOnly fecha, CancellationToken ct)
     {
         await using var con = await Abrir(ct); var f = fecha.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture);
-        var gastosRaw = await Scalar(con, "uspTraerGastos", "@Fecha", f, ct);
-        var monedasRaw = await Scalar(con, "uspTraeTodasMonedas", "@Fecha", f, ct);
-        var cajerosRaw = await Scalar(con, "usptraerCajeros", "@Fecha", f, ct);
+        var gastosRaw = await Scalar(con, "uspTraerGastosWEB", "@Fecha", f, ct);
+        var monedasRaw = await Scalar(con, "uspTraeTodasMonedasWEB", "@Fecha", f, ct);
+        var cajerosRaw = await Scalar(con, "usptraerCajerosWEB", "@Fecha", f, ct);
         var p = gastosRaw.Split('['); var gastos = Rows(p.ElementAtOrDefault(0));
         var ingresos = new List<Movimiento> { new("VITRINA", Money(p.ElementAtOrDefault(7))), new("IOC", Money(p.ElementAtOrDefault(4), 1)), new("REVISTAS", Money(p.ElementAtOrDefault(5))), new("COPIAS Y OTROS", Money(p.ElementAtOrDefault(6))) };
         ingresos.AddRange(Rows(p.ElementAtOrDefault(1)));
@@ -67,7 +67,7 @@ public sealed class CierreCajaFinalController : ControllerBase
                 .Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Any(x => x != "~");
             if (existe)
                 return Conflict(new { mensaje = "Ya existe un informe final para la fecha seleccionada." });
-            var validacion = await Scalar(con, "uspValidarApertura", "@Fecha", request.Fecha.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture), ct);
+            var validacion = await Scalar(con, "uspValidarAperturaWEB", "@Fecha", request.Fecha.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture), ct);
             if (validacion.Equals("PAGO/VARIOS", StringComparison.OrdinalIgnoreCase))
                 return Conflict(new { mensaje = "Hay documentos con la condición PAGO/VARIOS que aún no se han liquidado." });
         }

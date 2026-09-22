@@ -264,7 +264,7 @@ public sealed class CashFlowController : ControllerBase
             return StatusCode(500, "No se encontró la cadena de conexión.");
 
         await using var con = new SqlConnection(connectionString);
-        await using var cmd = new SqlCommand("uspTraerGastosA", con)
+        await using var cmd = new SqlCommand("uspTraerGastosAWEB", con)
         {
             CommandType = CommandType.StoredProcedure
         };
