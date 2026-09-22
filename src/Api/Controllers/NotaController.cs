@@ -502,6 +502,22 @@ public class NotaController : ControllerBase
         var listaOrden = string.IsNullOrWhiteSpace(request.ListaOrden)
             ? request.Data
             : request.ListaOrden;
+        if (!string.IsNullOrWhiteSpace(listaOrden) &&
+            long.TryParse(listaOrden.Split('|', 2)[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var docuId) &&
+            docuId > 0)
+        {
+            var origen = await ObtenerOrigenNotaCreditoDesdeBdAsync(
+                new EnviarFacturaRequest { DOCU_ID = docuId }, cancellationToken);
+            if (origen is not null)
+            {
+                var bloqueo = await ObtenerBloqueoAnulacionConfiguradaAsync(origen, cancellationToken);
+                if (bloqueo is not null)
+                {
+                    return BadRequest(new { ok = false, mensaje = bloqueo });
+                }
+            }
+        }
+
         var resultado = string.IsNullOrWhiteSpace(listaOrden)
             ? "error: ListaOrden es requerido."
             : await _mediator.AnularDocumentoAsync(listaOrden.Trim(), cancellationToken);
@@ -598,10 +614,7 @@ public class NotaController : ControllerBase
             return Conflict(new { ok = false, mensaje = "No se puede anular una venta PAGO/VARIOS que ya fue pagada." });
         }
 
-        var bloqueo = ReglasAnulacionDocumento.ObtenerBloqueo(
-            origen.TipoCodigo,
-            origen.Emision,
-            ObtenerAhoraCpe());
+        var bloqueo = await ObtenerBloqueoAnulacionConfiguradaAsync(origen, cancellationToken);
         if (bloqueo is not null)
         {
             return Conflict(new { ok = false, mensaje = bloqueo });
@@ -7929,10 +7942,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             return (null, (int)HttpStatusCode.Conflict, "No se puede anular una venta PAGO/VARIOS que ya fue pagada.");
         }
 
-        var bloqueo = ReglasAnulacionDocumento.ObtenerBloqueo(
-            origen.TipoCodigo,
-            origen.Emision,
-            ObtenerAhoraCpe());
+        var bloqueo = await ObtenerBloqueoAnulacionConfiguradaAsync(origen, cancellationToken);
         if (bloqueo is not null)
         {
             return (null, (int)HttpStatusCode.Conflict, bloqueo);
@@ -9907,6 +9917,59 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
     {
         return string.Equals(origen.Condicion, "PAGO/VARIOS", StringComparison.OrdinalIgnoreCase) &&
                string.Equals(origen.NotaEstado, "CANCELADO", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<string?> ObtenerBloqueoAnulacionConfiguradaAsync(
+        NotaCreditoOrigenBd origen,
+        CancellationToken cancellationToken)
+    {
+        int? diasConfigurados = null;
+        var excluirDomingos = true;
+        if (origen.CompaniaId > 0 && (origen.TipoCodigo == "01" || origen.TipoCodigo == "03"))
+        {
+            const string sql = """
+                SELECT Descripcion, ValorNum
+                FROM dbo.Indicador
+                WHERE CompaniaId = @CompaniaId
+                  AND Area = 'VENTAS'
+                  AND Descripcion IN (
+                      'DIAS_ANULACION_BOLETA',
+                      'DIAS_ANULACION_FACTURA',
+                      'ANULACION_EXCLUIR_DOMINGOS')
+                ORDER BY Id;
+                """;
+            try
+            {
+                await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                await using var cmd = new SqlCommand(sql, con);
+                cmd.Parameters.AddWithValue("@CompaniaId", origen.CompaniaId);
+                await con.OpenAsync(cancellationToken);
+                await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    if (reader.IsDBNull(1)) continue;
+                    var clave = reader.GetString(0);
+                    var valor = reader.GetInt32(1);
+                    if (((clave == "DIAS_ANULACION_BOLETA" && origen.TipoCodigo == "03") ||
+                         (clave == "DIAS_ANULACION_FACTURA" && origen.TipoCodigo == "01")) &&
+                        valor is >= 0 and <= 365)
+                    {
+                        diasConfigurados = valor;
+                    }
+                    else if (clave == "ANULACION_EXCLUIR_DOMINGOS" && valor is 0 or 1)
+                    {
+                        excluirDomingos = valor == 1;
+                    }
+                }
+            }
+            catch (SqlException ex) when (ex.Number == 208)
+            {
+                // Base aún sin la tabla Indicador: conservar la regla vigente.
+            }
+        }
+
+        return ReglasAnulacionDocumento.ObtenerBloqueo(
+            origen.TipoCodigo, origen.Emision, ObtenerAhoraCpe(), diasConfigurados, excluirDomingos);
     }
 
     private static string ConstruirListaOrdenAnulacionBoleta(NotaCreditoOrigenBd origen)
