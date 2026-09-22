@@ -50,12 +50,13 @@ public class AuthService : IAuthService
         return tokenHandler.WriteToken(token);
     }
     
-    public string CreateTokenA(string? fecha)
+    public string CreateTokenA(string? fecha, string? area = null)
     {
         var claims = new List<Claim>();
         
         var claim = new Claim(ClaimTypes.UserData,fecha!);
         claims.Add(claim);
+        claims.Add(new Claim("area", area?.Trim() ?? string.Empty));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Key!));
         var credenciales = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);

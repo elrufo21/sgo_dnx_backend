@@ -472,23 +472,66 @@ public class NotaPedidoRepository : INotaPedido
         await con.OpenAsync(cancellationToken);
         await using var tx = (SqlTransaction)await con.BeginTransactionAsync(cancellationToken);
 
-        const string sqlDeleteDetalles = "DELETE FROM DetallePedido WHERE NotaId = @NotaId";
-        await using var cmdDet = new SqlCommand(sqlDeleteDetalles, con, tx);
-        cmdDet.Parameters.AddWithValue("@NotaId", id);
-        await cmdDet.ExecuteNonQueryAsync(cancellationToken);
-
-        const string sqlDeleteNota = "DELETE FROM NotaPedido WHERE NotaId = @Id";
-        await using var cmd = new SqlCommand(sqlDeleteNota, con, tx);
-        cmd.Parameters.AddWithValue("@Id", id);
-        var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
-        if (rows > 0)
+        try
         {
+            const string sqlValidar = """
+                SELECT n.NotaEstado,
+                       (SELECT COUNT(*) FROM DocumentoVenta d WHERE d.NotaId = n.NotaId) AS Emitidos,
+                       (SELECT COUNT(*) FROM DetaLiquidaVenta l WHERE l.NotaId = n.NotaId) AS Liquidaciones,
+                       (SELECT COUNT(*) FROM GuiaLiquidacion g WHERE g.NotaId = n.NotaId) AS GuiasLiquidadas,
+                       (SELECT COUNT(*) FROM GuiaRelacion g WHERE g.NotaId = n.NotaId) AS GuiasRelacionadas
+                  FROM NotaPedido n WITH (UPDLOCK, HOLDLOCK)
+                 WHERE n.NotaId = @NotaId;
+                """;
+            await using var validar = new SqlCommand(sqlValidar, con, tx);
+            validar.Parameters.AddWithValue("@NotaId", id);
+            await using var reader = await validar.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return false;
+            }
+
+            var estado = reader["NotaEstado"]?.ToString()?.Trim().ToUpperInvariant() ?? string.Empty;
+            var emitidos = Convert.ToInt32(reader["Emitidos"], CultureInfo.InvariantCulture);
+            var liquidaciones = Convert.ToInt32(reader["Liquidaciones"], CultureInfo.InvariantCulture);
+            var guias = Convert.ToInt32(reader["GuiasLiquidadas"], CultureInfo.InvariantCulture)
+                + Convert.ToInt32(reader["GuiasRelacionadas"], CultureInfo.InvariantCulture);
+            await reader.CloseAsync();
+
+            if (emitidos > 0)
+                throw new InvalidOperationException("La nota no se puede eliminar porque ya fue canjeada por una boleta o factura.");
+            if (liquidaciones > 0)
+                throw new InvalidOperationException("La nota no se puede eliminar porque tiene una liquidación de pago.");
+            if (guias > 0)
+                throw new InvalidOperationException("La nota no se puede eliminar porque tiene guías de salida registradas.");
+            if (estado is "CANCELADO" or "ACUENTA" or "A CUENTA")
+                throw new InvalidOperationException("Solo se puede eliminar una nota pendiente o anulada.");
+
+            const string sqlDeleteDetalles = "DELETE FROM DetallePedido WHERE NotaId = @NotaId";
+            await using var cmdDet = new SqlCommand(sqlDeleteDetalles, con, tx);
+            cmdDet.Parameters.AddWithValue("@NotaId", id);
+            await cmdDet.ExecuteNonQueryAsync(cancellationToken);
+
+            const string sqlDeleteNota = "DELETE FROM NotaPedido WHERE NotaId = @Id";
+            await using var cmd = new SqlCommand(sqlDeleteNota, con, tx);
+            cmd.Parameters.AddWithValue("@Id", id);
+            var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
+            if (rows <= 0)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return false;
+            }
+
             await tx.CommitAsync(cancellationToken);
             return true;
         }
-
-        await tx.RollbackAsync(cancellationToken);
-        return false;
+        catch
+        {
+            if (tx.Connection is not null)
+                await tx.RollbackAsync(cancellationToken);
+            throw;
+        }
     }
 
     public async Task<NotaPedido?> ObtenerPorIdAsync(long id, CancellationToken cancellationToken = default)

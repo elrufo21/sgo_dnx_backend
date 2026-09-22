@@ -87,7 +87,7 @@ public class UsuarioRepository : IUsuario
             CompaniaTelefono = GetPayloadValue(payload, 17),
             BoletaPorLote = ParseBoolFlag(GetPayloadValue(payload, 18, "1"), true),
             FlagCaptura = ParseBoolFlag(GetPayloadValue(payload, 19, "0"), false),
-            Token = _authService.CreateTokenA(expiresAtUtc.ToString("O")),
+            Token = _authService.CreateTokenA(expiresAtUtc.ToString("O"), GetPayloadValue(payload, 2)),
             ExpiresAtUtc = expiresAtUtc,
             ExpiresInSeconds = expiresInSeconds
         };
@@ -127,7 +127,7 @@ public class UsuarioRepository : IUsuario
             Entorno = "3",
             BoletaPorLote = true,
             FlagCaptura = false,
-            Token = _authService.CreateTokenA(expiresAtUtc.ToString("O")),
+            Token = _authService.CreateTokenA(expiresAtUtc.ToString("O"), "DXN"),
             ExpiresAtUtc = expiresAtUtc,
             ExpiresInSeconds = expiresInSeconds
         };

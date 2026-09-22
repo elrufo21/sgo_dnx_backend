@@ -18,6 +18,8 @@ Las reglas se aplican en el backend a los endpoints `POST /api/v1/Nota/boleta/an
 
 Las Proformas V envían el documento, nota y detalles a `POST /api/v1/Nota/anular-documento`. El backend invoca el procedimiento almacenado existente `dbo.anularDocumento`, igual que el escritorio. El procedimiento conserva los registros, marca `DocumentoVenta.DocuEstado` y `NotaPedido.NotaEstado` como `ANULADO`, gestiona caja y repone stock según la entrega. Los demás documentos continúan con su flujo de anulación vigente.
 
+Al anular una boleta o proforma de mercadería emitida el mismo día, se elimina su movimiento automático de `CajaDetalle`. La anulación individual toma el concepto desde `NotaPedido.NotaConcepto`, que es el dato que usa el escritorio para aplicar esta regla. De ese modo una boleta anulada el mismo día deja de incrementar el efectivo de caja.
+
 Cuando una regla bloquea la operación, la API devuelve `ok = false` y un mensaje explicativo. Los endpoints individuales responden `409 Conflict`; el endpoint heredado responde `400 Bad Request` con el mensaje devuelto por la capa de persistencia.
 
 La comprobación mínima se ejecuta con `dotnet run --project scripts/verificar-reglas-anulacion/VerificarReglasAnulacion.csproj` desde la carpeta del backend.

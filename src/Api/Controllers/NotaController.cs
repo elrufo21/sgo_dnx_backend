@@ -3593,9 +3593,50 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
     [Authorize]
     [HttpDelete("{id:long}", Name = "EliminarNotaPedido")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
-    public async Task<IActionResult> EliminarNotaPedido(long id, CancellationToken cancellationToken)
+    public async Task<IActionResult> EliminarNotaPedido(
+        long id,
+        [FromBody] EliminarNotaPedidoRequest? request,
+        CancellationToken cancellationToken)
     {
-        return Ok(await _mediator.EliminarAsync(id, cancellationToken));
+        if (id <= 0)
+            return BadRequest(new { ok = false, mensaje = "Nota de pedido inválida." });
+
+        var area = User.FindFirstValue("area")?.Trim();
+        var esGerencia = string.Equals(area, "GERENCIA Y ADMINISTRACION", StringComparison.OrdinalIgnoreCase);
+        if (!esGerencia)
+        {
+            var clave = request?.Clave?.Trim();
+            if (string.IsNullOrWhiteSpace(clave))
+                return BadRequest(new { ok = false, mensaje = "Ingrese la clave de administrador." });
+
+            await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            await con.OpenAsync(cancellationToken);
+            await using var validarClave = new SqlCommand("""
+                SELECT TOP (1) 1
+                  FROM Usuarios
+                 WHERE dbo.desincrectar(UsuarioClave) = @Clave
+                   AND Administrador = 1;
+                """, con);
+            validarClave.Parameters.AddWithValue("@Clave", clave);
+            if (await validarClave.ExecuteScalarAsync(cancellationToken) is null)
+                return Unauthorized(new { ok = false, mensaje = "Clave de administrador inválida." });
+        }
+
+        try
+        {
+            if (!await _mediator.EliminarAsync(id, cancellationToken))
+                return NotFound(new { ok = false, mensaje = "No se encontró la nota de pedido." });
+
+            return Ok(new { ok = true, mensaje = "Nota de pedido eliminada." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { ok = false, mensaje = ex.Message });
+        }
+        catch (SqlException)
+        {
+            return Conflict(new { ok = false, mensaje = "La nota tiene movimientos relacionados y no se puede eliminar." });
+        }
     }
 
     [AllowAnonymous]
@@ -9872,7 +9913,9 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
     {
         var usuario = string.IsNullOrWhiteSpace(origen.Usuario) ? "SYSTEM" : origen.Usuario.Trim();
         var comprobante = $"{origen.Serie}-{origen.Numero}".Trim('-');
-        var concepto = string.IsNullOrWhiteSpace(origen.Concepto) ? "VENTA" : origen.Concepto.Trim();
+        var concepto = string.IsNullOrWhiteSpace(origen.NotaConcepto)
+            ? "VENTA"
+            : origen.NotaConcepto.Trim();
         var documentoCliente = !string.IsNullOrWhiteSpace(origen.ClienteDni)
             ? origen.ClienteDni.Trim()
             : origen.ClienteRuc.Trim();
@@ -10195,6 +10238,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 d.DocuEmision,
                 d.DocuUsuario,
                 d.DocuConcepto,
+                COALESCE(n.NotaConcepto, '') AS NotaConcepto,
                 d.DocuOperacion,
                 d.DocuTransaccion,
                 d.FormaPago,
@@ -10267,6 +10311,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             Emision = reader["DocuEmision"] == DBNull.Value ? default : Convert.ToDateTime(reader["DocuEmision"], CultureInfo.InvariantCulture),
             Usuario = reader["DocuUsuario"]?.ToString()?.Trim() ?? string.Empty,
             Concepto = reader["DocuConcepto"]?.ToString()?.Trim() ?? string.Empty,
+            NotaConcepto = reader["NotaConcepto"]?.ToString()?.Trim() ?? string.Empty,
             Operacion = reader["DocuOperacion"]?.ToString()?.Trim() ?? string.Empty,
             Transaccion = reader["DocuTransaccion"]?.ToString()?.Trim() ?? string.Empty,
             FormaPago = reader["FormaPago"]?.ToString()?.Trim() ?? string.Empty,
@@ -10902,6 +10947,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         public DateTime Emision { get; set; }
         public string Usuario { get; set; } = string.Empty;
         public string Concepto { get; set; } = string.Empty;
+        public string NotaConcepto { get; set; } = string.Empty;
         public string Operacion { get; set; } = string.Empty;
         public string Transaccion { get; set; } = string.Empty;
         public string FormaPago { get; set; } = string.Empty;
@@ -11266,6 +11312,11 @@ public class PagoVariosDetalleItemResponse
 }
 
 public class EliminarPagoVariosRequest
+{
+    public string? Clave { get; set; }
+}
+
+public class EliminarNotaPedidoRequest
 {
     public string? Clave { get; set; }
 }

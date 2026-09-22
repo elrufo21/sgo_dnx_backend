@@ -374,19 +374,19 @@ public sealed class CashFlowController : ControllerBase
                 return NotFound(new { ok = false, mensaje = "La caja ya no existe." });
         }
 
-        await using (var productsCmd = new SqlCommand("""
-            SELECT TOP 1 1
-            FROM NotaPedido n
-            INNER JOIN DetallePedido d ON d.NotaId = n.NotaId
-            WHERE n.CajaId = @CajaId
+        await using (var ventasCmd = new SqlCommand("""
+            SELECT TOP (1) 1
+            FROM NotaPedido
+            WHERE CajaId = @CajaId
+              AND UPPER(LTRIM(RTRIM(ISNULL(NotaEstado, '')))) <> 'ANULADO';
             """, con, tx))
         {
-            var parameter = productsCmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+            var parameter = ventasCmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
             parameter.Precision = 38;
             parameter.Scale = 0;
             parameter.Value = cajaId;
-            if (await productsCmd.ExecuteScalarAsync(cancellationToken) is not null)
-                return Conflict(new { ok = false, mensaje = "Esta caja no se puede eliminar porque ya tiene productos registrados. Así protegemos las ventas realizadas." });
+            if (await ventasCmd.ExecuteScalarAsync(cancellationToken) is not null)
+                return Conflict(new { ok = false, mensaje = "Esta caja no se puede eliminar." });
         }
 
         await using (var deleteCmd = new SqlCommand("""
