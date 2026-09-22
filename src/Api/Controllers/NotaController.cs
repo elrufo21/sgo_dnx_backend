@@ -538,6 +538,37 @@ public class NotaController : ControllerBase
     }
 
     [AllowAnonymous]
+    [HttpPost("anular/validar", Name = "ValidarAnulacionDocumento")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+    [ProducesResponseType((int)HttpStatusCode.NotFound)]
+    public async Task<IActionResult> ValidarAnulacionDocumento(
+        [FromBody] AnularBoletaIndividualRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (request is null || (!request.DOCU_ID.HasValue || request.DOCU_ID.Value <= 0) &&
+            string.IsNullOrWhiteSpace(request.NRO_DOCUMENTO_MODIFICA))
+        {
+            return BadRequest(new { ok = false, mensaje = "Debe enviar DOCU_ID o NRO_DOCUMENTO_MODIFICA." });
+        }
+
+        var origen = await ObtenerOrigenNotaCreditoDesdeBdAsync(
+            new EnviarFacturaRequest
+            {
+                DOCU_ID = request.DOCU_ID,
+                NRO_DOCUMENTO_MODIFICA = request.NRO_DOCUMENTO_MODIFICA
+            },
+            cancellationToken);
+        if (origen is null)
+        {
+            return NotFound(new { ok = false, mensaje = "No se encontró el documento a validar." });
+        }
+
+        var bloqueo = await ObtenerBloqueoAnulacionConfiguradaAsync(origen, cancellationToken);
+        return Ok(new { ok = true, permite_anular = bloqueo is null, mensaje = bloqueo });
+    }
+
+    [AllowAnonymous]
     [HttpPost("boleta/anular-individual", Name = "AnularBoletaIndividualLocal")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.BadRequest)]

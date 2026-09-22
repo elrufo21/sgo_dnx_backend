@@ -15,7 +15,7 @@ Evitar anulaciones fuera del plazo permitido antes de alterar inventario, caja o
 
 ## Alcance y uso
 
-Las reglas se aplican en el backend a los endpoints `POST /api/v1/Nota/boleta/anular-individual`, `POST /api/v1/Nota/factura/anular-individual` y `POST /api/v1/Nota/anular-documento`. El backend lee los indicadores de la compañía del documento en cada intento, por lo que una actualización de `ValorNum` se aplica sin reiniciar la API. Las validaciones individuales se ejecutan antes de comunicarse con SUNAT/OSE. La ruta heredada comprueba el plazo antes de invocar el procedimiento de anulación local.
+Las reglas se aplican en el backend a los endpoints `POST /api/v1/Nota/boleta/anular-individual`, `POST /api/v1/Nota/factura/anular-individual` y `POST /api/v1/Nota/anular-documento`. El backend lee los indicadores de la compañía del documento en cada intento, por lo que una actualización de `ValorNum` se aplica sin reiniciar la API. `POST /api/v1/Nota/anular/validar` devuelve si el plazo permite anular y la pantalla de venta oculta el botón **Anular** cuando el resultado es negativo. Las validaciones individuales se ejecutan antes de comunicarse con SUNAT/OSE. La ruta heredada comprueba el plazo antes de invocar el procedimiento de anulación local.
 
 Las Proformas V envían el documento, nota y detalles a `POST /api/v1/Nota/anular-documento`. El backend invoca el procedimiento almacenado existente `dbo.anularDocumento`, igual que el escritorio. El procedimiento conserva los registros, marca `DocumentoVenta.DocuEstado` y `NotaPedido.NotaEstado` como `ANULADO`, gestiona caja y repone stock según la entrega. Los demás documentos continúan con su flujo de anulación vigente.
 
