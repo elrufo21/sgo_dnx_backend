@@ -1669,30 +1669,57 @@ public class NotaController : ControllerBase
         });
     }
 
-    [AllowAnonymous]
+    [Authorize]
     [HttpGet("correlativo", Name = "GetCorrelativoNota")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     public async Task<IActionResult> ObtenerCorrelativoNota(
         [FromQuery] int companiaId,
-        [FromQuery] string serie,
+        [FromQuery] string? serie = null,
+        [FromQuery] string? maquina = null,
+        [FromQuery] string? documento = null,
         CancellationToken cancellationToken = default)
     {
+        var documentoLimpio = (documento ?? string.Empty).Trim().ToUpperInvariant();
+        var requiereSerieMaquina = RequiereSerieMaquina(documentoLimpio);
         var serieLimpia = (serie ?? string.Empty).Trim().ToUpperInvariant();
-        if (companiaId <= 0 || string.IsNullOrWhiteSpace(serieLimpia))
-            return BadRequest(new { ok = false, mensaje = "companiaId y serie son requeridos." });
+
+        if (companiaId <= 0)
+            return BadRequest(new { ok = false, mensaje = "companiaId es requerido." });
+
+        if (requiereSerieMaquina)
+        {
+            var maquinaLimpia = (maquina ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(maquinaLimpia))
+                return BadRequest(new { ok = false, mensaje = "maquina es requerida para BOLETA o FACTURA." });
+
+            serieLimpia = await ObtenerSerieMaquinaAsync(maquinaLimpia, documentoLimpio, cancellationToken);
+            if (string.IsNullOrWhiteSpace(serieLimpia))
+            {
+                return NotFound(new
+                {
+                    ok = false,
+                    mensaje = $"La máquina {maquinaLimpia} no tiene una serie de {documentoLimpio.ToLowerInvariant()} configurada."
+                });
+            }
+        }
+        else if (string.IsNullOrWhiteSpace(serieLimpia))
+        {
+            return BadRequest(new { ok = false, mensaje = "serie es requerida." });
+        }
 
         await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await using var cmd = new SqlCommand("""
             WITH Numeros AS (
                 SELECT CASE
-                    WHEN LTRIM(RTRIM(ISNULL(NotaNumero, ''))) <> ''
-                     AND LTRIM(RTRIM(ISNULL(NotaNumero, ''))) NOT LIKE '%[^0-9]%'
-                    THEN CONVERT(int, LTRIM(RTRIM(NotaNumero)))
+                    WHEN LTRIM(RTRIM(ISNULL(DocuNumero, ''))) <> ''
+                     AND LTRIM(RTRIM(ISNULL(DocuNumero, ''))) NOT LIKE '%[^0-9]%'
+                    THEN CONVERT(int, LTRIM(RTRIM(DocuNumero)))
                     ELSE 0
                 END AS Numero
-                FROM NotaPedido
+                FROM DocumentoVenta
                 WHERE CompaniaId = @CompaniaId
-                  AND LTRIM(RTRIM(ISNULL(NotaSerie, ''))) = @Serie
+                  AND LTRIM(RTRIM(ISNULL(DocuSerie, ''))) = @Serie
+                  AND (@Documento = '' OR UPPER(LTRIM(RTRIM(ISNULL(DocuDocumento, '')))) = @Documento)
             )
             SELECT
                 RIGHT('00000000' + CONVERT(varchar(8), ISNULL(MAX(Numero), 0)), 8) AS UltimoNumero,
@@ -1701,6 +1728,7 @@ public class NotaController : ControllerBase
             """, con);
         cmd.Parameters.AddWithValue("@CompaniaId", companiaId);
         cmd.Parameters.AddWithValue("@Serie", serieLimpia);
+        cmd.Parameters.AddWithValue("@Documento", documentoLimpio);
         await con.OpenAsync(cancellationToken);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         await reader.ReadAsync(cancellationToken);
@@ -3685,7 +3713,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         }
     }
 
-    [AllowAnonymous]
+    [Authorize]
     [HttpPost("crearOrden", Name = "CrearOrden")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     public async Task<IActionResult> RegistrarOrden(JsonElement body, CancellationToken cancellationToken)
@@ -3703,6 +3731,22 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             if (request?.Nota is null)
             {
                 return BadRequest("NotaPedido requerida.");
+            }
+            if (RequiereSerieMaquina(request.Nota.NotaDocu))
+            {
+                var maquinaLimpia = request.MachineName?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(maquinaLimpia))
+                {
+                    return BadRequest(new { ok = false, mensaje = "No se detectó la computadora para asignar la serie." });
+                }
+
+                var serieMaquina = await ObtenerSerieMaquinaAsync(maquinaLimpia, request.Nota.NotaDocu!, cancellationToken);
+                if (string.IsNullOrWhiteSpace(serieMaquina))
+                {
+                    return BadRequest(new { ok = false, mensaje = $"La máquina {maquinaLimpia} no tiene una serie configurada." });
+                }
+
+                request.Nota.NotaSerie = serieMaquina;
             }
             var detalles = request.Detalles ?? new List<DetalleNota>();
             AplicarReglaTributariaDocumento(request.Nota, detalles);
@@ -9017,6 +9061,33 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         return string.Equals((notaDocu ?? string.Empty).Trim(), "FACTURA", StringComparison.OrdinalIgnoreCase);
     }
 
+    private static bool RequiereSerieMaquina(string? documento) =>
+        string.Equals((documento ?? string.Empty).Trim(), "BOLETA", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals((documento ?? string.Empty).Trim(), "FACTURA", StringComparison.OrdinalIgnoreCase);
+
+    private async Task<string> ObtenerSerieMaquinaAsync(
+        string maquina,
+        string documento,
+        CancellationToken cancellationToken)
+    {
+        var columnaSerie = string.Equals(documento.Trim(), "BOLETA", StringComparison.OrdinalIgnoreCase)
+            ? "SerieBoleta"
+            : "SerieFactura";
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString)) return string.Empty;
+
+        await using var con = new SqlConnection(connectionString);
+        await using var cmd = new SqlCommand($"""
+            SELECT TOP (1) NULLIF(UPPER(LTRIM(RTRIM({columnaSerie}))), '')
+            FROM MAQUINAS
+            WHERE UPPER(LTRIM(RTRIM(Maquina))) = UPPER(@Maquina)
+              AND NULLIF(LTRIM(RTRIM({columnaSerie})), '') IS NOT NULL;
+            """, con);
+        cmd.Parameters.AddWithValue("@Maquina", maquina.Trim());
+        await con.OpenAsync(cancellationToken);
+        return ((await cmd.ExecuteScalarAsync(cancellationToken))?.ToString() ?? string.Empty).Trim();
+    }
+
     private static void AplicarErrorRealForzadoFacturaCrearOrden(EnviarFacturaRequest requestFactura)
     {
         // Forzamos inconsistencia real para que SUNAT/OSE devuelva rechazo real.
@@ -11343,6 +11414,7 @@ public class NotaPedidoConDetalleRequest
 {
     public NotaPedido? Nota { get; set; }
     public List<DetalleNota>? Detalles { get; set; }
+    public string? MachineName { get; set; }
 }
 
 public class AnularDocumentoRequest
