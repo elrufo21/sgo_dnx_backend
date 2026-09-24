@@ -184,7 +184,7 @@ public class CorreoController : ControllerBase
         var nombreResponsable = "Equipo de caja";
         await using (var connection = new SqlConnection(connectionString))
         await using (var command = new SqlCommand("""
-            SELECT compania.CorreosAdmin,
+            SELECT configuracion.CorreosAdmin,
                    COALESCE(NULLIF(LTRIM(RTRIM(compania.CompaniaComercial)), ''),
                             NULLIF(LTRIM(RTRIM(compania.CompaniaRazonSocial)), ''),
                             'SGO') AS NombreCompania,
@@ -201,6 +201,14 @@ public class CorreoController : ControllerBase
               INNER JOIN Usuarios usuario ON usuario.UsuarioID = caja.UsuarioId
               INNER JOIN Personal personal ON personal.PersonalId = usuario.PersonalId
               INNER JOIN Compania compania ON compania.CompaniaId = personal.CompaniaId
+              OUTER APPLY
+              (
+                  SELECT TOP (1) ValorTexto1 AS CorreosAdmin
+                  FROM dbo.Indicador
+                  WHERE CompaniaId = compania.CompaniaId
+                    AND Descripcion = 'CORREOS_ADMIN'
+                  ORDER BY Id DESC
+              ) configuracion
              WHERE caja.CajaId = @CajaId
             """, connection))
         {
@@ -284,13 +292,21 @@ public class CorreoController : ControllerBase
         string destinatarios = string.Empty, compania = "SGO", responsable = "Equipo de caja";
         await using (var connection = new SqlConnection(connectionString))
         await using (var command = new SqlCommand("""
-            SELECT compania.CorreosAdmin,
+            SELECT configuracion.CorreosAdmin,
                    COALESCE(NULLIF(LTRIM(RTRIM(compania.CompaniaComercial)), ''), NULLIF(LTRIM(RTRIM(compania.CompaniaRazonSocial)), ''), 'SGO'),
                    COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(SUBSTRING(ISNULL(personal.PersonalNombres, ''), 1, CHARINDEX(' ', ISNULL(personal.PersonalNombres, '') + ' ') - 1), ' ', SUBSTRING(ISNULL(personal.PersonalApellidos, ''), 1, CHARINDEX(' ', ISNULL(personal.PersonalApellidos, '') + ' ') - 1)))), ''), 'Equipo de caja')
               FROM ConteoMonedas conteo
               INNER JOIN Usuarios usuario ON usuario.UsuarioID = conteo.UsuarioId
               INNER JOIN Personal personal ON personal.PersonalId = usuario.PersonalId
               INNER JOIN Compania compania ON compania.CompaniaId = personal.CompaniaId
+              OUTER APPLY
+              (
+                  SELECT TOP (1) ValorTexto1 AS CorreosAdmin
+                  FROM dbo.Indicador
+                  WHERE CompaniaId = compania.CompaniaId
+                    AND Descripcion = 'CORREOS_ADMIN'
+                  ORDER BY Id DESC
+              ) configuracion
              WHERE conteo.ConteoId = @ConteoId
             """, connection))
         {

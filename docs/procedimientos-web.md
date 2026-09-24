@@ -1,8 +1,8 @@
 # Procedimientos usados por la web
 
-El script `scripts/sql/20260922_procedimientos_web_produccion.sql` contiene las definiciones estáticas de los procedimientos alcanzados desde los endpoints activos del frontend. Es el archivo para producción. `scripts/sql/20260922_procedimientos_solo_web.sql` queda como alternativa que toma las definiciones desde `DXN_ICA`.
+El script `scripts/sql/20260922_procedimientos_web_produccion.sql` contiene las definiciones estáticas requeridas por la migración web. Es el archivo para producción. `scripts/sql/20260922_procedimientos_solo_web.sql` queda como alternativa que toma las definiciones desde `DXN_ICA`.
 
-Ejecutar el archivo estático en la base destino después del script de tablas y columnas. No consulta otra base, no modifica tablas ni datos y valida que se instalen los 43 objetos. Los diez procedimientos compartidos que difieren, incluso solo en definición, se crean como variantes `WEB`; los originales quedan intactos para el escritorio.
+Ejecutar el archivo estático en la base destino después de los scripts de estructura y configuración de `Indicador`. No consulta otra base, no modifica tablas ni datos de negocio y valida que se instalen los 54 objetos. Los procedimientos compartidos que difieren se crean como variantes `WEB`; los originales quedan intactos para el escritorio. Las variantes web leen `MULTIPLES_CAJAS`, `TIPO_PROCESO_CPE`, `DESCUENTO_MAXIMO`, `BOLETA_POR_LOTE` y `CAPTURA_HTML` desde `dbo.Indicador`.
 
 | Original del escritorio | Variante usada por web |
 | --- | --- |
@@ -16,6 +16,8 @@ Ejecutar el archivo estático en la base destino después del script de tablas y
 | `uspTraerGastosA` | `uspTraerGastosAWEB` |
 | `uspTraeTodasMonedas` | `uspTraeTodasMonedasWEB` |
 | `uspValidarApertura` | `uspValidarAperturaWEB` |
+
+También se separan como variantes WEB: `anularDocumento`, `editarCompania`, `editarProducto`, `ingresarProducto`, `listarCaja`, `listarCajaFecha`, `listarDetaCaja`, `uspGuardarListaPreciosPdf`, `usplistaConteo`, `usplistaDetalleConteo`, `uspRetornaBoletaPorTicket` y `uspRetornarBoletas`.
 
 | Módulo web | Procedimientos incluidos |
 | --- | --- |

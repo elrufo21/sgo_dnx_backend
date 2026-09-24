@@ -1,19 +1,5 @@
-/*
-  Paquete estático de procedimientos web para producción.
-  Ejecutar conectado a la BASE DESTINO, después de aplicar su estructura.
-  No consulta DXN_ICA, no modifica tablas ni datos de negocio.
 
-  Estas variantes preservan los procedimientos equivalentes del escritorio:
-  uspEliminarCajaDetalleWEB, uspEliminarPagoVWEB,
-  uspInsertarConteoCajaWEB, uspInsertarPagoVariosWEB,
-  usplistarPagoVariosWEB, usptraerCajerosWEB, uspTraerGastosWEB,
-  uspTraerGastosAWEB, uspTraeTodasMonedasWEB y uspValidarAperturaWEB.
-*/
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
-GO
-
-CREATE OR ALTER procedure [dbo].[anularDocumento]
+CREATE OR ALTER procedure [dbo].[anularDocumentoWEB]
 @ListaOrden varchar(Max)
 as
 begin
@@ -186,7 +172,7 @@ END
 
 GO
 
-CREATE OR ALTER procedure [dbo].[editarCompania]
+CREATE OR ALTER procedure [dbo].[editarCompaniaWEB]
 @CompaniaId int,
 @CompaniaRazonSocial varchar(140),
 @CompaniaRUC varchar(20),
@@ -206,7 +192,7 @@ end
 
 GO
 
-CREATE OR ALTER procedure [dbo].[editarProducto]
+CREATE OR ALTER procedure [dbo].[editarProductoWEB]
  @IdProducto numeric(20),
  @IdSubLinea numeric(20),
  @ProductoCodigo varchar(300),
@@ -267,7 +253,7 @@ CREATE OR ALTER procedure [dbo].[editarProducto]
 
 GO
 
-CREATE OR ALTER PROCEDURE dbo.ingresarProducto
+CREATE OR ALTER PROCEDURE dbo.ingresarProductoWEB
     @IdSubLinea numeric(20),
     @ProductoCodigo varchar(300),
     @ProductoNombre varchar(max),
@@ -503,7 +489,7 @@ END;
 
 GO
 
-CREATE OR ALTER procedure [dbo].[listarCaja]
+CREATE OR ALTER procedure [dbo].[listarCajaWEB]
 as
 begin
 select c.CajaId,c.CajaFecha,c.CajaCierre,
@@ -520,7 +506,7 @@ end
 
 GO
 
-CREATE OR ALTER procedure [dbo].[listarCajaFecha] 
+CREATE OR ALTER procedure [dbo].[listarCajaFechaWEB]
 @fechainicio date,
 @fechafin date
 as
@@ -539,7 +525,7 @@ end
 
 GO
 
-CREATE OR ALTER procedure [dbo].[listarDetaCaja]
+CREATE OR ALTER procedure [dbo].[listarDetaCajaWEB]
 @CajaId numeric(38)
 as
 begin
@@ -3632,9 +3618,11 @@ BEGIN
           INNER JOIN dbo.Personal p ON p.PersonalId = u.PersonalId
          WHERE u.UsuarioID = @UsuarioId;
 
-        SELECT @FlagCaja = ISNULL(c.FlagCaja, 0)
-          FROM dbo.Compania c WITH (UPDLOCK, HOLDLOCK)
-         WHERE c.CompaniaId = @CompaniaId;
+        SELECT TOP (1) @FlagCaja = CONVERT(bit, ISNULL(i.ValorNum, 0))
+          FROM dbo.Indicador i
+         WHERE i.CompaniaId = @CompaniaId
+           AND i.Descripcion = 'MULTIPLES_CAJAS'
+         ORDER BY i.Id DESC;
 
         IF ISNULL(@FlagCaja, 0) = 0
            AND EXISTS
@@ -4251,14 +4239,26 @@ BEGIN
        SET CompaniaUserSecun = @UsuarioSOL,
            ComapaniaPWD = @ClaveSOL,
            CompaniaPFX = @CertificadoBase64,
-           CompaniaClave = @ClaveCertificado,
-           TIPO_PROCESO = ISNULL(@Entorno, 3)
+           CompaniaClave = @ClaveCertificado
      WHERE CompaniaId = @CompaniaId
+
+    UPDATE dbo.Indicador
+       SET Area = 'CPE',
+           TipoIndicador = 2,
+           ValorTexto1 = NULL,
+           ValorNum = @Entorno,
+           FechaActualizacion = SYSDATETIME()
+     WHERE CompaniaId = @CompaniaId
+       AND Descripcion = 'TIPO_PROCESO_CPE';
+
+    IF @@ROWCOUNT = 0
+        INSERT INTO dbo.Indicador (CompaniaId, Area, TipoIndicador, IdIndicador, Descripcion, ValorTexto1, ValorNum)
+        VALUES (@CompaniaId, 'CPE', 2, NULL, 'TIPO_PROCESO_CPE', NULL, @Entorno);
 END
 
 GO
 
-CREATE OR ALTER PROCEDURE dbo.uspGuardarListaPreciosPdf
+CREATE OR ALTER PROCEDURE dbo.uspGuardarListaPreciosPdfWEB
     @Productos xml,
     @ProductoUsuario varchar(60)
 AS
@@ -4812,7 +4812,7 @@ END
 
 GO
 
-CREATE OR ALTER procedure [dbo].[usplistaConteo]
+CREATE OR ALTER procedure [dbo].[usplistaConteoWEB]
 @fechainicio date,
 @fechafin date
 as
@@ -4834,7 +4834,7 @@ end
 
 GO
 
-CREATE OR ALTER procedure [dbo].[usplistaDetalleConteo]
+CREATE OR ALTER procedure [dbo].[usplistaDetalleConteoWEB]
 @ConteoId numeric(38)
 as
 begin
@@ -5054,8 +5054,16 @@ BEGIN
            ComapaniaPWD AS ClaveSOL,
            CompaniaPFX AS CertificadoPFX,
            CompaniaClave AS ClaveCertificado,
-           ISNULL(TIPO_PROCESO, 3) AS Entorno
+           COALESCE(configuracion.ValorNum, 3) AS Entorno
       FROM dbo.Compania
+      OUTER APPLY
+      (
+          SELECT TOP (1) ValorNum
+          FROM dbo.Indicador
+          WHERE CompaniaId = dbo.Compania.CompaniaId
+            AND Descripcion = 'TIPO_PROCESO_CPE'
+          ORDER BY Id DESC
+      ) configuracion
      WHERE CompaniaId = @CompaniaId
 END
 
@@ -5121,7 +5129,7 @@ END
 
 GO
 
-CREATE OR ALTER procedure [dbo].[uspRetornaBoletaPorTicket]
+CREATE OR ALTER procedure [dbo].[uspRetornaBoletaPorTicketWEB]
 @ResumenId varchar(80)
 as
 begin
@@ -5142,7 +5150,7 @@ end
 
 GO
 
-CREATE OR ALTER procedure [dbo].[uspRetornarBoletas]
+CREATE OR ALTER procedure [dbo].[uspRetornarBoletasWEB]
 @ResumenId varchar(80)
 as
 begin
@@ -5419,9 +5427,11 @@ BEGIN
       INNER JOIN dbo.Personal p ON p.PersonalId = u.PersonalId
      WHERE u.UsuarioID = @UsuarioId;
 
-    SELECT @FlagCaja = ISNULL(c.FlagCaja, 0)
-      FROM dbo.Compania c
-     WHERE c.CompaniaId = @CompaniaId;
+    SELECT TOP (1) @FlagCaja = CONVERT(bit, ISNULL(i.ValorNum, 0))
+      FROM dbo.Indicador i
+     WHERE i.CompaniaId = @CompaniaId
+       AND i.Descripcion = 'MULTIPLES_CAJAS'
+     ORDER BY i.Id DESC;
 
     IF ISNULL(@FlagCaja, 0) = 1
     BEGIN
@@ -5597,7 +5607,7 @@ BEGIN
                     + CONVERT(VARCHAR, p.CompaniaId) + '|'
                     + ISNULL(c.CompaniaRazonSocial, '') + '|'
                     + ISNULL(CONVERT(VARCHAR(10), U.FechaVencimientoClave, 23), '') + '|'
-                    + ISNULL(CONVERT(VARCHAR(20), c.DescuentoMax), '0') + '|'
+                    + ISNULL(CONVERT(VARCHAR(30), configuracion.DescuentoMax), '0') + '|'
                     + ISNULL(c.CompaniaRUC, '') + '|'
                     + ISNULL(c.CompaniaNomUBG, '') + '|'
                     + ISNULL(c.CompaniaComercial, '') + '|'
@@ -5606,10 +5616,10 @@ BEGIN
                     + ISNULL(c.ComapaniaPWD, '') + '|'
                     + ISNULL(c.CompaniaPFX, '') + '|'
                     + ISNULL(c.CompaniaClave, '') + '|'
-                    + ISNULL(CONVERT(VARCHAR, c.TIPO_PROCESO), '3') + '|'
+                    + ISNULL(CONVERT(VARCHAR(10), configuracion.TipoProceso), '3') + '|'
                     + ISNULL(c.CompaniaTelefono, '') + '|'
-                    + ISNULL(CONVERT(VARCHAR, c.BoletaPorLote), '1') + '|'
-                    + ISNULL(CONVERT(VARCHAR, c.FlagCaptura), '0')
+                    + ISNULL(CONVERT(VARCHAR(1), configuracion.BoletaPorLote), '1') + '|'
+                    + ISNULL(CONVERT(VARCHAR(1), configuracion.FlagCaptura), '0')
                 FROM dbo.Usuarios U
                 INNER JOIN dbo.Personal p
                     ON p.PersonalId = U.PersonalId
@@ -5617,6 +5627,16 @@ BEGIN
                     ON a.AreaId = p.AreaId
                 INNER JOIN dbo.Compania c
                     ON c.CompaniaId = p.CompaniaId
+                OUTER APPLY
+                (
+                    SELECT
+                        MAX(CASE WHEN i.Descripcion = 'DESCUENTO_MAXIMO' THEN i.ValorDecimal END) AS DescuentoMax,
+                        MAX(CASE WHEN i.Descripcion = 'TIPO_PROCESO_CPE' THEN i.ValorNum END) AS TipoProceso,
+                        MAX(CASE WHEN i.Descripcion = 'BOLETA_POR_LOTE' THEN i.ValorNum END) AS BoletaPorLote,
+                        MAX(CASE WHEN i.Descripcion = 'CAPTURA_HTML' THEN i.ValorNum END) AS FlagCaptura
+                    FROM dbo.Indicador i
+                    WHERE i.CompaniaId = p.CompaniaId
+                ) configuracion
                 WHERE U.UsuarioAlias = @Usuario
                   AND dbo.desincrectar(U.UsuarioClave) = @Clave
                   AND U.UsuarioEstado = 'ACTIVO'
@@ -5737,7 +5757,796 @@ END
 
 GO
 
-DECLARE @Esperados int = 43;
+CREATE OR ALTER PROCEDURE [dbo].[usp_DeleteOldBackupFiles] 
+    @path NVARCHAR(256),--RUTA DEL ARCHIVO
+	@extension NVARCHAR(10),--EXTENSION DEL ARCHIVO
+	@age_hrs INT--el número de horas que tiene que envejecer 
+	--un archivo de respaldo para ser eliminado.
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	DECLARE @DeleteDate NVARCHAR(50)
+	DECLARE @DeleteDateTime DATETIME
+
+	SET @DeleteDateTime = DateAdd(hh, - @age_hrs, GetDate())
+    SET @DeleteDate = (Select Replace(Convert(nvarchar, @DeleteDateTime, 111), '/', '-') 
+    + 'T' + Convert(nvarchar, @DeleteDateTime, 108))
+
+	EXECUTE master.dbo.xp_delete_file 0,
+		@path,
+		@extension,
+		@DeleteDate,--
+		1
+END
+
+GO
+
+CREATE OR ALTER PROCEDURE dbo.usp_Sublinea
+    @Data VARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE
+        @accion          VARCHAR(20),
+        @IdSublinea      INT,
+        @IdLinea         INT,
+        @NombreSublinea  VARCHAR(150),
+        @CodigoSUNAT     VARCHAR(50),
+        @Vista           VARCHAR(10),
+        @idTexto         VARCHAR(20),
+        @lineaTexto      VARCHAR(20),
+        @p1              INT,
+        @p2              INT,
+        @p3              INT,
+        @p4              INT,
+        @p5              INT;
+
+    SET @Data = LTRIM(RTRIM(ISNULL(@Data, '')));
+
+    IF @Data = ''
+    BEGIN
+        SELECT 'ERROR|No se enviaron datos.' AS Data;
+        RETURN;
+    END;
+
+    SET @p1 = CHARINDEX('|', @Data);
+
+    IF @p1 = 0
+        SET @accion = UPPER(LTRIM(RTRIM(@Data)));
+    ELSE
+        SET @accion = UPPER(
+            LTRIM(RTRIM(
+                SUBSTRING(@Data, 1, @p1 - 1)
+            ))
+        );
+
+    IF @accion = 'LISTAR'
+    BEGIN
+
+        SELECT
+            CAST(IdSublinea AS VARCHAR(20)) + '|' +
+            CAST(IdLinea AS VARCHAR(20)) + '|' +
+            ISNULL(NombreSublinea, '') + '|' +
+            ISNULL(CodigoSUNAT, '') + '|' +
+            ISNULL(Vista, 'V') AS Data
+        FROM Sublinea
+        ORDER BY NombreSublinea;
+
+        RETURN;
+    END;
+
+    IF @accion = 'CREAR'
+    BEGIN
+
+        SET @p2 = CHARINDEX('|', @Data, @p1 + 1);
+        SET @p3 = CHARINDEX('|', @Data, @p2 + 1);
+        SET @p4 = CHARINDEX('|', @Data, @p3 + 1);
+        IF @p1 = 0
+           OR @p2 = 0
+           OR @p3 = 0
+        BEGIN
+            SELECT
+                'ERROR|Formato incorrecto. Use CREAR|IdLinea|NombreSublinea|CodigoSUNAT|Vista'
+                AS Data;
+            RETURN;
+        END;
+
+        SET @lineaTexto = LTRIM(RTRIM(
+            SUBSTRING(
+                @Data,
+                @p1 + 1,
+                @p2 - @p1 - 1
+            )
+        ));
+
+
+        IF ISNULL(@lineaTexto, '') = ''
+           OR @lineaTexto LIKE '%[^0-9]%'
+        BEGIN
+            SELECT 'ERROR|El ID de la linea no es valido.' AS Data;
+            RETURN;
+        END;
+
+
+        SET @IdLinea = CONVERT(INT, @lineaTexto);
+
+        IF NOT EXISTS
+        (
+            SELECT 1
+            FROM Linea
+            WHERE IdLinea = @IdLinea
+        )
+        BEGIN
+            SELECT 'ERROR|La linea seleccionada no existe.' AS Data;
+            RETURN;
+        END;
+
+        SET @NombreSublinea = LTRIM(RTRIM(
+            SUBSTRING(
+                @Data,
+                @p2 + 1,
+                @p3 - @p2 - 1
+            )
+        ));
+
+
+        IF ISNULL(@NombreSublinea, '') = ''
+        BEGIN
+            SELECT 'ERROR|Debe ingresar el nombre de la sublinea.' AS Data;
+            RETURN;
+        END;
+
+        IF @p4 = 0
+        BEGIN
+            SET @CodigoSUNAT = LTRIM(RTRIM(
+                SUBSTRING(
+                    @Data,
+                    @p3 + 1,
+                    LEN(@Data)
+                )
+            ));
+
+            SET @Vista = 'V';
+
+        END
+        ELSE
+        BEGIN
+
+            SET @CodigoSUNAT = LTRIM(RTRIM(
+                SUBSTRING(
+                    @Data,
+                    @p3 + 1,
+                    @p4 - @p3 - 1
+                )
+            ));
+
+
+            SET @Vista = LTRIM(RTRIM(
+                SUBSTRING(
+                    @Data,
+                    @p4 + 1,
+                    LEN(@Data)
+                )
+            ));
+            IF ISNULL(@Vista, '') = ''
+                SET @Vista = 'V';
+
+        END;
+
+        IF ISNULL(@CodigoSUNAT, '') = ''
+        BEGIN
+            SELECT 'ERROR|Debe ingresar el codigo SUNAT.' AS Data;
+            RETURN;
+        END;
+
+        IF EXISTS
+        (
+            SELECT 1
+            FROM Sublinea
+            WHERE IdLinea = @IdLinea
+              AND UPPER(LTRIM(RTRIM(NombreSublinea)))
+                  = UPPER(LTRIM(RTRIM(@NombreSublinea)))
+        )
+        BEGIN
+            SELECT
+                'ERROR|Ya existe una sublinea con ese nombre dentro de la linea seleccionada.'
+                AS Data;
+            RETURN;
+        END;
+
+        BEGIN TRY
+
+            INSERT INTO Sublinea
+            (
+                IdLinea,
+                NombreSublinea,
+                CodigoSUNAT,
+                Vista
+            )
+            VALUES
+            (
+                @IdLinea,
+                @NombreSublinea,
+                @CodigoSUNAT,
+                @Vista
+            );
+
+
+            SET @IdSublinea = SCOPE_IDENTITY();
+
+
+            SELECT
+                'OK|' +
+                CAST(@IdSublinea AS VARCHAR(20)) +
+                '|Sublinea registrada correctamente.'
+                AS Data;
+
+        END TRY
+
+        BEGIN CATCH
+
+            SELECT
+                'ERROR|' + ERROR_MESSAGE()
+                AS Data;
+
+        END CATCH;
+
+
+        RETURN;
+    END;
+
+    IF @accion = 'ACTUALIZAR'
+    BEGIN
+
+        SET @p2 = CHARINDEX('|', @Data, @p1 + 1);
+        SET @p3 = CHARINDEX('|', @Data, @p2 + 1);
+        SET @p4 = CHARINDEX('|', @Data, @p3 + 1);
+        SET @p5 = CHARINDEX('|', @Data, @p4 + 1);
+
+
+        IF @p1 = 0
+           OR @p2 = 0
+           OR @p3 = 0
+           OR @p4 = 0
+        BEGIN
+            SELECT
+                'ERROR|Formato incorrecto. Use ACTUALIZAR|IdSublinea|IdLinea|NombreSublinea|CodigoSUNAT|Vista'
+                AS Data;
+            RETURN;
+        END;
+
+        SET @idTexto = LTRIM(RTRIM(
+            SUBSTRING(
+                @Data,
+                @p1 + 1,
+                @p2 - @p1 - 1
+            )
+        ));
+
+
+        IF ISNULL(@idTexto, '') = ''
+           OR @idTexto LIKE '%[^0-9]%'
+        BEGIN
+            SELECT 'ERROR|El ID de la sublinea no es valido.' AS Data;
+            RETURN;
+        END;
+
+
+        SET @IdSublinea = CONVERT(INT, @idTexto);
+
+        IF NOT EXISTS
+        (
+            SELECT 1
+            FROM Sublinea
+            WHERE IdSublinea = @IdSublinea
+        )
+        BEGIN
+            SELECT 'ERROR|La sublinea que intenta actualizar no existe.' AS Data;
+            RETURN;
+        END;
+
+        SET @lineaTexto = LTRIM(RTRIM(
+            SUBSTRING(
+                @Data,
+                @p2 + 1,
+                @p3 - @p2 - 1
+            )
+        ));
+
+
+        IF ISNULL(@lineaTexto, '') = ''
+           OR @lineaTexto LIKE '%[^0-9]%'
+        BEGIN
+            SELECT 'ERROR|El ID de la linea no es valido.' AS Data;
+            RETURN;
+        END;
+
+
+        SET @IdLinea = CONVERT(INT, @lineaTexto);
+
+        IF NOT EXISTS
+        (
+            SELECT 1
+            FROM Linea
+            WHERE IdLinea = @IdLinea
+        )
+        BEGIN
+            SELECT 'ERROR|La linea seleccionada no existe.' AS Data;
+            RETURN;
+        END;
+
+        SET @NombreSublinea = LTRIM(RTRIM(
+            SUBSTRING(
+                @Data,
+                @p3 + 1,
+                @p4 - @p3 - 1
+            )
+        ));
+
+
+        IF ISNULL(@NombreSublinea, '') = ''
+        BEGIN
+            SELECT 'ERROR|Debe ingresar el nombre de la sublinea.' AS Data;
+            RETURN;
+        END;
+
+        IF @p5 = 0
+        BEGIN
+
+            SET @CodigoSUNAT = LTRIM(RTRIM(
+                SUBSTRING(
+                    @Data,
+                    @p4 + 1,
+                    LEN(@Data)
+                )
+            ));
+
+            SET @Vista = 'V';
+
+        END
+        ELSE
+        BEGIN
+
+            SET @CodigoSUNAT = LTRIM(RTRIM(
+                SUBSTRING(
+                    @Data,
+                    @p4 + 1,
+                    @p5 - @p4 - 1
+                )
+            ));
+
+
+            SET @Vista = LTRIM(RTRIM(
+                SUBSTRING(
+                    @Data,
+                    @p5 + 1,
+                    LEN(@Data)
+                )
+            ));
+
+
+            IF ISNULL(@Vista, '') = ''
+                SET @Vista = 'V';
+
+        END;
+
+        IF ISNULL(@CodigoSUNAT, '') = ''
+        BEGIN
+            SELECT 'ERROR|Debe ingresar el codigo SUNAT.' AS Data;
+            RETURN;
+        END;
+
+        IF EXISTS
+        (
+            SELECT 1
+            FROM Sublinea
+            WHERE IdLinea = @IdLinea
+              AND UPPER(LTRIM(RTRIM(NombreSublinea)))
+                  = UPPER(LTRIM(RTRIM(@NombreSublinea)))
+              AND IdSublinea <> @IdSublinea
+        )
+        BEGIN
+            SELECT
+                'ERROR|Ya existe otra sublinea con ese nombre dentro de la linea seleccionada.'
+                AS Data;
+            RETURN;
+        END;
+
+        BEGIN TRY
+
+            UPDATE Sublinea
+            SET
+                IdLinea        = @IdLinea,
+                NombreSublinea = @NombreSublinea,
+                CodigoSUNAT    = @CodigoSUNAT,
+                Vista          = @Vista
+            WHERE IdSublinea = @IdSublinea;
+
+
+            SELECT
+                'OK|Sublinea actualizada correctamente.'
+                AS Data;
+
+        END TRY
+
+        BEGIN CATCH
+
+            SELECT
+                'ERROR|' + ERROR_MESSAGE()
+                AS Data;
+
+        END CATCH;
+
+
+        RETURN;
+    END;
+
+    IF @accion = 'ELIMINAR'
+    BEGIN
+
+        IF @p1 = 0
+        BEGIN
+            SELECT 'ERROR|Debe ingresar el ID de la sublinea.' AS Data;
+            RETURN;
+        END;
+
+
+        SET @idTexto = LTRIM(RTRIM(
+            SUBSTRING(
+                @Data,
+                @p1 + 1,
+                LEN(@Data)
+            )
+        ));
+
+
+        IF ISNULL(@idTexto, '') = ''
+           OR @idTexto LIKE '%[^0-9]%'
+        BEGIN
+            SELECT 'ERROR|El ID de la sublinea no es valido.' AS Data;
+            RETURN;
+        END;
+
+
+        SET @IdSublinea = CONVERT(INT, @idTexto);
+        IF NOT EXISTS
+        (
+            SELECT 1
+            FROM Sublinea
+            WHERE IdSublinea = @IdSublinea
+        )
+        BEGIN
+            SELECT 'ERROR|La sublinea que intenta eliminar no existe.' AS Data;
+            RETURN;
+        END;
+
+        BEGIN TRY
+
+            DELETE FROM Sublinea
+            WHERE IdSublinea = @IdSublinea;
+
+
+            SELECT
+                'OK|Sublinea eliminada correctamente.'
+                AS Data;
+
+        END TRY
+
+        BEGIN CATCH
+
+            IF ERROR_NUMBER() = 547
+            BEGIN
+                SELECT
+                    'ERROR|No se puede eliminar la sublinea porque tiene registros relacionados.'
+                    AS Data;
+            END
+            ELSE
+            BEGIN
+                SELECT
+                    'ERROR|' + ERROR_MESSAGE()
+                    AS Data;
+            END
+
+        END CATCH;
+
+
+        RETURN;
+    END;
+
+    SELECT
+        'ERROR|La accion ingresada no es valida.'
+        AS Data;
+
+END;
+
+GO
+
+CREATE OR ALTER procedure [dbo].[uspConsultaDNI]
+@DNI varchar(40)
+as
+begin
+select  
+isnull((select STUFF ((select top 1'¬'+
+case when (len(c.ClienteCodigo)>0)then
+c.ClienteCodigo
+else '-'
+end+'_'+
+c.ClienteRazon+'_'+
+case when (len(c.ClienteDni)>0)then
+c.ClienteDni
+else '-'end
+from Cliente c
+where c.ClienteDni=@DNI
+order by c.ClienteId desc
+for xml path('')),1,1,'')),'~') as Data--cerrar la cadena
+end
+
+GO
+
+CREATE OR ALTER PROCEDURE [dbo].[uspListaDespachoFecha]
+@fechainicio date,
+@fechafin date
+as
+begin
+select 
+'NotaId|Documento|Numero|FechaVenta|Entrega|HoraEntrega|Codigo|RazonSocial|RUC|DNI|Total|Almacenero|Estado|Vendedor¬90|90|90|90|90|90|90|90|90|90|90|90|90|90¬String|String|String|String|String|String|String|String|String|String|String|String|String|String¬'+
+isnull((select STUFF((select '¬'+
+convert(varchar,n.NotaId)+'|'+n.NotaDocu+'|'+n.NotaSerie+'-'+n.NotaNumero+'|'+
+(IsNull(convert(varchar,n.NotaFecha,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,n.NotaFecha,114),1,8),''))+'|'+
+n.Entrega+'|'+
+(IsNull(convert(varchar,n.Hora,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,n.Hora,114),1,8),''))+'|'+
+c.ClienteCodigo+'|'+
+c.ClienteRazon+'|'+c.ClienteRuc+'|'+c.ClienteDni+'|'+
+(convert(varchar,CAST(n.NotaPagar as money), -1))+'|'+
+n.Almacen+'|'+n.NotaEstado,+'|'+n.NotaUsuario
+from NotaPedido n
+inner join Cliente c
+on c.ClienteId=n.ClienteId
+where (Convert(char(10),n.NotaFecha,101) BETWEEN @fechainicio AND @fechafin) and n.NotaConcepto='MERCADERIA'
+order by n.NotaId desc
+FOR XML path ('')),1,1,'')),'~') 
+end
+
+GO
+
+CREATE OR ALTER procedure [dbo].[uspListaPersonalED]  
+as  
+begin  
+select  
+isnull((select STUFF ((select '¬'+
+c.ClienteRazon+'_'+
+case when (len(c.ClienteCodigo)>0)then
+c.ClienteCodigo
+else '-'
+end+'_'+
+case when (len(c.ClienteDni)>0)then
+c.ClienteDni
+else '-'
+end
+from Cliente c
+order by c.ClienteId desc
+for xml path('')),1,1,'')),'~') --cerrar la cadena
+end
+
+GO
+
+CREATE OR ALTER PROCEDURE dbo.uspListarCajaWEB
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    SELECT
+        CONVERT(BIGINT, CajaId) AS CajaId,
+        CONVERT(VARCHAR(19), CajaFecha, 126) AS FechaApertura,
+        ISNULL(CajaCierre, '') AS FechaCierre,
+        ISNULL(MontoIniSOl, 0) AS MontoInicial,
+        ISNULL(CajaEncargado, '') AS Encargado,
+        ISNULL(CajaUsuario, '') AS Usuario,
+        ISNULL(CajaEstado, '') AS Estado,
+        ISNULL(Observacion, '') AS Observacion
+    FROM dbo.Caja
+    ORDER BY CajaId DESC;
+END;
+
+GO
+
+CREATE OR ALTER PROCEDURE [dbo].[uspListarDespacho]
+as
+begin
+select 
+'NotaId|Documento|Numero|FechaVenta|Entrega|HoraEntrega|Codigo|RazonSocial|RUC|DNI|Total|Almacenero|Estado|Vendedor¬90|90|90|90|90|90|90|90|90|90|90|90|90|90¬String|String|String|String|String|String|String|String|String|String|String|String|String|String¬'+
+isnull((select STUFF((select '¬'+
+convert(varchar,n.NotaId)+'|'+n.NotaDocu+'|'+n.NotaSerie+'-'+n.NotaNumero+'|'+
+(IsNull(convert(varchar,n.NotaFecha,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,n.NotaFecha,114),1,8),''))+'|'+
+n.Entrega+'|'+
+(IsNull(convert(varchar,n.Hora,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,n.Hora,114),1,8),''))+'|'+
+c.ClienteCodigo+'|'+
+c.ClienteRazon+'|'+c.ClienteRuc+'|'+c.ClienteDni+'|'+
+(convert(varchar,CAST(n.NotaPagar as money), -1))+'|'+
+n.Almacen+'|'+n.NotaEstado,+'|'+n.NotaUsuario
+from NotaPedido n
+inner join Cliente c
+on c.ClienteId=n.ClienteId
+where n.NotaConcepto='MERCADERIA' and 
+(Day(n.NotaFecha)=Day(GETDATE()) and month(n.NotaFecha)=month(GETDATE())and year(n.NotaFecha)=year(GETDATE())) 
+order by n.NotaId desc
+FOR XML path ('')),1,1,'')),'~')+'¬'+
+isnull((select STUFF((select '¬'+
+convert(varchar,n.NotaId)+'|'+n.NotaDocu+'|'+n.NotaSerie+'-'+n.NotaNumero+'|'+
+(IsNull(convert(varchar,n.NotaFecha,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,n.NotaFecha,114),1,8),''))+'|'+
+n.Entrega+'|'+
+(IsNull(convert(varchar,n.Hora,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,n.Hora,114),1,8),''))+'|'+
+c.ClienteCodigo+'|'+
+c.ClienteRazon+'|'+c.ClienteRuc+'|'+c.ClienteDni+'|'+
+(convert(varchar,CAST(n.NotaPagar as money), -1))+'|'+
+n.Almacen+'|'+n.NotaEstado,+'|'+n.NotaUsuario
+from NotaPedido n
+inner join Cliente c
+on c.ClienteId=n.ClienteId
+where n.NotaEstado<>'ANULADO'and(n.NotaConcepto='MERCADERIA' and n.Entrega<>'ENTREGADO'      
+and (convert(date,n.NotaFecha) < convert(date,getdate())))        
+order by n.NotaId desc  
+FOR XML path ('')),1,1,'')),'~')   
+end
+
+GO
+
+CREATE OR ALTER procedure [dbo].[uspTraerEscaneo]
+@NotaId varchar(38)
+as
+begin
+
+Declare @Data varchar(max)
+set @Data=isnull((select top 1 n.NotaEstado+'|'+n.NotaConcepto+'|'+n.Entrega 
+from NotaPedido n
+where n.NotaId=@NotaId),'N')
+
+if(@Data='N')
+begin
+select 'N'
+end
+Else
+begin
+Declare @pos1 int,@pos2 int,@pos3 int
+Declare @Estado varchar(40),@Concepto varchar(40),
+        @Entrega varchar(40)
+Set @pos1=CharIndex('|',@Data,0)
+Set @pos2=CharIndex('|',@Data,@pos1+1)
+Set @pos3=Len(@Data)+1
+Set @Estado=SUBSTRING(@Data,1,@pos1-1)
+Set @Concepto=SUBSTRING(@Data,@pos1+1,@pos2-@pos1-1)
+Set @Entrega=SUBSTRING(@Data,@pos2+1,@pos3-@pos2-1)
+if(@Estado='ANULADO')
+BEGIN
+select 'ANULADO'
+END
+ELSE IF(@Concepto='SERVICIO')
+BEGIN
+select 'SERVICIO'
+END
+ELSE IF(@Entrega='ENTREGADO')
+BEGIN
+select 'ENTREGADO'
+END
+ELSE
+BEGIN
+select 
+isnull((select STUFF((select '¬'+convert(varchar,n.NotaId)+'|'+
+n.NotaDocu+'|'+n.NotaSerie+'-'+n.NotaNumero+'|'+
+c.ClienteCodigo+'|'+convert(varchar,n.NotaFecha,103)+'|'+
+c.ClienteRazon+'|'+c.ClienteRuc+'|'+c.ClienteDni+'|'+
+n.NotaTransaccion+'|'+n.NotaUsuario+'|'+
+(IsNull(convert(varchar,n.NotaFecha,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,n.NotaFecha,114),1,8),''))+'|'+
+(convert(varchar,CAST(n.NotaPagar as money), -1))
+from NotaPedido n
+inner join Cliente c
+on c.ClienteId=n.ClienteId
+where n.NotaId=@NotaId
+FOR XML path ('')),1,1,'')),'~')+'['+
+'Cantidad|Descripcion|PrecioUni|Importe¬90|90|90|90¬String|String|String|String¬'+
+isnull((select STUFF((select '¬'+
+convert(varchar,d.DetalleCantidad)+'|'+
+d.DetalleDescripcion+'|'+
+(convert(varchar,CAST(d.DetallePrecio as money), -1))+'|'+
+(convert(varchar,CAST(d.DetalleImporte as money), -1))
+from DetallePedido d
+where d.NotaId=@NotaId
+order by d.DetalleId asc
+FOR XML path ('')),1,1,'')),'~')
+END
+End
+End
+
+GO
+
+CREATE OR ALTER procedure [dbo].[uspTraerEscaneoB]
+@NotaId varchar(38)
+as
+begin
+select 
+isnull((select STUFF((select '¬'+convert(varchar,n.NotaId)+'|'+
+n.NotaDocu+'|'+n.NotaSerie+'-'+n.NotaNumero+'|'+
+c.ClienteCodigo+'|'+convert(varchar,n.NotaFecha,103)+'|'+
+c.ClienteRazon+'|'+c.ClienteRuc+'|'+c.ClienteDni+'|'+
+n.NotaTransaccion+'|'+n.NotaUsuario+'|'+
+(IsNull(convert(varchar,n.NotaFecha,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,n.NotaFecha,114),1,8),''))+'|'+
+(convert(varchar,CAST(n.NotaPagar as money), -1))
+from NotaPedido n
+inner join Cliente c
+on c.ClienteId=n.ClienteId
+where n.NotaId=@NotaId
+FOR XML path ('')),1,1,'')),'~')+'['+
+'Cantidad|Descripcion|PrecioUni|Importe¬90|90|90|90¬String|String|String|String¬'+
+isnull((select STUFF((select '¬'+
+convert(varchar,d.DetalleCantidad)+'|'+
+d.DetalleDescripcion+'|'+
+(convert(varchar,CAST(d.DetallePrecio as money), -1))+'|'+
+(convert(varchar,CAST(d.DetalleImporte as money), -1))
+from DetallePedido d
+where d.NotaId=@NotaId
+order by d.DetalleId asc
+FOR XML path ('')),1,1,'')),'~')
+End
+
+GO
+
+CREATE OR ALTER PROCEDURE dbo.uspValidaCantCajas
+    @CajaId NUMERIC(38, 0),
+    @UsuarioId INT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF EXISTS (
+        SELECT 1
+        FROM Caja WITH (UPDLOCK, HOLDLOCK)
+        WHERE CajaEstado = 'ACTIVO'
+          AND UsuarioId = @UsuarioId
+          AND CajaId <> @CajaId
+    )
+    BEGIN
+        SELECT 'USUARIO_ACTIVO';
+        RETURN;
+    END;
+
+    IF (
+        SELECT COUNT(*)
+        FROM Caja WITH (UPDLOCK, HOLDLOCK)
+        WHERE CajaEstado = 'ACTIVO'
+          AND CajaId <> @CajaId
+    ) >= 3
+    BEGIN
+        SELECT 'NO CERRO';
+        RETURN;
+    END;
+
+    SELECT 'true';
+END;
+
+GO
+
+CREATE OR ALTER procedure [dbo].[uspValidarNotaCre]      
+@NotaId numeric(38)      
+as      
+begin      
+      
+Declare @count int      
+      
+set @count=(select COUNT(NotaId) from DocumentoVenta      
+where NotaId=@NotaId and TipoCodigo='07')-- and EstadoSunat='ENVIADO')      
+      
+if(@count=0)select 'true'      
+else select 'existe'      
+      
+end
+
+GO
+
+-- FIN DEFINICIONES
+
+DECLARE @Esperados int = 54;
 DECLARE @Instalados int;
 
 SELECT @Instalados = COUNT(*)
@@ -5745,24 +6554,27 @@ FROM sys.procedures
 WHERE schema_id = SCHEMA_ID(N'dbo')
   AND name IN
   (
-      N'anularDocumento', N'editarCompania', N'editarProducto', N'ingresarProducto',
-      N'LDdocumentosweb', N'listaNotaPedido', N'listarCaja', N'listarCajaFecha',
-      N'listarDetaCaja', N'usp_Area', N'usp_Feriado', N'usp_Maquina', N'usp_Personal',
+      N'anularDocumentoWEB', N'editarCompaniaWEB', N'editarProductoWEB', N'ingresarProductoWEB',
+      N'LDdocumentosweb', N'listaNotaPedido', N'listarCajaWEB', N'listarCajaFechaWEB',
+      N'listarDetaCajaWEB', N'usp_Area', N'usp_Feriado', N'usp_Maquina', N'usp_Personal',
       N'usp_Usuario', N'uspCajaInsertaCsvWeb', N'uspEditarConteoCajaWEB',
       N'uspEditarNotaPedido', N'uspEditarRBweb', N'uspEliminarCajaDetalleWEB',
       N'uspEliminarPagoVWEB', N'uspGuardarCredencialesSunatweb',
-      N'uspGuardarListaPreciosPdf', N'uspInsertarConteoCajaWEB',
+      N'uspGuardarListaPreciosPdfWEB', N'uspInsertarConteoCajaWEB',
       N'uspinsertarNotaBweb', N'uspInsertarPagoVariosWEB', N'uspinsertarRBweb',
-      N'usplistaConteo', N'usplistaDetalleConteo', N'uspListarComprasweb',
+      N'usplistaConteoWEB', N'usplistaDetalleConteoWEB', N'uspListarComprasweb',
       N'usplistarPagoVariosWEB', N'uspObtenerCajaActivaWEB',
       N'uspObtenerCredencialesSunatweb', N'uspResumenFechaweb',
-      N'uspRetornaBoletaPorTicket', N'uspRetornarBoletas', N'usptraerCajerosWEB',
+      N'uspRetornaBoletaPorTicketWEB', N'uspRetornarBoletasWEB', N'usptraerCajerosWEB',
       N'uspTraerGastosWEB', N'uspTraerGastosAWEB', N'usptraerSecuenciaResumen',
       N'uspTraeTodasMonedasWEB', N'uspValidaCantCajasWeb', N'uspValidarAperturaWEB',
-      N'uspValidaUsuarioweb'
+      N'uspValidaUsuarioweb', N'usp_DeleteOldBackupFiles', N'usp_Sublinea',
+      N'uspConsultaDNI', N'uspListaDespachoFecha', N'uspListaPersonalED',
+      N'uspListarCajaWEB', N'uspListarDespacho', N'uspTraerEscaneo',
+      N'uspTraerEscaneoB', N'uspValidaCantCajas', N'uspValidarNotaCre'
   );
 
 IF @Instalados <> @Esperados
-    THROW 51000, 'Validación fallida: no se instalaron los 43 procedimientos web.', 1;
+    THROW 51000, 'Validación fallida: no se instalaron los 54 procedimientos requeridos.', 1;
 
 -- FIN PROCEDIMIENTOS

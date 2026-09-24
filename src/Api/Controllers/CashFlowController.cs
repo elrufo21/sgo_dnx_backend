@@ -34,7 +34,7 @@ public sealed class CashFlowController : ControllerBase
 
         var items = new List<CashFlowResponse>();
         await using var con = new SqlConnection(connectionString);
-        await using var cmd = new SqlCommand(fechaInicio.HasValue ? "listarCajaFecha" : "listarCaja", con)
+        await using var cmd = new SqlCommand(fechaInicio.HasValue ? "listarCajaFechaWEB" : "listarCajaWEB", con)
         {
             CommandType = CommandType.StoredProcedure
         };
@@ -241,7 +241,7 @@ public sealed class CashFlowController : ControllerBase
             return StatusCode(500, "No se encontró la cadena de conexión.");
 
         await using var con = new SqlConnection(connectionString);
-        await using var cmd = new SqlCommand("listarDetaCaja", con)
+        await using var cmd = new SqlCommand("listarDetaCajaWEB", con)
         {
             CommandType = CommandType.StoredProcedure
         };

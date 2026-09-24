@@ -40,7 +40,7 @@ public class NotaPedidoRepository : INotaPedido
     public async Task<string> AnularDocumentoAsync(string listaOrden, CancellationToken cancellationToken = default)
     {
         var result = await _accesoDatos.EjecutarComandoAsync(
-            "anularDocumento", "@ListaOrden", listaOrden, cancellationToken);
+            "anularDocumentoWEB", "@ListaOrden", listaOrden, cancellationToken);
         return string.IsNullOrWhiteSpace(result) ? "error" : result;
     }
 
@@ -125,13 +125,13 @@ public class NotaPedidoRepository : INotaPedido
 
     public async Task<string> RetornaBoletaPorTicketAsync(string resumenId, CancellationToken cancellationToken = default)
     {
-        var result = await _accesoDatos.EjecutarComandoAsync("uspRetornaBoletaPorTicket", "@ResumenId", resumenId, cancellationToken);
+        var result = await _accesoDatos.EjecutarComandoAsync("uspRetornaBoletaPorTicketWEB", "@ResumenId", resumenId, cancellationToken);
         return string.IsNullOrWhiteSpace(result) ? string.Empty : result;
     }
 
     public async Task<string> RetornarBoletasAsync(string resumenId, CancellationToken cancellationToken = default)
     {
-        var result = await _accesoDatos.EjecutarComandoAsync("uspRetornarBoletas", "@ResumenId", resumenId, cancellationToken);
+        var result = await _accesoDatos.EjecutarComandoAsync("uspRetornarBoletasWEB", "@ResumenId", resumenId, cancellationToken);
         return string.IsNullOrWhiteSpace(result) ? string.Empty : result;
     }
 

@@ -55,7 +55,7 @@ public class ProductoRepository : IProducto
             new XAttribute("sv", XmlConvert.ToString(producto.ProductoSV ?? 0m))))));
 
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand("uspGuardarListaPreciosPdf", con)
+        await using var cmd = new SqlCommand("uspGuardarListaPreciosPdfWEB", con)
         {
             CommandTimeout = 300,
             CommandType = CommandType.StoredProcedure
@@ -118,7 +118,7 @@ public class ProductoRepository : IProducto
     {
         var isEdit = producto.IdProducto > 0;
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand(isEdit ? "editarProducto" : "ingresarProducto", con)
+        await using var cmd = new SqlCommand(isEdit ? "editarProductoWEB" : "ingresarProductoWEB", con)
         {
             CommandTimeout = 300,
             CommandType = CommandType.StoredProcedure

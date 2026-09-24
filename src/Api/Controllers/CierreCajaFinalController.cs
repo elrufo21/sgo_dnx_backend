@@ -22,7 +22,7 @@ public sealed class CierreCajaFinalController : ControllerBase
         var p = gastosRaw.Split('['); var gastos = Rows(p.ElementAtOrDefault(0));
         var ingresos = new List<Movimiento> { new("VITRINA", Money(p.ElementAtOrDefault(7))), new("IOC", Money(p.ElementAtOrDefault(4), 1)), new("REVISTAS", Money(p.ElementAtOrDefault(5))), new("COPIAS Y OTROS", Money(p.ElementAtOrDefault(6))) };
         ingresos.AddRange(Rows(p.ElementAtOrDefault(1)));
-        var yaExiste = (await Scalar(con, "usplistaConteo", null, null, ct, fecha, fecha)).Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Any(x => x != "~");
+        var yaExiste = (await Scalar(con, "usplistaConteoWEB", null, null, ct, fecha, fecha)).Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Any(x => x != "~");
         return Ok(new { fecha, cajeros = cajerosRaw.Split('[')[0].Trim('~', ' ', ','), totalObs = Money(p.ElementAtOrDefault(3)), sencillo = Money(p.ElementAtOrDefault(2)), monedas = Monedas(monedasRaw), ingresos, gastos, existe = yaExiste });
     }
 
@@ -31,14 +31,14 @@ public sealed class CierreCajaFinalController : ControllerBase
     {
         if (fechaInicio > fechaFin)
             return BadRequest(new { ok = false, mensaje = "La fecha inicio no puede ser mayor que la fecha fin." });
-        await using var con = await Abrir(ct); var raw = await Scalar(con, "usplistaConteo", null, null, ct, fechaInicio, fechaFin);
+        await using var con = await Abrir(ct); var raw = await Scalar(con, "usplistaConteoWEB", null, null, ct, fechaInicio, fechaFin);
         return Ok(raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Where(x => x != "~").Select(x => x.Split('|')).Where(x => x.Length > 10).Select(x => new { id = Number(x[0]), fecha = Fecha(x[1]), cajeros = x[2], totalObs = Money(x[3]), salidas = Money(x[4]), diferencia = Money(x[5]), totalEsperado = Money(x[6]), usuario = x[7], observaciones = x[10] }));
     }
 
     [HttpGet("{id:long}")]
     public async Task<IActionResult> Detalle(long id, CancellationToken ct)
     {
-        await using var con = await Abrir(ct); var raw = await Scalar(con, "usplistaDetalleConteo", "@ConteoId", id.ToString(CultureInfo.InvariantCulture), ct); var secciones = raw.Split('[');
+        await using var con = await Abrir(ct); var raw = await Scalar(con, "usplistaDetalleConteoWEB", "@ConteoId", id.ToString(CultureInfo.InvariantCulture), ct); var secciones = raw.Split('[');
         return Ok(new { monedas = Monedas(secciones.ElementAtOrDefault(0) ?? ""), ingresos = DetalleRows(secciones.ElementAtOrDefault(1)), gastos = DetalleRows(secciones.ElementAtOrDefault(2)) });
     }
 
@@ -63,7 +63,7 @@ public sealed class CierreCajaFinalController : ControllerBase
         await using var con = await Abrir(ct);
         if (conteoId == 0)
         {
-            var existe = (await Scalar(con, "usplistaConteo", null, null, ct, request.Fecha, request.Fecha))
+            var existe = (await Scalar(con, "usplistaConteoWEB", null, null, ct, request.Fecha, request.Fecha))
                 .Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Any(x => x != "~");
             if (existe)
                 return Conflict(new { mensaje = "Ya existe un informe final para la fecha seleccionada." });

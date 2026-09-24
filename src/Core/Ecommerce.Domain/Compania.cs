@@ -21,6 +21,7 @@ public class Compania
     public decimal? ICBPER { get; set; }
     public string? TokenApi { get; set; }
     public string? ClienIdToken { get; set; }
+    public DateTime? FechaRenovacion { get; set; }
     public decimal? DescuentoMax { get; set; }
     public int? DiasMaxDep { get; set; }
     public DateTime? RenovacionOSE { get; set; }

@@ -36,16 +36,10 @@ public class CompaniaRepository : ICompania
                                 ICBPER,
                                 TokenApi,
                                 ClienIdToken,
-                                DescuentoMax,
                                 RenovacionOSE,
                                 RenovacionFirma,
-                                RenovacionSome,
-                                CorreoSGO,
-                                PasswordCorreo,
-                                 CorreosAdmin,
-                                 BoletaPorLote,
-                                 FlagCaptura,
-                                 FlagCaja)
+                                RenovacionSome)
+                              OUTPUT INSERTED.CompaniaId
                               VALUES (
                                 @CompaniaRazonSocial,
                                 @CompaniaRUC,
@@ -65,23 +59,19 @@ public class CompaniaRepository : ICompania
                                 @ICBPER,
                                 @TokenApi,
                                 @ClienIdToken,
-                                @DescuentoMax,
                                 @RenovacionOSE,
                                 @RenovacionFirma,
-                                @RenovacionSome,
-                                @CorreoSGO,
-                                @PasswordCorreo,
-                                 @CorreosAdmin,
-                                 @BoletaPorLote,
-                                 @FlagCaptura,
-                                 @FlagCaja)";
+                                @RenovacionSome)";
 
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand(sql, con);
-        AddParameters(cmd, compania);
         await con.OpenAsync(cancellationToken);
-        var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
-        return rows > 0;
+        await using var transaction = (SqlTransaction)await con.BeginTransactionAsync(cancellationToken);
+        await using var cmd = new SqlCommand(sql, con, transaction);
+        AddParameters(cmd, compania);
+        var id = Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken));
+        await GuardarConfiguracionAsync(con, transaction, id, compania, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return id > 0;
     }
 
     public async Task<bool> EditarAsync(int id, Compania compania, CancellationToken cancellationToken = default)
@@ -105,59 +95,41 @@ public class CompaniaRepository : ICompania
                                 ICBPER = @ICBPER,
                                 TokenApi = @TokenApi,
                                 ClienIdToken = @ClienIdToken,
-                                DescuentoMax = @DescuentoMax,
                                 RenovacionOSE = @RenovacionOSE,
                                 RenovacionFirma = @RenovacionFirma,
-                                RenovacionSome = @RenovacionSome,
-                                CorreoSGO = @CorreoSGO,
-                                PasswordCorreo = @PasswordCorreo,
-                                 CorreosAdmin = @CorreosAdmin,
-                                 BoletaPorLote = @BoletaPorLote,
-                                 FlagCaptura = @FlagCaptura,
-                                 FlagCaja = @FlagCaja
+                                RenovacionSome = @RenovacionSome
                               WHERE CompaniaId = @Id";
 
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand(sql, con);
+        await con.OpenAsync(cancellationToken);
+        await using var transaction = (SqlTransaction)await con.BeginTransactionAsync(cancellationToken);
+        await using var cmd = new SqlCommand(sql, con, transaction);
         cmd.Parameters.AddWithValue("@Id", id);
         AddParameters(cmd, compania);
-        await con.OpenAsync(cancellationToken);
         var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
-        return rows > 0;
+        if (rows == 0)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return false;
+        }
+
+        await GuardarConfiguracionAsync(con, transaction, id, compania, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
     }
 
     public async Task<bool> ActualizarBoletaPorLoteAsync(int id, bool boletaPorLote, CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            UPDATE Compania
-            SET BoletaPorLote = @BoletaPorLote
-            WHERE CompaniaId = @Id;
-            """;
-
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand(sql, con);
-        cmd.Parameters.AddWithValue("@Id", id);
-        cmd.Parameters.AddWithValue("@BoletaPorLote", boletaPorLote);
         await con.OpenAsync(cancellationToken);
-        var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
-        return rows > 0;
+        return await GuardarIndicadorAsync(con, null, id, "VENTAS", "BOLETA_POR_LOTE", 1, null, boletaPorLote ? 1 : 0, null, cancellationToken);
     }
 
     public async Task<bool> ActualizarFlagCapturaAsync(int id, bool flagCaptura, CancellationToken cancellationToken = default)
     {
-        const string sql = """
-            UPDATE Compania
-            SET FlagCaptura = @FlagCaptura
-            WHERE CompaniaId = @Id;
-            """;
-
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand(sql, con);
-        cmd.Parameters.AddWithValue("@Id", id);
-        cmd.Parameters.AddWithValue("@FlagCaptura", flagCaptura);
         await con.OpenAsync(cancellationToken);
-        var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
-        return rows > 0;
+        return await GuardarIndicadorAsync(con, null, id, "VENTAS", "CAPTURA_HTML", 1, null, flagCaptura ? 1 : 0, null, cancellationToken);
     }
 
     public async Task<bool> ActualizarConfiguracionCajaAsync(
@@ -166,24 +138,34 @@ public class CompaniaRepository : ICompania
         string? correosAdmin,
         CancellationToken cancellationToken = default)
     {
-        const string sql = "UPDATE Compania SET FlagCaja = @FlagCaja, CorreosAdmin = @CorreosAdmin WHERE CompaniaId = @Id";
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand(sql, con);
-        cmd.Parameters.AddWithValue("@Id", id);
-        cmd.Parameters.AddWithValue("@FlagCaja", flagCaja);
-        cmd.Parameters.AddWithValue("@CorreosAdmin", (object?)correosAdmin?.Trim() ?? DBNull.Value);
         await con.OpenAsync(cancellationToken);
-        return await cmd.ExecuteNonQueryAsync(cancellationToken) > 0;
+        await using var transaction = (SqlTransaction)await con.BeginTransactionAsync(cancellationToken);
+        var existe = await GuardarIndicadorAsync(con, transaction, id, "CAJA", "MULTIPLES_CAJAS", 1, null, flagCaja ? 1 : 0, null, cancellationToken);
+        if (!existe)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return false;
+        }
+
+        await GuardarIndicadorAsync(con, transaction, id, "CORREO", "CORREOS_ADMIN", 3, correosAdmin?.Trim(), null, null, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
     }
 
     public async Task<bool> EliminarAsync(int id, CancellationToken cancellationToken = default)
     {
-        const string sql = "DELETE FROM Compania WHERE CompaniaId = @Id";
+        const string sql = """
+            DELETE FROM dbo.Indicador WHERE CompaniaId = @Id;
+            DELETE FROM dbo.Compania WHERE CompaniaId = @Id;
+            """;
         await using var con = new SqlConnection(_connectionString);
-        await using var cmd = new SqlCommand(sql, con);
-        cmd.Parameters.AddWithValue("@Id", id);
         await con.OpenAsync(cancellationToken);
+        await using var transaction = (SqlTransaction)await con.BeginTransactionAsync(cancellationToken);
+        await using var cmd = new SqlCommand(sql, con, transaction);
+        cmd.Parameters.AddWithValue("@Id", id);
         var rows = await cmd.ExecuteNonQueryAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return rows > 0;
     }
 
@@ -210,18 +192,33 @@ public class CompaniaRepository : ICompania
                                     ICBPER,
                                     TokenApi,
                                     ClienIdToken,
-                                    DescuentoMax,
                                     RenovacionOSE,
                                     RenovacionFirma,
                                     RenovacionSome,
-                                    CorreoSGO,
-                                    PasswordCorreo,
-                                     CorreosAdmin,
-                                     BoletaPorLote,
-                                     FlagCaptura,
-                                     FlagCaja,
+                                    Configuracion.FechaRenovacion,
+                                    Configuracion.DescuentoMax,
+                                    Configuracion.CorreoSGO,
+                                    Configuracion.PasswordCorreo,
+                                    Configuracion.CorreosAdmin,
+                                    CAST(COALESCE(Configuracion.BoletaPorLote, 1) AS bit) AS BoletaPorLote,
+                                    CAST(COALESCE(Configuracion.FlagCaptura, 0) AS bit) AS FlagCaptura,
+                                    CAST(COALESCE(Configuracion.FlagCaja, 0) AS bit) AS FlagCaja,
                                     ROW_NUMBER() OVER (ORDER BY CompaniaId DESC) AS RowNum
                              FROM Compania
+                             OUTER APPLY
+                             (
+                                 SELECT
+                                     MAX(CASE WHEN Descripcion = 'FECHA_RENOVACION' THEN ValorTexto1 END) AS FechaRenovacion,
+                                     MAX(CASE WHEN Descripcion = 'DESCUENTO_MAXIMO' THEN ValorDecimal END) AS DescuentoMax,
+                                     MAX(CASE WHEN Descripcion = 'CORREO_SGO' THEN ValorTexto1 END) AS CorreoSGO,
+                                     MAX(CASE WHEN Descripcion = 'PASSWORD_CORREO' THEN ValorTexto1 END) AS PasswordCorreo,
+                                     MAX(CASE WHEN Descripcion = 'CORREOS_ADMIN' THEN ValorTexto1 END) AS CorreosAdmin,
+                                     MAX(CASE WHEN Descripcion = 'BOLETA_POR_LOTE' THEN ValorNum END) AS BoletaPorLote,
+                                     MAX(CASE WHEN Descripcion = 'CAPTURA_HTML' THEN ValorNum END) AS FlagCaptura,
+                                     MAX(CASE WHEN Descripcion = 'MULTIPLES_CAJAS' THEN ValorNum END) AS FlagCaja
+                                 FROM dbo.Indicador
+                                 WHERE CompaniaId = Compania.CompaniaId
+                             ) Configuracion
                              )
                              SELECT *
                              FROM Companias
@@ -259,6 +256,7 @@ public class CompaniaRepository : ICompania
                 ICBPER = reader["ICBPER"] == DBNull.Value ? null : Convert.ToDecimal(reader["ICBPER"]),
                 TokenApi = reader["TokenApi"].ToString(),
                 ClienIdToken = reader["ClienIdToken"].ToString(),
+                FechaRenovacion = reader["FechaRenovacion"] == DBNull.Value ? null : Convert.ToDateTime(reader["FechaRenovacion"]),
                 DescuentoMax = reader["DescuentoMax"] == DBNull.Value ? null : Convert.ToDecimal(reader["DescuentoMax"]),
                 RenovacionOSE = reader["RenovacionOSE"] == DBNull.Value ? null : Convert.ToDateTime(reader["RenovacionOSE"]),
                 RenovacionFirma = reader["RenovacionFirma"] == DBNull.Value ? null : Convert.ToDateTime(reader["RenovacionFirma"]),
@@ -337,20 +335,71 @@ public class CompaniaRepository : ICompania
         cmd.Parameters.AddWithValue("@TokenApi", (object?)compania.TokenApi ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@ClienIdToken", (object?)compania.ClienIdToken ?? DBNull.Value);
 
-        var descuentoParam = cmd.Parameters.Add("@DescuentoMax", System.Data.SqlDbType.Decimal);
-        descuentoParam.Precision = 18;
-        descuentoParam.Scale = 2;
-        descuentoParam.Value = (object?)compania.DescuentoMax ?? DBNull.Value;
-
         cmd.Parameters.AddWithValue("@RenovacionOSE", (object?)compania.RenovacionOSE ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@RenovacionFirma", (object?)compania.RenovacionFirma ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@RenovacionSome", (object?)compania.RenovacionSome ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@CorreoSGO", (object?)compania.CorreoSGO ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@PasswordCorreo", (object?)compania.PasswordCorreo ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@CorreosAdmin", (object?)compania.CorreosAdmin ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@BoletaPorLote", compania.BoletaPorLote);
-        cmd.Parameters.AddWithValue("@FlagCaptura", compania.FlagCaptura);
-        cmd.Parameters.AddWithValue("@FlagCaja", compania.FlagCaja);
+    }
+
+    private static async Task GuardarConfiguracionAsync(SqlConnection con, SqlTransaction transaction, int companiaId, Compania compania, CancellationToken cancellationToken)
+    {
+        await GuardarIndicadorAsync(con, transaction, companiaId, "CONFIGURACION", "FECHA_RENOVACION", 3, compania.FechaRenovacion?.ToString("yyyy-MM-dd"), null, null, cancellationToken);
+        await GuardarIndicadorAsync(con, transaction, companiaId, "VENTAS", "DESCUENTO_MAXIMO", 2, null, null, compania.DescuentoMax, cancellationToken);
+        await GuardarIndicadorAsync(con, transaction, companiaId, "CORREO", "CORREO_SGO", 3, compania.CorreoSGO?.Trim(), null, null, cancellationToken);
+        await GuardarIndicadorAsync(con, transaction, companiaId, "CORREO", "PASSWORD_CORREO", 3, compania.PasswordCorreo, null, null, cancellationToken);
+        await GuardarIndicadorAsync(con, transaction, companiaId, "CORREO", "CORREOS_ADMIN", 3, compania.CorreosAdmin?.Trim(), null, null, cancellationToken);
+        await GuardarIndicadorAsync(con, transaction, companiaId, "VENTAS", "BOLETA_POR_LOTE", 1, null, compania.BoletaPorLote ? 1 : 0, null, cancellationToken);
+        await GuardarIndicadorAsync(con, transaction, companiaId, "VENTAS", "CAPTURA_HTML", 1, null, compania.FlagCaptura ? 1 : 0, null, cancellationToken);
+        await GuardarIndicadorAsync(con, transaction, companiaId, "CAJA", "MULTIPLES_CAJAS", 1, null, compania.FlagCaja ? 1 : 0, null, cancellationToken);
+    }
+
+    private static async Task<bool> GuardarIndicadorAsync(
+        SqlConnection con,
+        SqlTransaction? transaction,
+        int companiaId,
+        string area,
+        string descripcion,
+        int tipoIndicador,
+        string? valorTexto,
+        int? valorNum,
+        decimal? valorDecimal,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            IF NOT EXISTS (SELECT 1 FROM dbo.Compania WHERE CompaniaId = @CompaniaId)
+            BEGIN
+                SELECT CAST(0 AS bit);
+                RETURN;
+            END;
+
+            UPDATE dbo.Indicador
+               SET Area = @Area,
+                   TipoIndicador = @TipoIndicador,
+                   ValorTexto1 = @ValorTexto1,
+                   ValorNum = @ValorNum,
+                   ValorDecimal = @ValorDecimal,
+                   FechaActualizacion = SYSDATETIME()
+             WHERE CompaniaId = @CompaniaId
+               AND Descripcion = @Descripcion;
+
+            IF @@ROWCOUNT = 0
+                INSERT INTO dbo.Indicador (CompaniaId, Area, TipoIndicador, IdIndicador, Descripcion, ValorTexto1, ValorNum, ValorDecimal)
+                VALUES (@CompaniaId, @Area, @TipoIndicador, NULL, @Descripcion, @ValorTexto1, @ValorNum, @ValorDecimal);
+
+            SELECT CAST(1 AS bit);
+            """;
+
+        await using var cmd = new SqlCommand(sql, con, transaction);
+        cmd.Parameters.AddWithValue("@CompaniaId", companiaId);
+        cmd.Parameters.AddWithValue("@Area", area);
+        cmd.Parameters.AddWithValue("@Descripcion", descripcion);
+        cmd.Parameters.AddWithValue("@TipoIndicador", tipoIndicador);
+        cmd.Parameters.AddWithValue("@ValorTexto1", (object?)valorTexto ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@ValorNum", (object?)valorNum ?? DBNull.Value);
+        var decimalParam = cmd.Parameters.Add("@ValorDecimal", System.Data.SqlDbType.Decimal);
+        decimalParam.Precision = 18;
+        decimalParam.Scale = 2;
+        decimalParam.Value = (object?)valorDecimal ?? DBNull.Value;
+        return Convert.ToBoolean(await cmd.ExecuteScalarAsync(cancellationToken));
     }
 
     private static (int page, int pageSize) NormalizePagination(int page, int pageSize)

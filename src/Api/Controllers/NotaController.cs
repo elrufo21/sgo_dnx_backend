@@ -3052,9 +3052,17 @@ public class NotaController : ControllerBase
                 d.DocuNumero,
                 d.TipoCodigo,
                 c.CompaniaRUC,
-                c.TIPO_PROCESO
+                COALESCE(configuracion.ValorNum, 3) AS TIPO_PROCESO
             FROM DocumentoVenta d
             LEFT JOIN Compania c ON c.CompaniaId = d.CompaniaId
+            OUTER APPLY
+            (
+                SELECT TOP (1) ValorNum
+                FROM dbo.Indicador
+                WHERE CompaniaId = d.CompaniaId
+                  AND Descripcion = 'TIPO_PROCESO_CPE'
+                ORDER BY Id DESC
+            ) configuracion
             WHERE d.DocuId = @DocuId
               AND d.TipoCodigo = '01'
               AND LTRIM(RTRIM(ISNULL(d.DocuDocumento, ''))) = 'FACTURA';
