@@ -1,3 +1,12 @@
+/*
+  Paquete de procedimientos web para DXN_ICA2409.
+  Preserva los procedimientos del escritorio: los contratos distintos usan WEB.
+*/
+USE [DXN_ICA2409];
+GO
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+GO
 
 CREATE OR ALTER procedure [dbo].[anularDocumentoWEB]
 @ListaOrden varchar(Max)

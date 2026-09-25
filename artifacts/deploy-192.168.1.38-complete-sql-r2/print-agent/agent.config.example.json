@@ -1,0 +1,8 @@
+{
+  "port": 5174,
+  "token": "REEMPLAZA_POR_UN_TOKEN_ALEATORIO_DE_AL_MENOS_24_CARACTERES",
+  "allowedOrigins": [
+    "http://192.168.1.38:8080"
+  ],
+  "maxPdfBytes": 10485760
+}

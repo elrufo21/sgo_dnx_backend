@@ -278,7 +278,7 @@ public class NotaController : ControllerBase
         return false;
     }
 
-    [AllowAnonymous]
+    [Authorize]
     [HttpGet("lista-cadena", Name = "GetNotaListString")]
     [ProducesResponseType(typeof(string), (int)HttpStatusCode.OK)]
     public async Task<ActionResult<string>> ListarNotaCadena(
@@ -3507,7 +3507,14 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             return NotFound();
         }
 
-        return Ok(resultado);
+        // Nunca devolvemos claves ni el PFX al navegador. El backend es quien los usa para firmar.
+        return Ok(new
+        {
+            resultado.UsuarioSOL,
+            CertificadoPFX = resultado.CertificadoPFX,
+            resultado.Entorno,
+            TieneCertificado = !string.IsNullOrWhiteSpace(resultado.CertificadoPFX)
+        });
     }
 
     [Authorize]
@@ -3571,7 +3578,6 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         {
             return BadRequest("El certificado no contiene datos.");
         }
-
         var certificadoBase64 = Convert.ToBase64String(certificadoBytes);
 
         var ok = await _mediator.GuardarCredencialesSunatAsync(
@@ -10872,7 +10878,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         }
 
         var original = string.IsNullOrWhiteSpace(rutaOriginal) ? "(vacío)" : rutaOriginal.Trim();
-        var mensaje = $"No se pudo materializar/encontrar el certificado PFX/P12 desde '{original}'. Ruta resuelta: '{rutaNormalizada}'. Verifica que CompaniaPFX tenga el base64 completo o una ruta/nombre de archivo existente.";
+        var mensaje = $"No se pudo encontrar el certificado PFX/P12 desde '{original}'. Ruta resuelta: '{rutaNormalizada}'. Verifica la configuración CPE de la compañía y que el archivo exista en la carpeta CPE del servidor.";
 
         return new Dictionary<string, string>
         {

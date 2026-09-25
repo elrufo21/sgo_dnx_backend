@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "SGO DXN Capture",
+  "version": "0.2.0",
+  "description": "Captura una venta desde DXN OBS y la envia al SGO.",
+  "permissions": ["storage", "tabs", "scripting"],
+  "host_permissions": [
+    "https://obs6.dxn2u.com/*",
+    "http://192.168.1.38:8080/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://obs6.dxn2u.com/*"],
+      "js": ["content-dxn.js"],
+      "all_frames": true,
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://192.168.1.38:8080/*"
+      ],
+      "js": ["content-sgo.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "SGO DXN Capture"
+  }
+}

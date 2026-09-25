@@ -9,3 +9,4 @@ obj/
 
 appsettings.*.local.json
 appsettings.json
+appsettings.Development.json
