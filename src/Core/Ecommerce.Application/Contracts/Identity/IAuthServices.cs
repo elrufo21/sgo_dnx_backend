@@ -8,6 +8,6 @@ public interface IAuthService
     string GetSessionUser();
 
     string CreateToken(Usuario usuario, IList<string>? roles);
-    string CreateTokenA(string? fecha, string? area = null);
+    string CreateTokenA(string? fecha, string? area = null, int? userId = null, int? companiaId = null, int? areaId = null, bool administrador = false);
 
 }

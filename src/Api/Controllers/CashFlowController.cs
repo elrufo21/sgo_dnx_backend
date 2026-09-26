@@ -3,11 +3,13 @@ using System.Globalization;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Ecommerce.Api.Security;
 
 namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[RequirePermission("CAJA.VER")]
 public sealed class CashFlowController : ControllerBase
 {
     private readonly IConfiguration _configuration;

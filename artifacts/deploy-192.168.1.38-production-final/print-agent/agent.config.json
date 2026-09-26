@@ -1,8 +1,11 @@
 {
   "port": 5174,
+  "defaultPrinter": "EPSON TM-T20IV Receipt",
   "token": "e3866fc9c62392445d09cf98ceb43b159a8de51cf2edf877d1810690fc2aeeed",
   "allowedOrigins": [
-    "http://192.168.1.38:8080"
+    "http://192.168.1.38:8080",
+    "http://localhost:5173",
+    "http://localhost:8080"
   ],
   "maxPdfBytes": 10485760
 }

@@ -20,11 +20,13 @@ using System.Globalization;
 using System.Linq;
 using System.Security.Claims;
 using BusinessEntities;
+using Ecommerce.Api.Security;
 
 namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[RequirePermission("VENTAS.VER")]
 public class NotaController : ControllerBase
 {
     private enum ModoEnvioBaja

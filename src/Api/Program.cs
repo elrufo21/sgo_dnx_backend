@@ -13,6 +13,7 @@ using Ecommerce.Application.Contracts.Lineas;
 using Ecommerce.Application.Contracts.Maquinas;
 using Ecommerce.Application.Contracts.NotaPedido;
 using Ecommerce.Application.Contracts.Personales;
+using Ecommerce.Application.Contracts.Permisos;
 using Ecommerce.Application.Contracts.Productos;
 using Ecommerce.Application.Contracts.Proveedores;
 using Ecommerce.Application.Contracts.Usuarios;
@@ -84,6 +85,7 @@ builder.Services.AddTransient<IProveedor, ProveedorRepository>();
 builder.Services.AddTransient<ICuentaProveedor, CuentaProveedorRepository>();
 builder.Services.AddTransient<IUsuariosCrud, UsuariosCrudRepository>();
 builder.Services.AddTransient<IFeriado, FeriadoRepository>();
+builder.Services.AddTransient<IPermisosIndicador, PermisosIndicadorRepository>();
 
 // Add services to the container.
 
@@ -161,7 +163,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseExceptionHandler();
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+else
+{
+    app.UseExceptionHandler();
+}
 app.UseRateLimiter();
 
 app.UseCors("CorsPolicy");

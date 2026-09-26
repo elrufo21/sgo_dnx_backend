@@ -3,6 +3,7 @@ using Ecommerce.Application.Contracts.Personales;
 using Ecommerce.Application.Contracts.Infrastructure;
 using Ecommerce.Application.Models.ImageManagement;
 using Ecommerce.Domain;
+using Ecommerce.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,6 +11,7 @@ namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[RequirePermission("MANTENIMIENTO.USUARIOS")]
 public class PersonalController : ControllerBase
 {
     private const long MaxImageSizeBytes = 5 * 1024 * 1024; // 5 MB

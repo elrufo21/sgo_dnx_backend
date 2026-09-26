@@ -20,4 +20,4 @@ El sitio web incluye `web.config` para redirigir las rutas de React a `index.htm
 
 - Instalar la extensión desde la carpeta `extension` con **Cargar descomprimida** en Chrome o Edge. Está enlazada a `http://192.168.1.38:8080`.
 - Instalar Node.js 20 o superior y ejecutar `npm ci` dentro de `print-agent`.
-- Crear una tarea de inicio de sesión que ejecute `run-agent-service.cmd`. El agente usa `127.0.0.1:5174`, por lo que va en cada PC que imprima, no como servicio de red.
+- Dentro de la carpeta del agente, ejecutar una sola vez `powershell -ExecutionPolicy Bypass -File .\install-auto-start.ps1`. Registra la tarea **DNX Print Agent** para inicio de sesión y la reinicia ante fallos. El agente usa `127.0.0.1:5174`, por lo que va en cada PC que imprima, no como servicio de red.

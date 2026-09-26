@@ -330,12 +330,11 @@ public class ClienteRepository : ICliente
     {
         try
         {
-            var val = reader["ClienteDocu"]?.ToString()?.Trim();
-            return string.IsNullOrWhiteSpace(val) ? "BOLETA" : val;
+            return reader["ClienteDocu"]?.ToString()?.Trim() ?? string.Empty;
         }
         catch
         {
-            return "BOLETA";
+            return string.Empty;
         }
     }
 

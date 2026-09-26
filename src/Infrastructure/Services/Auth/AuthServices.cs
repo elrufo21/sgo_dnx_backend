@@ -50,13 +50,17 @@ public class AuthService : IAuthService
         return tokenHandler.WriteToken(token);
     }
     
-    public string CreateTokenA(string? fecha, string? area = null)
+    public string CreateTokenA(string? fecha, string? area = null, int? userId = null, int? companiaId = null, int? areaId = null, bool administrador = false)
     {
         var claims = new List<Claim>();
         
         var claim = new Claim(ClaimTypes.UserData,fecha!);
         claims.Add(claim);
         claims.Add(new Claim("area", area?.Trim() ?? string.Empty));
+        if (userId is > 0) claims.Add(new Claim("userId", userId.Value.ToString()));
+        if (companiaId is > 0) claims.Add(new Claim("companiaId", companiaId.Value.ToString()));
+        if (areaId is > 0) claims.Add(new Claim("areaId", areaId.Value.ToString()));
+        claims.Add(new Claim("isAdmin", administrador ? "1" : "0"));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Key!));
         var credenciales = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);

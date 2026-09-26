@@ -1,4 +1,5 @@
 using Ecommerce.Application.Contracts.Usuarios;
+using Ecommerce.Application.Contracts.Permisos;
 using Ecommerce.Application.Identity;
 using Ecommerce.Application.Models.Token;
 using Ecommerce.Domain;
@@ -7,6 +8,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Ecommerce.Infrastructure.Persistence;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Configuration;
 
 namespace Ecommerce.Infrastructure.Persistence.Repositories;
 
@@ -16,17 +18,24 @@ public class UsuarioRepository : IUsuario
     private readonly JwtSettings _jwtSettings;
     private readonly AccesoDatos _accesoDatos;
     private readonly UserManager<Usuario> _userManager;
+    private readonly IPermisosIndicador _permisos;
+    private readonly string _connectionString;
 
     public UsuarioRepository(
         IAuthService authService,
         IOptions<JwtSettings> jwtSettings,
         AccesoDatos accesoDatos,
-        UserManager<Usuario> userManager)
+        UserManager<Usuario> userManager,
+        IPermisosIndicador permisos,
+        IConfiguration configuration)
     {
         _authService = authService;
         _jwtSettings = jwtSettings.Value;
         _accesoDatos = accesoDatos;
         _userManager = userManager;
+        _permisos = permisos;
+        _connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("Missing connection string: DefaultConnection");
     }
 
     public async Task<AuthResponseA> LoginAsync(EUser loginUser, CancellationToken cancellationToken = default)
@@ -35,7 +44,7 @@ public class UsuarioRepository : IUsuario
         try
         {
             var result = await _accesoDatos.EjecutarComandoAsync("uspValidaUsuarioweb", "@Data", data, cancellationToken);
-            return BuildLegacyResponse(result);
+            return await BuildLegacyResponseAsync(result, cancellationToken);
         }
         catch (SqlException ex) when (ex.Number == 2812)
         {
@@ -43,7 +52,7 @@ public class UsuarioRepository : IUsuario
         }
     }
 
-    private AuthResponseA BuildLegacyResponse(string result)
+    private async Task<AuthResponseA> BuildLegacyResponseAsync(string result, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(result))
         {
@@ -65,6 +74,14 @@ public class UsuarioRepository : IUsuario
         var nowUtc = DateTime.UtcNow;
         var expiresAtUtc = nowUtc.Add(_jwtSettings.ExpireTime);
         var expiresInSeconds = (int)_jwtSettings.ExpireTime.TotalSeconds;
+        var usuarioId = int.TryParse(GetPayloadValue(payload, 0), out var parsedUsuarioId) ? parsedUsuarioId : 0;
+        var contexto = await ObtenerContextoPermisosAsync(usuarioId, cancellationToken);
+        var companiaId = contexto.CompaniaId > 0
+            ? contexto.CompaniaId
+            : int.TryParse(GetPayloadValue(payload, 4), out var parsedCompaniaId) ? parsedCompaniaId : 0;
+        var permisos = contexto.Administrador || contexto.AreaId <= 0 || companiaId <= 0
+            ? Array.Empty<string>()
+            : await _permisos.ObtenerEfectivosAsync(companiaId, contexto.AreaId, usuarioId, cancellationToken);
         return new AuthResponseA
         {
             Id = GetPayloadValue(payload, 0),
@@ -87,7 +104,9 @@ public class UsuarioRepository : IUsuario
             CompaniaTelefono = GetPayloadValue(payload, 17),
             BoletaPorLote = ParseBoolFlag(GetPayloadValue(payload, 18, "1"), true),
             FlagCaptura = ParseBoolFlag(GetPayloadValue(payload, 19, "0"), false),
-            Token = _authService.CreateTokenA(expiresAtUtc.ToString("O"), GetPayloadValue(payload, 2)),
+            Administrador = contexto.Administrador,
+            Permisos = permisos,
+            Token = _authService.CreateTokenA(expiresAtUtc.ToString("O"), GetPayloadValue(payload, 2), usuarioId, companiaId, contexto.AreaId, contexto.Administrador),
             ExpiresAtUtc = expiresAtUtc,
             ExpiresInSeconds = expiresInSeconds
         };
@@ -127,7 +146,9 @@ public class UsuarioRepository : IUsuario
             Entorno = "3",
             BoletaPorLote = true,
             FlagCaptura = false,
-            Token = _authService.CreateTokenA(expiresAtUtc.ToString("O"), "DXN"),
+            Administrador = true,
+            Permisos = Array.Empty<string>(),
+            Token = _authService.CreateTokenA(expiresAtUtc.ToString("O"), "DXN", administrador: true),
             ExpiresAtUtc = expiresAtUtc,
             ExpiresInSeconds = expiresInSeconds
         };
@@ -159,5 +180,31 @@ public class UsuarioRepository : IUsuario
         }
 
         return fallback;
+    }
+
+    private async Task<(int AreaId, int CompaniaId, bool Administrador)> ObtenerContextoPermisosAsync(int usuarioId, CancellationToken cancellationToken)
+    {
+        if (usuarioId <= 0) return default;
+
+        const string sql = """
+            SELECT ISNULL(P.AreaId, 0) AS AreaId,
+                   ISNULL(P.CompaniaId, 0) AS CompaniaId,
+                   ISNULL(U.Administrador, 0) AS Administrador
+            FROM dbo.Usuarios U
+            LEFT JOIN dbo.Personal P ON P.PersonalId = U.PersonalId
+            WHERE U.UsuarioID = @UsuarioId;
+            """;
+
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@UsuarioId", usuarioId);
+        await connection.OpenAsync(cancellationToken);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return default;
+
+        return (
+            Convert.ToInt32(reader.GetValue(0)),
+            Convert.ToInt32(reader.GetValue(1)),
+            Convert.ToBoolean(reader.GetValue(2)));
     }
 }

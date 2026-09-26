@@ -1,6 +1,7 @@
 using System.Net;
 using Ecommerce.Application.Contracts.Usuarios;
 using Ecommerce.Domain;
+using Ecommerce.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,6 +9,7 @@ namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[RequirePermission("MANTENIMIENTO.USUARIOS")]
 public class UsuariosCrudController : ControllerBase
 {
     private readonly IUsuariosCrud _usuariosCrud;
@@ -48,7 +50,7 @@ public class UsuariosCrudController : ControllerBase
         return Ok(eliminado);
     }
 
-    [AllowAnonymous]
+    [Authorize]
     [HttpGet("list", Name = "GetUsuariosCrudList")]
     [ProducesResponseType(typeof(IReadOnlyList<UsuarioBd>), (int)HttpStatusCode.OK)]
     public async Task<ActionResult<IReadOnlyList<UsuarioBd>>> GetUsuariosList(
@@ -60,7 +62,7 @@ public class UsuariosCrudController : ControllerBase
         return Ok(await _usuariosCrud.ListarAsync(estado, page, pageSize, cancellationToken));
     }
 
-    [AllowAnonymous]
+    [Authorize]
     [HttpGet("list-with-personal", Name = "GetUsuariosCrudListWithPersonal")]
     [ProducesResponseType(typeof(IReadOnlyList<UsuarioConPersonal>), (int)HttpStatusCode.OK)]
     public async Task<ActionResult<IReadOnlyList<UsuarioConPersonal>>> GetUsuariosListWithPersonal(
@@ -71,7 +73,7 @@ public class UsuariosCrudController : ControllerBase
         return Ok(await _usuariosCrud.ListarConPersonalAsync(page, pageSize, cancellationToken));
     }
 
-    [AllowAnonymous]
+    [Authorize]
     [HttpGet("{id:int}", Name = "GetUsuarioCrudById")]
     [ProducesResponseType(typeof(UsuarioBd), (int)HttpStatusCode.OK)]
     public async Task<ActionResult<UsuarioBd?>> GetUsuarioById(int id, CancellationToken cancellationToken)
@@ -81,7 +83,7 @@ public class UsuariosCrudController : ControllerBase
         return Ok(usuario);
     }
 
-    [AllowAnonymous]
+    [Authorize]
     [HttpGet("{id:int}/with-personal", Name = "GetUsuarioCrudByIdWithPersonal")]
     [ProducesResponseType(typeof(UsuarioConPersonal), (int)HttpStatusCode.OK)]
     public async Task<ActionResult<UsuarioConPersonal?>> GetUsuarioByIdWithPersonal(int id, CancellationToken cancellationToken)
@@ -110,7 +112,7 @@ public class UsuariosCrudController : ControllerBase
         return Ok(await _usuariosCrud.EliminarMantenimientoAsync(id, cancellationToken));
     }
 
-    [AllowAnonymous]
+    [Authorize]
     [HttpGet("maintenance/list", Name = "GetMaintenanceUsuariosList")]
     [ProducesResponseType(typeof(IReadOnlyList<UsuarioBd>), (int)HttpStatusCode.OK)]
     public async Task<ActionResult<IReadOnlyList<UsuarioBd>>> GetMaintenanceUsuariosList(

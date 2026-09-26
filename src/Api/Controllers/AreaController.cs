@@ -1,6 +1,7 @@
 using System.Net;
 using Ecommerce.Application.Contracts.Areas;
 using Ecommerce.Domain;
+using Ecommerce.Api.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,6 +9,7 @@ namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[RequirePermission("MANTENIMIENTO.VER")]
 public class AreaController : ControllerBase
 {
     private readonly IArea _mediator;
@@ -33,7 +35,7 @@ public class AreaController : ControllerBase
         return Ok(await _mediator.EliminarAsync(id, cancellationToken));
     }
 
-    [AllowAnonymous]
+    [Authorize]
     [HttpGet("list", Name = "GetAreaList")]
     [ProducesResponseType(typeof(IReadOnlyList<EGeneral>), (int)HttpStatusCode.OK)]
     public async Task<ActionResult<IReadOnlyList<EGeneral>>> GetAreaList(

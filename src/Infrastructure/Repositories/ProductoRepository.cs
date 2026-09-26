@@ -481,7 +481,19 @@ public class ProductoRepository : IProducto
     private static decimal? ToNullableDecimal(string[] campos, int index)
     {
         var value = ToNullableString(campos, index);
-        return decimal.TryParse(value, out var parsed) ? parsed : null;
+        if (string.IsNullOrWhiteSpace(value)) return null;
+
+        // El campo Data del frontend usa punto decimal (ej. 79.00).
+        // No depender de la cultura del servidor, donde el punto puede ser miles.
+        var usesCommaDecimal = value.Contains(',') &&
+                               (!value.Contains('.') || value.LastIndexOf(',') > value.LastIndexOf('.'));
+        var culture = usesCommaDecimal
+            ? CultureInfo.GetCultureInfo("es-ES")
+            : CultureInfo.InvariantCulture;
+
+        return decimal.TryParse(value, NumberStyles.Number, culture, out var parsed)
+            ? parsed
+            : null;
     }
 
     private static DateTime? ToNullableDate(string[] campos, int index)
