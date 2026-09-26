@@ -13,6 +13,7 @@ El frontend de producción usa `http://192.168.1.38:8081/api/v1/`. El API permit
 2. Crear el sitio **SGO API** con ruta física `api`, binding HTTP en el puerto 8081 y grupo de aplicaciones **Sin código administrado**. El `web.config` publicado inicia `Ecommerce.Api.dll` mediante el módulo de ASP.NET Core.
 3. Crear el sitio **SGO Web** con ruta física `web`, binding HTTP en el puerto 8080 y grupo de aplicaciones **Sin código administrado**.
 4. El `api/appsettings.json` publicado usa autenticación SQL local. Verificar que la base `DXN_ICA` esté restaurada en la instancia predeterminada de SQL Server antes de iniciar el sitio.
+5. Crear o conservar `D:\SGO\media` y otorgar permiso **Modificar** a la identidad del Application Pool de **SGO API**. La API publica esa carpeta como `http://192.168.1.38:8081/media/...`; incluirla en el respaldo del servidor.
 
 El sitio web incluye `web.config` para redirigir las rutas de React a `index.html`. Requiere tener instalado IIS URL Rewrite.
 

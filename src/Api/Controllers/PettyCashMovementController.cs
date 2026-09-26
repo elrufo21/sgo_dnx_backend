@@ -2,6 +2,7 @@ using System.Data;
 using System.Globalization;
 using Ecommerce.Application.Contracts.Infrastructure;
 using Ecommerce.Application.Models.ImageManagement;
+using Ecommerce.Infrastructure.ImageLocal;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 
@@ -36,12 +37,17 @@ public sealed class PettyCashMovementController : ControllerBase
     };
 
     private readonly IConfiguration _configuration;
-    private readonly IManageImageService _imageService;
+    private readonly IManageImageService _cloudinaryImageService;
+    private readonly LocalImageStorageService _localImageService;
 
-    public PettyCashMovementController(IConfiguration configuration, IManageImageService imageService)
+    public PettyCashMovementController(
+        IConfiguration configuration,
+        IManageImageService cloudinaryImageService,
+        LocalImageStorageService localImageService)
     {
         _configuration = configuration;
-        _imageService = imageService;
+        _cloudinaryImageService = cloudinaryImageService;
+        _localImageService = localImageService;
     }
 
     [HttpGet]
@@ -150,11 +156,11 @@ public sealed class PettyCashMovementController : ControllerBase
         if (imagen is not null)
         {
             await using var stream = imagen.OpenReadStream();
-            rutaImagen = (await _imageService.UploadImage(new ImageData
+            rutaImagen = await _localImageService.UploadImage(new ImageData
             {
                 ImageStream = stream,
                 Nombre = imagen.FileName
-            })).Url ?? string.Empty;
+            });
         }
 
         if (nroOperacion.Length > 0)
@@ -204,7 +210,7 @@ public sealed class PettyCashMovementController : ControllerBase
                 return Conflict(new { ok = false, mensaje = "No se pudo actualizar el movimiento." });
             await tx.CommitAsync(cancellationToken);
             if (imagen is not null && rutaImagenAnterior.Length > 0 && rutaImagenAnterior != rutaImagen)
-                await _imageService.DeleteImage(rutaImagenAnterior);
+                await EliminarImagenAsync(rutaImagenAnterior);
             return Ok(new { ok = true, mensaje = "Movimiento de caja chica actualizado." });
         }
 
@@ -298,7 +304,7 @@ public sealed class PettyCashMovementController : ControllerBase
             return Conflict(new { ok = false, mensaje = "No se pudo eliminar el movimiento." });
 
         if (rutaImagen.Length > 0)
-            await _imageService.DeleteImage(rutaImagen);
+            await EliminarImagenAsync(rutaImagen);
 
         return Ok(new { ok = true, mensaje = "Movimiento de caja chica eliminado." });
     }
@@ -324,6 +330,11 @@ public sealed class PettyCashMovementController : ControllerBase
     }
 
     private static string Texto(string? value) => (value ?? string.Empty).Trim();
+
+    private Task EliminarImagenAsync(string rutaImagen) =>
+        _localImageService.DeleteImage(rutaImagen)
+            ? Task.CompletedTask
+            : _cloudinaryImageService.DeleteImage(rutaImagen);
 
     private static bool EsImagenValida(IFormFile imagen, out string mensaje)
     {

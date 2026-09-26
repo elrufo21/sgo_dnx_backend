@@ -25,6 +25,7 @@ public static class InfrastructureServiceRegistration
 
         services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
         services.Configure<CloudinarySettings>(configuration.GetSection("CloudinarySettings"));
+        services.Configure<LocalMediaSettings>(configuration.GetSection("LocalMedia"));
         services.Configure<EmailSettings>(configuration.GetSection("EmailSettings"));
         return services;
     }

@@ -17,8 +17,10 @@ using Ecommerce.Application.Contracts.Permisos;
 using Ecommerce.Application.Contracts.Productos;
 using Ecommerce.Application.Contracts.Proveedores;
 using Ecommerce.Application.Contracts.Usuarios;
+using Ecommerce.Application.Models.ImageManagement;
 using Ecommerce.Domain;
 using Ecommerce.Infrastructure.ImageCloudinary;
+using Ecommerce.Infrastructure.ImageLocal;
 using Ecommerce.Infrastructure.Persistence;
 using Ecommerce.Infrastructure.Persistence.Repositories;
 using Microsoft.AspNetCore.Authentication;
@@ -30,6 +32,7 @@ using Microsoft.AspNetCore.Mvc.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -69,6 +72,7 @@ builder.Services.AddDbContext<EcommerceDbContext>(options =>
 );
 
 builder.Services.AddScoped<IManageImageService, ManageImageService>();
+builder.Services.AddScoped<LocalImageStorageService>();
 builder.Services.AddTransient<IArea, AreaRepository>();
 builder.Services.AddTransient<IPersonal, PersonalRepository>();
 builder.Services.AddTransient<IMaquina, MaquinaRepository>();
@@ -155,6 +159,16 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+var localMedia = builder.Configuration.GetSection("LocalMedia").Get<LocalMediaSettings>() ?? new LocalMediaSettings();
+if (string.IsNullOrWhiteSpace(localMedia.RootPath))
+    throw new InvalidOperationException("Configure LocalMedia:RootPath.");
+if (string.IsNullOrWhiteSpace(localMedia.RequestPath))
+    throw new InvalidOperationException("Configure LocalMedia:RequestPath.");
+var localMediaRoot = Path.GetFullPath(localMedia.RootPath);
+var localMediaRequestPath = $"/{localMedia.RequestPath.Trim().Trim('/')}";
+if (localMediaRequestPath == "/")
+    throw new InvalidOperationException("Configure LocalMedia:RequestPath.");
+Directory.CreateDirectory(localMediaRoot);
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -174,6 +188,11 @@ else
 app.UseRateLimiter();
 
 app.UseCors("CorsPolicy");
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(localMediaRoot),
+    RequestPath = localMediaRequestPath
+});
 app.UseAuthentication();
 app.UseAuthorization();
 
