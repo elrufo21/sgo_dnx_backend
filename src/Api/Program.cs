@@ -164,7 +164,7 @@ if (string.IsNullOrWhiteSpace(localMedia.RootPath))
     throw new InvalidOperationException("Configure LocalMedia:RootPath.");
 if (string.IsNullOrWhiteSpace(localMedia.RequestPath))
     throw new InvalidOperationException("Configure LocalMedia:RequestPath.");
-var localMediaRoot = Path.GetFullPath(localMedia.RootPath);
+var localMediaRoot = Path.GetFullPath(localMedia.RootPath, app.Environment.ContentRootPath);
 var localMediaRequestPath = $"/{localMedia.RequestPath.Trim().Trim('/')}";
 if (localMediaRequestPath == "/")
     throw new InvalidOperationException("Configure LocalMedia:RequestPath.");

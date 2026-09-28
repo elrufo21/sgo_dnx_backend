@@ -2,6 +2,8 @@
 
 Las imágenes adjuntas en **Caja Chica** se guardan en la computadora servidor, en `D:\SGO\media`. La API las publica en la ruta `/media`; la base de datos conserva solo la ruta virtual, por ejemplo `/media/caja-chica/2026/09/<archivo>.webp`.
 
+En desarrollo se guardan automáticamente en `src\Api\App_Data\media`, por lo que no se requiere la unidad `D:` local.
+
 ## Configuración en IIS
 
 La sección `LocalMedia` del `api/appsettings.json` define el disco y la ruta pública. El Application Pool del sitio **SGO API** debe tener permiso **Modificar** sobre `D:\SGO\media`. La carpeta se crea al iniciar la API.

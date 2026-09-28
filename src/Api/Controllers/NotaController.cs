@@ -11187,7 +11187,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             if (!long.TryParse(Get(values, 1), NumberStyles.Any, CultureInfo.InvariantCulture, out var notaId))
                 continue;
 
-            decimal.TryParse(Get(values, 5).Replace(",", "."), NumberStyles.Any, CultureInfo.InvariantCulture, out var monto);
+            decimal.TryParse(Get(values, 5), NumberStyles.Number, CultureInfo.GetCultureInfo("en-US"), out var monto);
             items.Add(new PagoVariosItemResponse
             {
                 DocuId = docuId,
