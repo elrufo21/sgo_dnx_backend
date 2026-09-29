@@ -113,6 +113,8 @@ public sealed class PettyCashMovementController : ControllerBase
             detalle.Length is 0 or > 250 || request.Importe <= 0 || request.Importe > 9999999999999999.99m ||
             formaPago.Length is 0 or > 80 || entidad.Length > 40 || nroOperacion.Length > 40)
             return BadRequest(new { ok = false, mensaje = "Los datos del movimiento no son válidos." });
+        if (request.Id is > 0)
+            return BadRequest(new { ok = false, mensaje = "Los movimientos registrados no se pueden editar. Adjunta una imagen desde el detalle si aún no tiene." });
         if (FormasConEntidadYNroOperacion.Contains(formaPago) && !EntidadesBancarias.Contains(entidad))
             return BadRequest(new { ok = false, mensaje = "Selecciona una entidad bancaria válida." });
         if ((FormasConEntidadYNroOperacion.Contains(formaPago) || formaPago == "TARJETA") && nroOperacion.Length == 0)
@@ -134,24 +136,6 @@ public sealed class PettyCashMovementController : ControllerBase
             return BadRequest(new { ok = false, mensaje = "No tienes una caja activa." });
 
         var rutaImagen = string.Empty;
-        var rutaImagenAnterior = string.Empty;
-        if (request.Id is > 0)
-        {
-            await using var movimientoCmd = new SqlCommand("""
-                SELECT ISNULL(RutaImagen, '') FROM CajaDetalle WITH (UPDLOCK, HOLDLOCK)
-                 WHERE DetalleId = @DetalleId AND CajaId = @CajaId
-                   AND ISNULL(NotaIdB, 0) = -1;
-                """, con, tx);
-            movimientoCmd.Parameters.Add("@DetalleId", SqlDbType.Decimal).Value = request.Id.Value;
-            movimientoCmd.Parameters["@DetalleId"].Precision = 38;
-            movimientoCmd.Parameters["@DetalleId"].Scale = 0;
-            AddCajaId(movimientoCmd, cajaId.Value);
-            var existente = await movimientoCmd.ExecuteScalarAsync(cancellationToken);
-            if (existente is null)
-                return NotFound(new { ok = false, mensaje = "No se encontró el movimiento de caja chica." });
-            rutaImagen = existente.ToString() ?? string.Empty;
-            rutaImagenAnterior = rutaImagen;
-        }
 
         if (imagen is not null)
         {
@@ -178,40 +162,6 @@ public sealed class PettyCashMovementController : ControllerBase
             operacionDetalleId.Value = request.Id ?? 0;
             if (await existeCmd.ExecuteScalarAsync(cancellationToken) is not null)
                 return BadRequest(new { ok = false, mensaje = "El número de operación ya existe." });
-        }
-
-        if (request.Id is > 0)
-        {
-            await using var updateCmd = new SqlCommand("""
-                UPDATE CajaDetalle
-                       SET DetalleMovimiento = @Movimiento, DetalleConcepto = @Detalle,
-                       DetalleMonto = @Importe, DetalleEfectivo = @Importe,
-                       FormaPago = @FormaPago, EntidadBancaria = @Entidad, NroOperacion = @NroOperacion,
-                       RutaImagen = @RutaImagen
-                 WHERE DetalleId = @DetalleId AND CajaId = @CajaId
-                   AND ISNULL(NotaIdB, 0) = -1;
-                """, con, tx);
-            var updateId = updateCmd.Parameters.Add("@DetalleId", SqlDbType.Decimal);
-            updateId.Precision = 38;
-            updateId.Scale = 0;
-            updateId.Value = request.Id.Value;
-            AddCajaId(updateCmd, cajaId.Value);
-            updateCmd.Parameters.Add("@Movimiento", SqlDbType.VarChar, 80).Value = movimiento;
-            updateCmd.Parameters.Add("@Detalle", SqlDbType.VarChar, 250).Value = detalle;
-            var updateImporte = updateCmd.Parameters.Add("@Importe", SqlDbType.Decimal);
-            updateImporte.Precision = 18;
-            updateImporte.Scale = 2;
-            updateImporte.Value = request.Importe;
-            updateCmd.Parameters.Add("@FormaPago", SqlDbType.VarChar, 80).Value = formaPago;
-            updateCmd.Parameters.Add("@Entidad", SqlDbType.VarChar, 40).Value = entidad;
-            updateCmd.Parameters.Add("@NroOperacion", SqlDbType.NVarChar, 40).Value = nroOperacion;
-            updateCmd.Parameters.Add("@RutaImagen", SqlDbType.VarChar, -1).Value = rutaImagen;
-            if (await updateCmd.ExecuteNonQueryAsync(cancellationToken) != 1)
-                return Conflict(new { ok = false, mensaje = "No se pudo actualizar el movimiento." });
-            await tx.CommitAsync(cancellationToken);
-            if (imagen is not null && rutaImagenAnterior.Length > 0 && rutaImagenAnterior != rutaImagen)
-                await EliminarImagenAsync(rutaImagenAnterior);
-            return Ok(new { ok = true, mensaje = "Movimiento de caja chica actualizado." });
         }
 
         await using var cmd = new SqlCommand("""
@@ -245,6 +195,94 @@ public sealed class PettyCashMovementController : ControllerBase
             mensaje = "Movimiento de caja chica registrado.",
             movimiento = new PettyCashMovementResponse(detalleId, 0, "T", DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"), movimiento, detalle, request.Importe, formaPago, entidad, nroOperacion, rutaImagen)
         });
+    }
+
+    [RequestSizeLimit(MaxImageSizeBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = MaxImageSizeBytes)]
+    [HttpPost("{id:long}/image")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> AdjuntarImagen(
+        long id,
+        [FromForm] int usuarioId,
+        [FromForm] IFormFile? imagen,
+        CancellationToken cancellationToken)
+    {
+        if (id <= 0 || usuarioId <= 0 || imagen is null)
+            return BadRequest(new { ok = false, mensaje = "Movimiento, usuario e imagen son obligatorios." });
+        if (!EsImagenValida(imagen, out var errorImagen))
+            return BadRequest(new { ok = false, mensaje = errorImagen });
+
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return StatusCode(500, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
+
+        await using var con = new SqlConnection(connectionString);
+        await con.OpenAsync(cancellationToken);
+        await using var tx = (SqlTransaction)await con.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        var cajaId = await ObtenerCajaActivaAsync(con, usuarioId, cancellationToken, tx);
+        if (cajaId is null)
+            return BadRequest(new { ok = false, mensaje = "No tienes una caja activa." });
+
+        await using (var movimientoCmd = new SqlCommand("""
+            SELECT ISNULL(RutaImagen, '') FROM CajaDetalle WITH (UPDLOCK, HOLDLOCK)
+             WHERE DetalleId = @DetalleId AND CajaId = @CajaId
+               AND ISNULL(NotaId, 0) = 0 AND ISNULL(Vista, '') = ''
+               AND ISNULL(NotaIdB, 0) = -1;
+            """, con, tx))
+        {
+            var detalleId = movimientoCmd.Parameters.Add("@DetalleId", SqlDbType.Decimal);
+            detalleId.Precision = 38;
+            detalleId.Scale = 0;
+            detalleId.Value = id;
+            AddCajaId(movimientoCmd, cajaId.Value);
+            var rutaActual = await movimientoCmd.ExecuteScalarAsync(cancellationToken);
+            if (rutaActual is null)
+                return NotFound(new { ok = false, mensaje = "No se encontró el movimiento manual de caja chica." });
+            if (!string.IsNullOrWhiteSpace(rutaActual.ToString()))
+                return Conflict(new { ok = false, mensaje = "Este movimiento ya tiene una imagen adjunta." });
+        }
+
+        string rutaImagen;
+        await using (var stream = imagen.OpenReadStream())
+        {
+            rutaImagen = await _localImageService.UploadImage(new ImageData
+            {
+                ImageStream = stream,
+                Nombre = imagen.FileName
+            });
+        }
+
+        try
+        {
+            await using var updateCmd = new SqlCommand("""
+                UPDATE CajaDetalle SET RutaImagen = @RutaImagen
+                 WHERE DetalleId = @DetalleId AND CajaId = @CajaId
+                   AND ISNULL(NotaId, 0) = 0 AND ISNULL(Vista, '') = ''
+                   AND ISNULL(NotaIdB, 0) = -1 AND ISNULL(RutaImagen, '') = '';
+                """, con, tx);
+            var detalleId = updateCmd.Parameters.Add("@DetalleId", SqlDbType.Decimal);
+            detalleId.Precision = 38;
+            detalleId.Scale = 0;
+            detalleId.Value = id;
+            AddCajaId(updateCmd, cajaId.Value);
+            updateCmd.Parameters.Add("@RutaImagen", SqlDbType.VarChar, -1).Value = rutaImagen;
+            if (await updateCmd.ExecuteNonQueryAsync(cancellationToken) != 1)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                await EliminarImagenAsync(rutaImagen);
+                return Conflict(new { ok = false, mensaje = "No se pudo adjuntar la imagen; vuelve a cargar el movimiento." });
+            }
+
+            await tx.CommitAsync(cancellationToken);
+        }
+        catch
+        {
+            await tx.RollbackAsync(CancellationToken.None);
+            await EliminarImagenAsync(rutaImagen);
+            throw;
+        }
+
+        return Ok(new { ok = true, mensaje = "Imagen adjuntada al movimiento.", rutaImagen });
     }
 
     [HttpDelete("{id:long}")]

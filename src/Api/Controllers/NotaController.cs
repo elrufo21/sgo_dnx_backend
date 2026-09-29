@@ -65,7 +65,6 @@ public class NotaController : ControllerBase
     private const string DocuConceptoNotaCreditoDefault = "ANULACION DE LA OPERACION";
     private const string DocuAsociadoFacturaServicioOse = "FACTURA_SERVICIO_OSE";
     private const string DocuCondicionFacturaServicio = "SERVICIO";
-    private const string MensajeTicketNoGenerado = "NO SE GENERO EL TICKET DE SUNAT,SE RETORNARAN LAS BOLETAS...FAVOR DE ENVIARLO DENUEVO EN UNOS MINUTOS";
 
     private const bool ForzarRechazoRealFacturaSoloCrearOrden = false;
     private const string HeaderErrorForzado = "X-Force-Error";
@@ -1068,15 +1067,9 @@ public class NotaController : ControllerBase
             var codSunat = ObtenerValorLegacy(respuestaLegacy, "cod_sunat");
             var envioOk = string.Equals(flgRta, "1", StringComparison.Ordinal) && string.IsNullOrWhiteSpace(codSunat);
 
-            object? registroBd;
-            if (envioOk)
-            {
-                registroBd = await RegistrarResumenEnBaseDatosAsync(requestBaja, respuestaLegacy, cancellationToken);
-            }
-            else
-            {
-                registroBd = await RegistrarResultadoNoAceptadoResumenAsync(requestBaja, respuestaLegacy, cancellationToken);
-            }
+            var registroBd = envioOk
+                ? await RegistrarResumenEnBaseDatosAsync(requestBaja, respuestaLegacy, cancellationToken)
+                : null;
 
             return Ok(NormalizarRespuestaResumen(respuestaLegacy, registroBd: registroBd));
         }
@@ -1148,15 +1141,9 @@ public class NotaController : ControllerBase
             var codSunat = ObtenerValorLegacy(respuestaLegacy, "cod_sunat");
             var envioOk = string.Equals(flgRta, "1", StringComparison.Ordinal) && string.IsNullOrWhiteSpace(codSunat);
 
-            object? registroBd;
-            if (envioOk)
-            {
-                registroBd = await RegistrarResumenEnBaseDatosAsync(request, respuestaLegacy, cancellationToken);
-            }
-            else
-            {
-                registroBd = await RegistrarResultadoNoAceptadoResumenAsync(request, respuestaLegacy, cancellationToken);
-            }
+            var registroBd = envioOk
+                ? await RegistrarResumenEnBaseDatosAsync(request, respuestaLegacy, cancellationToken)
+                : null;
 
             return Ok(NormalizarRespuestaResumen(respuestaLegacy, registroBd: registroBd));
         }
@@ -1216,41 +1203,13 @@ public class NotaController : ControllerBase
         var ticket = (request.TICKET ?? string.Empty).Trim();
         var codigoSunatActual = (request.CODIGO_SUNAT ?? string.Empty).Trim();
         var mensajeSunatActual = (request.MENSAJE_SUNAT ?? string.Empty).Trim();
-        var estado = (request.ESTADO ?? string.Empty).Trim();
-        var intentos = request.INTENTOS ?? 0;
-
         if (!EsTicketNumerico(ticket) && string.IsNullOrWhiteSpace(mensajeSunatActual))
         {
-            if (string.Equals(estado, "B", StringComparison.OrdinalIgnoreCase))
-            {
-                return Ok(new
-                {
-                    ok = true,
-                    accion = "retornar_pendientes",
-                    mensaje = MensajeTicketNoGenerado,
-                    requiere_reenvio = true,
-                    cdr_base64 = string.Empty
-                });
-            }
-
-            var retornoTicket = await _mediator.RetornaBoletaPorTicketAsync(resumenId, cancellationToken);
-            if (string.IsNullOrWhiteSpace(retornoTicket))
-            {
-                return StatusCode((int)HttpStatusCode.InternalServerError, new
-                {
-                    ok = false,
-                    accion = "retornar_por_ticket_error",
-                    mensaje = "No se pudo actualizar el resumen con uspRetornaBoletaPorTicket."
-                });
-            }
-
             return Ok(new
             {
-                ok = true,
-                accion = "retornar_por_ticket",
-                mensaje = MensajeTicketNoGenerado,
-                requiere_reenvio = true,
-                mensaje_sunat = "NO SE GENERO EL TICKET DE RESPUESTA DE SUNAT",
+                ok = false,
+                accion = "error",
+                mensaje = "No se generó un ticket de SUNAT. Intente enviar el resumen nuevamente.",
                 cdr_base64 = string.Empty
             });
         }
@@ -1344,6 +1303,22 @@ public class NotaController : ControllerBase
         var hashCdr = ObtenerValorLegacy(respuestaSunat, "hash_cdr");
         var cdrBase64 = ObtenerValorLegacy(respuestaSunat, "cdr_base64");
 
+        if (EsCodigoSunatConErrorSoap(codSunat) || string.IsNullOrWhiteSpace(codSunat))
+        {
+            return Ok(new
+            {
+                ok = false,
+                accion = "error",
+                mensaje = string.IsNullOrWhiteSpace(msjSunat)
+                    ? "SUNAT no devolvió una respuesta válida para el ticket. Intente nuevamente."
+                    : msjSunat,
+                cod_sunat = codSunat,
+                msj_sunat = msjSunat,
+                cdr_recibido = false,
+                cdr_base64 = string.Empty
+            });
+        }
+
         var codSunatDb = SanitizarCampoListaOrden(codSunat);
         var msjSunatDb = SanitizarCampoListaOrden(msjSunat);
         var hashCdrDb = SanitizarCampoListaOrden(hashCdr);
@@ -1420,27 +1395,6 @@ public class NotaController : ControllerBase
                 cdr_recibido = cdrRecibido,
                 cdr_base64 = cdrBase64Respuesta,
                 requiere_reenvio = true
-            });
-        }
-
-        if (EsCodigoSunatConErrorSoap(codSunat) || string.IsNullOrWhiteSpace(codSunat))
-        {
-            intentos++;
-            return Ok(new
-            {
-                ok = true,
-                accion = intentos <= 2 ? "reintentar" : "consulta_manual",
-                mensaje = intentos <= 2
-                    ? $"Intente Nuevamente {intentos} de 3"
-                    : "Se excedieron los intentos automáticos de consulta.",
-                intentos,
-                cod_sunat = codSunat,
-                msj_sunat = msjSunat,
-                hash_cdr = hashCdr,
-                hash_cpe = hashCpe,
-                documentos_actualizados = documentosActualizados,
-                cdr_recibido = cdrRecibido,
-                cdr_base64 = cdrBase64Respuesta
             });
         }
 
@@ -6738,119 +6692,6 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             {
                 ok = false,
                 mensaje = $"No se pudo registrar el estado no aceptado en BD: {ex.Message}",
-                cod_sunat = codSunat,
-                msj_sunat = mensajeSunat
-            };
-        }
-    }
-
-    private async Task<object> RegistrarResultadoNoAceptadoResumenAsync(
-        EnviarResumenBoletasRequest request,
-        Dictionary<string, string>? respuestaLegacy,
-        CancellationToken cancellationToken)
-    {
-        var docuIds = (request.detalle ?? new List<EnviarResumenBoletasDetalleRequest>())
-            .Where(x => x is not null && x.docuId.HasValue && x.docuId.Value > 0)
-            .Select(x => x.docuId!.Value)
-            .Distinct()
-            .ToList();
-
-        if (docuIds.Count == 0)
-        {
-            return new
-            {
-                ok = false,
-                mensaje = "No se pudo registrar estado no aceptado del lote: se requiere detalle.docuId."
-            };
-        }
-
-        var connectionString = _configuration.GetConnectionString("DefaultConnection");
-        if (string.IsNullOrWhiteSpace(connectionString))
-        {
-            return new
-            {
-                ok = false,
-                mensaje = "No se encontró la cadena de conexión para registrar estado no aceptado del lote."
-            };
-        }
-
-        var flgRta = ObtenerValorLegacy(respuestaLegacy, "flg_rta", "0");
-        var codSunat = ObtenerValorLegacy(respuestaLegacy, "cod_sunat");
-        var mensajeSunat = ObtenerValorLegacy(respuestaLegacy, "msj_sunat");
-        var hashCpe = ObtenerValorLegacy(respuestaLegacy, "hash_cpe");
-        var estadoResultado = ResolverEstadoResultadoSunat(flgRta, codSunat);
-        var estadoSunatObjetivo = estadoResultado == EstadoResultadoSunat.Rechazado ? "RECHAZADO" : "PENDIENTE";
-        var docuEstadoObjetivo = estadoResultado == EstadoResultadoSunat.Rechazado ? "RECHAZADO" : null;
-
-        var parametrosDocuIds = docuIds
-            .Select((_, index) => $"@DocuId{index}")
-            .ToList();
-
-        var sqlActualizarDocumento = $"""
-            UPDATE d
-            SET d.CodigoSunat = @CodigoSunat,
-                d.MensajeSunat = @MensajeSunat,
-                d.DocuHash = CASE WHEN NULLIF(@DocuHash, '') IS NULL THEN d.DocuHash ELSE @DocuHash END,
-                d.EstadoSunat = @EstadoSunat,
-                d.DocuEstado = CASE WHEN NULLIF(@DocuEstado, '') IS NULL THEN d.DocuEstado ELSE @DocuEstado END
-            FROM DocumentoVenta d
-            WHERE d.DocuId IN ({string.Join(",", parametrosDocuIds)})
-              AND d.EstadoSunat IN ('PENDIENTE', 'ENVIADO');
-
-            SELECT @@ROWCOUNT;
-            """;
-
-        try
-        {
-            await using var con = new SqlConnection(connectionString);
-            await con.OpenAsync(cancellationToken);
-
-            await using var cmd = new SqlCommand(sqlActualizarDocumento, con);
-            cmd.Parameters.AddWithValue("@CodigoSunat", (object?)codSunat ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@MensajeSunat", (object?)mensajeSunat ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@DocuHash", (object?)hashCpe ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@EstadoSunat", estadoSunatObjetivo);
-            cmd.Parameters.AddWithValue("@DocuEstado", (object?)docuEstadoObjetivo ?? DBNull.Value);
-
-            for (var i = 0; i < docuIds.Count; i++)
-            {
-                cmd.Parameters.AddWithValue(parametrosDocuIds[i], docuIds[i]);
-            }
-
-            var filasAfectadas = Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken) ?? 0, CultureInfo.InvariantCulture);
-            if (filasAfectadas <= 0)
-            {
-                return new
-                {
-                    ok = false,
-                    accion_bd = "sin_documentos_pendientes",
-                    mensaje = "No se encontraron documentos del lote en estado PENDIENTE/ENVIADO para registrar la respuesta SUNAT/OSE.",
-                    cod_sunat = codSunat,
-                    msj_sunat = mensajeSunat
-                };
-            }
-
-            return new
-            {
-                ok = true,
-                accion_bd = estadoResultado == EstadoResultadoSunat.Rechazado
-                    ? "registrar_rechazo_lote"
-                    : "mantener_pendiente_lote",
-                documentos_actualizados = filasAfectadas,
-                estado_sunat = estadoSunatObjetivo,
-                cod_sunat = codSunat,
-                msj_sunat = mensajeSunat,
-                mensaje = estadoResultado == EstadoResultadoSunat.Rechazado
-                    ? "Se registró el lote como RECHAZADO en DocumentoVenta."
-                    : "Se registró la respuesta del lote manteniendo DocumentoVenta en PENDIENTE para reintento."
-            };
-        }
-        catch (Exception ex)
-        {
-            return new
-            {
-                ok = false,
-                mensaje = $"No se pudo registrar estado no aceptado del lote en BD: {ex.Message}",
                 cod_sunat = codSunat,
                 msj_sunat = mensajeSunat
             };

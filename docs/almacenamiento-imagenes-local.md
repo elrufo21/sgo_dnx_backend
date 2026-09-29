@@ -15,3 +15,7 @@ El sitio web resuelve las rutas `/media/...` de Caja Chica contra la URL de la A
 - Se permiten JPG, PNG y WEBP de hasta 5 MB.
 - Cada archivo recibe un UUID; no se usa el nombre enviado por el usuario.
 - Incluir `D:\SGO\media` en la copia de seguridad del servidor junto con la base de datos.
+
+## Movimiento de Caja Chica
+
+`POST /api/v1/PettyCashMovement/{id}/image` permite adjuntar una imagen a un movimiento manual existente. Requiere `usuarioId` e `imagen` en `multipart/form-data`, valida JPG/PNG/WEBP hasta 5 MB y solo actualiza `CajaDetalle.RutaImagen` cuando aún está vacía. El registro y sus datos no se editan desde este flujo; la imagen existente tampoco se reemplaza ni se borra. Usa la columna existente y no requiere cambios SQL.
