@@ -69,7 +69,7 @@ public class CompaniaRepository : ICompania
         await using var cmd = new SqlCommand(sql, con, transaction);
         AddParameters(cmd, compania);
         var id = Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken));
-        await GuardarConfiguracionAsync(con, transaction, id, compania, cancellationToken);
+        await GuardarConfiguracionAsync(con, transaction, id, compania, cancellationToken, inicializarDiasMaxDep: true);
         await transaction.CommitAsync(cancellationToken);
         return id > 0;
     }
@@ -136,8 +136,10 @@ public class CompaniaRepository : ICompania
         int id,
         bool flagCaja,
         string? correosAdmin,
+        int diasMaxDep,
         CancellationToken cancellationToken = default)
     {
+        if (diasMaxDep is < 0 or > 3650) return false;
         await using var con = new SqlConnection(_connectionString);
         await con.OpenAsync(cancellationToken);
         await using var transaction = (SqlTransaction)await con.BeginTransactionAsync(cancellationToken);
@@ -149,6 +151,13 @@ public class CompaniaRepository : ICompania
         }
 
         await GuardarIndicadorAsync(con, transaction, id, "CORREO", "CORREOS_ADMIN", 3, correosAdmin?.Trim(), null, null, cancellationToken);
+        await GuardarIndicadorAsync(con, transaction, id, "CAJA", "DIAS_MAX_DEPOSITO", 2, null, diasMaxDep, null, cancellationToken);
+        await using (var legacy = new SqlCommand("UPDATE dbo.Compania SET DiasMaxDep = @DiasMaxDep WHERE CompaniaId = @CompaniaId;", con, transaction))
+        {
+            legacy.Parameters.AddWithValue("@CompaniaId", id);
+            legacy.Parameters.AddWithValue("@DiasMaxDep", diasMaxDep);
+            await legacy.ExecuteNonQueryAsync(cancellationToken);
+        }
         await transaction.CommitAsync(cancellationToken);
         return true;
     }
@@ -200,6 +209,7 @@ public class CompaniaRepository : ICompania
                                     Configuracion.CorreoSGO,
                                     Configuracion.PasswordCorreo,
                                     Configuracion.CorreosAdmin,
+                                    COALESCE(Configuracion.DiasMaxDep, Compania.DiasMaxDep, 7) AS DiasMaxDep,
                                     CAST(COALESCE(Configuracion.BoletaPorLote, 1) AS bit) AS BoletaPorLote,
                                     CAST(COALESCE(Configuracion.FlagCaptura, 0) AS bit) AS FlagCaptura,
                                     CAST(COALESCE(Configuracion.FlagCaja, 0) AS bit) AS FlagCaja,
@@ -215,7 +225,8 @@ public class CompaniaRepository : ICompania
                                      MAX(CASE WHEN Descripcion = 'CORREOS_ADMIN' THEN ValorTexto1 END) AS CorreosAdmin,
                                      MAX(CASE WHEN Descripcion = 'BOLETA_POR_LOTE' THEN ValorNum END) AS BoletaPorLote,
                                      MAX(CASE WHEN Descripcion = 'CAPTURA_HTML' THEN ValorNum END) AS FlagCaptura,
-                                     MAX(CASE WHEN Descripcion = 'MULTIPLES_CAJAS' THEN ValorNum END) AS FlagCaja
+                                     MAX(CASE WHEN Descripcion = 'MULTIPLES_CAJAS' THEN ValorNum END) AS FlagCaja,
+                                     MAX(CASE WHEN Descripcion = 'DIAS_MAX_DEPOSITO' THEN ValorNum END) AS DiasMaxDep
                                  FROM dbo.Indicador
                                  WHERE CompaniaId = Compania.CompaniaId
                              ) Configuracion
@@ -258,6 +269,7 @@ public class CompaniaRepository : ICompania
                 ClienIdToken = reader["ClienIdToken"].ToString(),
                 FechaRenovacion = reader["FechaRenovacion"] == DBNull.Value ? null : Convert.ToDateTime(reader["FechaRenovacion"]),
                 DescuentoMax = reader["DescuentoMax"] == DBNull.Value ? null : Convert.ToDecimal(reader["DescuentoMax"]),
+                DiasMaxDep = Convert.ToInt32(reader["DiasMaxDep"]),
                 RenovacionOSE = reader["RenovacionOSE"] == DBNull.Value ? null : Convert.ToDateTime(reader["RenovacionOSE"]),
                 RenovacionFirma = reader["RenovacionFirma"] == DBNull.Value ? null : Convert.ToDateTime(reader["RenovacionFirma"]),
                 RenovacionSome = reader["RenovacionSome"] == DBNull.Value ? null : Convert.ToDateTime(reader["RenovacionSome"]),
@@ -340,7 +352,7 @@ public class CompaniaRepository : ICompania
         cmd.Parameters.AddWithValue("@RenovacionSome", (object?)compania.RenovacionSome ?? DBNull.Value);
     }
 
-    private static async Task GuardarConfiguracionAsync(SqlConnection con, SqlTransaction transaction, int companiaId, Compania compania, CancellationToken cancellationToken)
+    private static async Task GuardarConfiguracionAsync(SqlConnection con, SqlTransaction transaction, int companiaId, Compania compania, CancellationToken cancellationToken, bool inicializarDiasMaxDep = false)
     {
         await GuardarIndicadorAsync(con, transaction, companiaId, "CONFIGURACION", "FECHA_RENOVACION", 3, compania.FechaRenovacion?.ToString("yyyy-MM-dd"), null, null, cancellationToken);
         await GuardarIndicadorAsync(con, transaction, companiaId, "VENTAS", "DESCUENTO_MAXIMO", 2, null, null, compania.DescuentoMax, cancellationToken);
@@ -350,6 +362,15 @@ public class CompaniaRepository : ICompania
         await GuardarIndicadorAsync(con, transaction, companiaId, "VENTAS", "BOLETA_POR_LOTE", 1, null, compania.BoletaPorLote ? 1 : 0, null, cancellationToken);
         await GuardarIndicadorAsync(con, transaction, companiaId, "VENTAS", "CAPTURA_HTML", 1, null, compania.FlagCaptura ? 1 : 0, null, cancellationToken);
         await GuardarIndicadorAsync(con, transaction, companiaId, "CAJA", "MULTIPLES_CAJAS", 1, null, compania.FlagCaja ? 1 : 0, null, cancellationToken);
+        if ((inicializarDiasMaxDep || compania.DiasMaxDep.HasValue) && compania.DiasMaxDep.GetValueOrDefault(7) is >= 0 and <= 3650)
+        {
+            var dias = compania.DiasMaxDep ?? 7;
+            await GuardarIndicadorAsync(con, transaction, companiaId, "CAJA", "DIAS_MAX_DEPOSITO", 2, null, dias, null, cancellationToken);
+            await using var legacy = new SqlCommand("UPDATE dbo.Compania SET DiasMaxDep = @DiasMaxDep WHERE CompaniaId = @CompaniaId;", con, transaction);
+            legacy.Parameters.AddWithValue("@CompaniaId", companiaId);
+            legacy.Parameters.AddWithValue("@DiasMaxDep", dias);
+            await legacy.ExecuteNonQueryAsync(cancellationToken);
+        }
     }
 
     private static async Task<bool> GuardarIndicadorAsync(

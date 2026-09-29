@@ -121,11 +121,13 @@ public class CompaniaController : ControllerBase
     {
         if (id <= 0) return BadRequest("Id inválido.");
         if (request is null) return BadRequest("Payload requerido.");
+        if (request.DiasMaxDep is < 0 or > 3650) return BadRequest("DiasMaxDep debe estar entre 0 y 3650.");
 
         var actualizado = await _mediator.ActualizarConfiguracionCajaAsync(
             id,
             request.FlagCaja,
             request.CorreosAdmin,
+            request.DiasMaxDep,
             cancellationToken);
         if (!actualizado)
             return NotFound(new { ok = false, mensaje = $"No se encontró la compañía con id {id}." });
@@ -135,7 +137,8 @@ public class CompaniaController : ControllerBase
             ok = true,
             companiaId = id,
             flagCaja = request.FlagCaja,
-            correosAdmin = request.CorreosAdmin?.Trim() ?? string.Empty
+            correosAdmin = request.CorreosAdmin?.Trim() ?? string.Empty,
+            diasMaxDep = request.DiasMaxDep
         });
     }
 
@@ -184,4 +187,5 @@ public class ActualizarConfiguracionCajaRequest
 {
     public bool FlagCaja { get; set; }
     public string? CorreosAdmin { get; set; }
+    public int DiasMaxDep { get; set; } = 7;
 }

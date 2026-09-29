@@ -5,6 +5,10 @@ namespace Ecommerce.Infrastructure.ImageLocal;
 
 public sealed class LocalImageStorageService
 {
+    private static readonly HashSet<string> ImageFolders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "caja-chica", "depositos-centro"
+    };
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg", ".jpeg", ".png", ".webp"
@@ -14,15 +18,18 @@ public sealed class LocalImageStorageService
 
     public LocalImageStorageService(IOptions<LocalMediaSettings> settings) => _settings = settings.Value;
 
-    public async Task<string> UploadImage(ImageData image)
+    public Task<string> UploadImage(ImageData image) => UploadImage(image, "caja-chica");
+
+    public async Task<string> UploadImage(ImageData image, string folder)
     {
         if (image.ImageStream is null) throw new InvalidOperationException("No se recibió el contenido de la imagen.");
+        if (!ImageFolders.Contains(folder)) throw new InvalidOperationException("La carpeta de imágenes no es válida.");
 
         var extension = Path.GetExtension(image.Nombre ?? string.Empty).ToLowerInvariant();
         if (!ImageExtensions.Contains(extension)) throw new InvalidOperationException("La imagen debe ser JPG, PNG o WEBP.");
 
         var now = DateTime.UtcNow;
-        var relativePath = Path.Combine("caja-chica", now.ToString("yyyy"), now.ToString("MM"), $"{Guid.NewGuid():N}{extension}");
+        var relativePath = Path.Combine(folder, now.ToString("yyyy"), now.ToString("MM"), $"{Guid.NewGuid():N}{extension}");
         var fullPath = Path.Combine(GetRootPath(), relativePath);
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
 
@@ -59,13 +66,16 @@ public sealed class LocalImageStorageService
         var requestPath = GetRequestPath();
         var path = value.Trim();
         if (Uri.TryCreate(path, UriKind.Absolute, out var uri)) path = uri.AbsolutePath;
-        if (!path.StartsWith($"{requestPath}/caja-chica/", StringComparison.OrdinalIgnoreCase)) return false;
+        var mediaPrefix = $"{requestPath}/";
+        if (!path.StartsWith(mediaPrefix, StringComparison.OrdinalIgnoreCase)) return false;
 
         var root = GetRootPath();
         var relativePath = Uri.UnescapeDataString(path[(requestPath.Length + 1)..]).Replace('/', Path.DirectorySeparatorChar);
         var candidate = Path.GetFullPath(Path.Combine(root, relativePath));
         var rootPrefix = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
         if (!candidate.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase)) return false;
+        var folder = relativePath.Split(Path.DirectorySeparatorChar, 2)[0];
+        if (!ImageFolders.Contains(folder)) return false;
 
         fullPath = candidate;
         return true;

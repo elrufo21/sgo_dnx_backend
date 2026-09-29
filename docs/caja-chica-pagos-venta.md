@@ -34,3 +34,5 @@ En bases que ya tienen el procedimiento completo, aplicar `20260826_uspinsertarN
 Para incorporar la validación de asistencia en una base existente, aplicar `20260922_validar_asistencia_venta_web.sql`.
 
 Para el cálculo del consolidado OBS en flujo de caja, revisar `caja-flujo-obs.md` y aplicar `20260826_caja_obs_consolidado.sql`.
+
+Para corregir filas repetidas en Pendientes de Pago Varios, aplicar `20260929_fix_usplistarPagoVariosWEB_duplicados.sql`. El cambio afecta el listado; no elimina ni anula comprobantes.
