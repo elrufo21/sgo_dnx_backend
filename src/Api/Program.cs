@@ -2,6 +2,9 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Ecommerce.Api.Legacy;
+using Ecommerce.Api.Interfaces;
+using Ecommerce.Api.Options;
+using Ecommerce.Api.Services;
 using Ecommerce.Application;
 using Ecommerce.Application.Contracts.Areas;
 using Ecommerce.Application.Contracts.Clientes;
@@ -43,6 +46,15 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices(builder.Configuration);
 
 builder.Services.AddHttpContextAccessor();
+builder.Services.Configure<SunatOptions>(builder.Configuration.GetSection(SunatOptions.SectionName));
+builder.Services.AddHttpClient("SunatAuth", client => client.Timeout = TimeSpan.FromSeconds(45));
+builder.Services.AddHttpClient("Sire", client => client.Timeout = TimeSpan.FromMinutes(3));
+builder.Services.AddHttpClient("SunatComprobante", client => client.Timeout = TimeSpan.FromSeconds(45));
+builder.Services.AddHttpClient("SunatComprobanteAuth", client => client.Timeout = TimeSpan.FromSeconds(45));
+builder.Services.AddSingleton<ISunatCredentialsProvider, SunatCredentialsProvider>();
+builder.Services.AddSingleton<ISunatAuthService, SunatAuthService>();
+builder.Services.AddScoped<ISireService, SireService>();
+builder.Services.AddScoped<ISunatComprobanteService, SunatComprobanteService>();
 builder.Services.AddProblemDetails();
 
 builder.Services.Configure<FormOptions>(options =>
