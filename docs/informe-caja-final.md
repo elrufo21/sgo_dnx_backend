@@ -10,7 +10,9 @@ La lectura replica el escritorio: de `usptraerCajeros` se usa solo el primer blo
 
 `GET /api/v1/CierreCajaFinal` recibe `fechaInicio` y `fechaFin` (`YYYY-MM-DD`) para listar informes dentro de ese rango inclusivo. Rechaza rangos donde la fecha inicial sea posterior a la final.
 
-Al registrar un informe nuevo, el API verifica con `usplistaConteo` que no exista otro informe para esa fecha y valida la fecha con `uspValidarApertura`. Si el procedimiento devuelve `PAGO/VARIOS`, no registra el informe hasta que esos documentos se liquiden. La edición de un informe existente no ejecuta esas validaciones, igual que el flujo de edición del escritorio.
+Al registrar un informe nuevo, el API comprueba con `usplistaConteoWEB` que no exista otro informe para esa fecha y valida `PAGO/VARIOS` con `uspValidarAperturaWEB`. También comprueba que `uspTraerGastosWEB` entregue un monto OBS numérico. Tanto al crear como al editar se exige que el monto OBS esté presente; cero es válido. La edición no repite las validaciones de duplicidad ni PAGO/VARIOS, igual que el flujo de edición del escritorio.
+
+Las validaciones de apertura de almacén, cierre de almacén y apertura diaria del OBS del formulario de escritorio no se portan al informe web. La diferencia de arqueo sí requiere observaciones, tanto en la página como en el API.
 
 `POST /api/v1/Correo/enviar-informe-caja-final` recibe el PDF generado en el frontend y lo remite a los correos administrativos de la compañía del usuario que registró el informe. No crea ni modifica objetos de base de datos.
 

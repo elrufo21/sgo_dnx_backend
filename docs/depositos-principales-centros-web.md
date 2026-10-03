@@ -14,17 +14,17 @@ La pantalla también muestra la validación histórica del escritorio: cuenta to
 2. Buscar por fechas; la primera carga muestra el mes actual. La búsqueda de la tabla filtra movimiento, entidad, operación, descripción y usuario.
 3. Registrar movimiento, entidad/operación cuando corresponda, descripción, importe e imagen. Se aceptan JPG, PNG y WEBP hasta 5 MB.
 4. Seleccionar una fila para consultar sus datos o adjuntar/reemplazar su comprobante. Los datos financieros existentes no se editan desde esta pantalla.
-5. Eliminar requiere confirmación y permiso de gestión; elimina el registro y la imagen local asociada.
+5. Eliminar requiere el permiso de gestión y la contraseña del usuario autenticado; el servidor verifica esa clave contra la misma cuenta antes de borrar el registro y su imagen local.
 
 ## API y acceso
 
 - `GET /api/v1/DepositosCentro?desde=YYYY-MM-DD&hasta=YYYY-MM-DD`: lista registros y acepta `buscar` opcional.
 - `POST /api/v1/DepositosCentro` (multipart): el identificador `0` crea; un identificador positivo solo actualiza la ruta de la imagen. El alta y la actualización requieren imagen.
-- `DELETE /api/v1/DepositosCentro/{id}`: elimina un registro.
+- `DELETE /api/v1/DepositosCentro/{id}` (JSON `{ "clave": "..." }`): verifica la contraseña de la cuenta autenticada y elimina un registro.
 - `GET /api/v1/DepositosCentro/validacion`: devuelve la ventana de días por compañía, el total de registros del rango, pendientes y el booleano de validación.
 - La consulta requiere `CAJA.VER`. Escritura y eliminación requieren además `CAJA.GESTIONAR`.
 
-El backend valida movimiento, importe, entidad y duplicidad de número de operación por entidad dentro de una transacción serializable. En los registros nuevos, `Usuario` se obtiene del usuario de la sesión y se guarda como primer nombre más primer apellido de `Personal`; no se acepta ese dato desde el navegador. Las consultas usan parámetros SQL. No se agregan columnas ni procedimientos: la funcionalidad trabaja sobre las columnas existentes de `DepositosCentro`.
+El backend valida movimiento, importe, entidad, que el número de operación contenga solo dígitos y la duplicidad por entidad dentro de una transacción serializable. En los registros nuevos, `Usuario` se obtiene del usuario de la sesión y se guarda como primer nombre más primer apellido de `Personal`; no se acepta ese dato desde el navegador. Las consultas usan parámetros SQL. No se agregan columnas ni procedimientos: la funcionalidad trabaja sobre las columnas existentes de `DepositosCentro`.
 
 ## Ventana de validación
 

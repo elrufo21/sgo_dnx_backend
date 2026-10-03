@@ -17,6 +17,7 @@ using Newtonsoft.Json.Linq;
 using System.Data;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text.RegularExpressions;
 using System.Linq;
 using System.Security.Claims;
 using BusinessEntities;
@@ -9828,7 +9829,25 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
     {
         if (!string.IsNullOrWhiteSpace(request.RANGO_NUMEROS))
         {
-            return request.RANGO_NUMEROS.Trim();
+            var rango = request.RANGO_NUMEROS.Trim();
+            var extremos = Regex.Split(rango, @"\s+al\s+", RegexOptions.IgnoreCase);
+            if (extremos.Length == 1)
+            {
+                var rangoLegacy = Regex.Match(rango, @"^(.+?-\d+)-(.+?-\d+)$");
+                if (rangoLegacy.Success)
+                {
+                    extremos = new[] { rangoLegacy.Groups[1].Value, rangoLegacy.Groups[2].Value };
+                }
+            }
+
+            if (extremos.Length <= 2 && extremos.All(EsComprobante))
+            {
+                var primero = FormatearComprobante(extremos[0]);
+                var ultimo = FormatearComprobante(extremos.Length == 2 ? extremos[1] : extremos[0]);
+                return $"{primero} al {ultimo}";
+            }
+
+            return rango;
         }
 
         var comprobantes = (request.detalle ?? new List<EnviarResumenBoletasDetalleRequest>())
@@ -9837,8 +9856,24 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             .ToList();
 
         if (comprobantes.Count == 0) return string.Empty;
-        if (comprobantes.Count == 1) return comprobantes[0];
-        return $"{comprobantes[0]}-{comprobantes[^1]}";
+        var primeroDetalle = FormatearComprobante(comprobantes[0]);
+        var ultimoDetalle = FormatearComprobante(comprobantes[^1]);
+        return $"{primeroDetalle} al {ultimoDetalle}";
+    }
+
+    private static bool EsComprobante(string valor) => Regex.IsMatch(valor.Trim(), @"^.+?-\d+$");
+
+    private static string FormatearComprobante(string valor)
+    {
+        var match = Regex.Match(valor.Trim(), @"^(.+?)-(\d+)$");
+        if (!match.Success) return valor.Trim();
+        var serieOriginal = match.Groups[1].Value;
+        var serie = serieOriginal.Replace("0", "");
+        if (string.IsNullOrEmpty(serie)) serie = serieOriginal;
+        var numero = long.TryParse(match.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed)
+            ? parsed.ToString(CultureInfo.InvariantCulture)
+            : match.Groups[2].Value.TrimStart('0');
+        return $"{serie}-{(string.IsNullOrEmpty(numero) ? "0" : numero)}";
     }
 
     private static string ResolverTicketRespuestaLegacy(Dictionary<string, string>? respuestaLegacy)

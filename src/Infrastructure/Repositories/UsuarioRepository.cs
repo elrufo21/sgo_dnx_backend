@@ -148,7 +148,7 @@ public class UsuarioRepository : IUsuario
             FlagCaptura = false,
             Administrador = true,
             Permisos = Array.Empty<string>(),
-            Token = _authService.CreateTokenA(expiresAtUtc.ToString("O"), "DXN", administrador: true),
+            Token = _authService.CreateTokenA(expiresAtUtc.ToString("O"), "DXN", administrador: true, identityUserId: user.Id),
             ExpiresAtUtc = expiresAtUtc,
             ExpiresInSeconds = expiresInSeconds
         };

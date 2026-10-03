@@ -20,10 +20,11 @@ public sealed class CierreCajaFinalController : ControllerBase
         var monedasRaw = await Scalar(con, "uspTraeTodasMonedasWEB", "@Fecha", f, ct);
         var cajerosRaw = await Scalar(con, "usptraerCajerosWEB", "@Fecha", f, ct);
         var p = gastosRaw.Split('['); var gastos = Rows(p.ElementAtOrDefault(0));
+        var totalObsDisponible = TryMoney(p.ElementAtOrDefault(3), out var totalObs);
         var ingresos = new List<Movimiento> { new("VITRINA", Money(p.ElementAtOrDefault(7))), new("IOC", Money(p.ElementAtOrDefault(4), 1)), new("REVISTAS", Money(p.ElementAtOrDefault(5))), new("COPIAS Y OTROS", Money(p.ElementAtOrDefault(6))) };
         ingresos.AddRange(Rows(p.ElementAtOrDefault(1)));
         var yaExiste = (await Scalar(con, "usplistaConteoWEB", null, null, ct, fecha, fecha)).Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Any(x => x != "~");
-        return Ok(new { fecha, cajeros = cajerosRaw.Split('[')[0].Trim('~', ' ', ','), totalObs = Money(p.ElementAtOrDefault(3)), sencillo = Money(p.ElementAtOrDefault(2)), monedas = Monedas(monedasRaw), ingresos, gastos, existe = yaExiste });
+        return Ok(new { fecha, cajeros = cajerosRaw.Split('[')[0].Trim('~', ' ', ','), totalObs, totalObsDisponible, sencillo = Money(p.ElementAtOrDefault(2)), monedas = Monedas(monedasRaw), ingresos, gastos, existe = yaExiste });
     }
 
     [HttpGet]
@@ -50,10 +51,11 @@ public sealed class CierreCajaFinalController : ControllerBase
 
     private async Task<IActionResult> Persistir(GuardarCierre request, long conteoId, CancellationToken ct)
     {
+        if (request.TotalObs is null) return BadRequest(new { mensaje = "Ingrese el monto total del OBS." });
         if (request.UsuarioId <= 0 || request.Fecha == default || request.Ingresos.Any(x => x.Importe < 0) || request.Gastos.Any(x => x.Importe < 0) || request.Monedas.Any(x => x.Cantidad < 0 || x.Denominacion <= 0)) return BadRequest(new { mensaje = "Revise los datos del informe." });
         var gastos = request.Gastos.Sum(x => x.Importe); var total = request.Ingresos.Sum(x => x.Importe); var contado = request.Monedas.Sum(x => x.Cantidad * x.Denominacion); var diferencia = contado - total;
         if (diferencia != 0 && string.IsNullOrWhiteSpace(request.Observaciones)) return BadRequest(new { mensaje = "Ingrese observaciones para justificar la diferencia." });
-        var header = string.Join("|", conteoId, request.Fecha.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture), request.UsuarioId, Limpio(request.Usuario), Limpio(request.Cajeros), Dinero(request.TotalObs), Dinero(gastos), Dinero(diferencia), Dinero(total), "", Limpio(request.Observaciones), "0");
+        var header = string.Join("|", conteoId, request.Fecha.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture), request.UsuarioId, Limpio(request.Usuario), Limpio(request.Cajeros), Dinero(request.TotalObs.Value), Dinero(gastos), Dinero(diferencia), Dinero(total), "", Limpio(request.Observaciones), "0");
         var movimientos = conteoId == 0
             ? string.Join(";", request.Ingresos.Select(x => $"{Limpio(x.Descripcion)}|{Dinero(x.Importe)}|T|I").Concat(request.Gastos.Select(x => $"{Limpio(x.Descripcion)}|{Dinero(x.Importe)}|T|S")))
             : string.Join(";", request.Ingresos.Select(x => $"{Limpio(x.Descripcion)}|{Dinero(x.Importe)}|{Limpio(x.Estado ?? "T")}|{x.Id}|I").Concat(request.Gastos.Select(x => $"{Limpio(x.Descripcion)}|{Dinero(x.Importe)}|{Limpio(x.Estado ?? "T")}|{x.Id}|S")));
@@ -70,6 +72,10 @@ public sealed class CierreCajaFinalController : ControllerBase
             var validacion = await Scalar(con, "uspValidarAperturaWEB", "@Fecha", request.Fecha.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture), ct);
             if (validacion.Equals("PAGO/VARIOS", StringComparison.OrdinalIgnoreCase))
                 return Conflict(new { mensaje = "Hay documentos con la condición PAGO/VARIOS que aún no se han liquidado." });
+
+            var preparacion = await Scalar(con, "uspTraerGastosWEB", "@Fecha", request.Fecha.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture), ct);
+            if (!TryMoney(preparacion.Split('[').ElementAtOrDefault(3), out _))
+                return Conflict(new { mensaje = "No se pudo obtener el monto total del OBS para esta fecha." });
         }
         var result = await Scalar(con, conteoId == 0 ? "uspInsertarConteoCajaWEB" : "uspEditarConteoCajaWEB", "@ListaOrden", $"{header}[{movimientos}[{monedas}", ct);
         var insertedId = long.TryParse(result, out var id) && id > 0 ? id : 0;
@@ -83,6 +89,7 @@ public sealed class CierreCajaFinalController : ControllerBase
     private static List<Movimiento> Rows(string? raw) => string.IsNullOrWhiteSpace(raw) || raw == "~" ? new List<Movimiento>() : raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Select(x => x.Split('|')).Where(x => x.Length > 1).Select(x => new Movimiento(x[0], Money(x[1]))).ToList();
     private static List<Movimiento> DetalleRows(string? raw) => string.IsNullOrWhiteSpace(raw) || raw == "~" ? new List<Movimiento>() : raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Split('|')).Where(x => x.Length > 1).Select(x => new Movimiento(x[0], Money(x[1]), Number(x.ElementAtOrDefault(3)), x.ElementAtOrDefault(2) ?? "T")).ToList();
     private static List<Moneda> Monedas(string raw) => string.IsNullOrWhiteSpace(raw) || raw == "~" ? new List<Moneda>() : raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Split('|')).Where(x => x.Length > 2).Select(x => new Moneda(Money(x[2]), (int)Number(x[1]), Number(x[0]))).ToList();
+    private static bool TryMoney(string? value, out decimal amount) => decimal.TryParse(value?.Split('|').ElementAtOrDefault(0)?.Replace(",", "").Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out amount);
     private static decimal Money(string? value, int part = 0) => decimal.TryParse(value?.Split('|').ElementAtOrDefault(part)?.Replace(",", ""), NumberStyles.Number, CultureInfo.InvariantCulture, out var n) ? n : 0;
     private static long Number(string? value) => long.TryParse(value, out var n) ? n : 0;
     private static string Fecha(string value) => DateTime.TryParse(value, out var d) ? d.ToString("yyyy-MM-dd") : value;
@@ -92,4 +99,4 @@ public sealed class CierreCajaFinalController : ControllerBase
 
 public sealed record Movimiento(string Descripcion, decimal Importe, long Id = 0, string? Estado = "T");
 public sealed record Moneda(decimal Denominacion, int Cantidad, long Id = 0);
-public sealed record GuardarCierre(DateOnly Fecha, int UsuarioId, string Usuario, string? Cajeros, decimal TotalObs, string? Observaciones, List<Movimiento> Ingresos, List<Movimiento> Gastos, List<Moneda> Monedas);
+public sealed record GuardarCierre(DateOnly Fecha, int UsuarioId, string Usuario, string? Cajeros, decimal? TotalObs, string? Observaciones, List<Movimiento> Ingresos, List<Movimiento> Gastos, List<Moneda> Monedas);

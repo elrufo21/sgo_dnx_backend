@@ -97,6 +97,7 @@ La fuente consulta `DocumentoVenta`, filtrando fechas y opcionalmente serie/tipo
 - **Actualización parcial de RUC:** el backend fuente actualiza primero `Compania` y después otra base; una falla deja datos incoherentes. DNX debe mantener el RUC como maestro y evitar esa operación distribuida.
 - **Credenciales de texto plano:** el patrón actual de indicadores no cifra valores automáticamente. Limitar permisos de edición/lectura, no incluir valores en respuestas/logs y acordar protección en reposo antes de producción.
 - **SUNAT no disponible o con límites:** definir timeouts, reintentos seguros, paginación y respuestas parciales; no reintentar solicitudes de generación sin idempotencia confirmada.
+- **Fallo de comparación RVIE:** la web indica que SUNAT puede estar demorado o temporalmente no disponible y recomienda volver a intentar en unos minutos.
 - **Código fuente con secretos:** no migrar cadenas de conexión, JWT, claves ni configuración de desarrollo de SGO Contabilidad; sanear/rotar cualquier secreto real expuesto.
 
 ## Implementación en DNX

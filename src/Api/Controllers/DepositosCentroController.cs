@@ -3,8 +3,10 @@ using System.Globalization;
 using System.Security.Claims;
 using Ecommerce.Application.Models.ImageManagement;
 using Ecommerce.Api.Security;
+using Ecommerce.Domain;
 using Ecommerce.Infrastructure.ImageLocal;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 
@@ -24,11 +26,16 @@ public sealed class DepositosCentroController : ControllerBase
 
     private readonly IConfiguration _configuration;
     private readonly LocalImageStorageService _images;
+    private readonly UserManager<Usuario> _userManager;
 
-    public DepositosCentroController(IConfiguration configuration, LocalImageStorageService images)
+    public DepositosCentroController(
+        IConfiguration configuration,
+        LocalImageStorageService images,
+        UserManager<Usuario> userManager)
     {
         _configuration = configuration;
         _images = images;
+        _userManager = userManager;
     }
 
     [HttpGet("validacion")]
@@ -116,10 +123,12 @@ public sealed class DepositosCentroController : ControllerBase
         var movimiento = Texto(request.Movimiento).ToUpperInvariant();
         var entidad = Texto(request.Entidad).ToUpperInvariant();
         var operacion = Texto(request.NroOperacion);
+        var operacionRaw = request.NroOperacion ?? string.Empty;
         var descripcion = Texto(request.Descripcion);
         if (!Movimientos.Contains(movimiento) || descripcion.Length is 0 or > 500 ||
             request.Importe <= 0 || request.Importe > 9999999999999999.99m ||
             entidad.Length > 40 || operacion.Length > 100 ||
+            (operacionRaw.Length > 0 && operacionRaw.Any(c => c < '0' || c > '9')) ||
             (movimiento == "DEPOSITO" && (!Entidades.Contains(entidad) || (operacion.Length == 0 && entidad != "YAPE"))) ||
             (movimiento == "TARJETA" && (!Entidades.Contains(entidad) || operacion.Length == 0)) ||
             (movimiento == "YAPE" && entidad != "BCP") ||
@@ -222,9 +231,43 @@ public sealed class DepositosCentroController : ControllerBase
 
     [HttpDelete("{id:long}")]
     [RequirePermission("CAJA.GESTIONAR")]
-    public async Task<IActionResult> Eliminar(long id, CancellationToken ct)
+    public async Task<IActionResult> Eliminar(long id, [FromBody] EliminarDepositoCentroRequest? request, CancellationToken ct)
     {
         if (id <= 0) return BadRequest(new { ok = false, mensaje = "Depósito inválido." });
+        var clave = request?.Clave ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(clave))
+            return BadRequest(new { ok = false, mensaje = "Ingresa tu contraseña." });
+
+        var usuarioIdClaim = User.FindFirstValue("userId");
+        var claveValida = false;
+        if (int.TryParse(usuarioIdClaim, out var usuarioId) && usuarioId > 0)
+        {
+            await using var con = await OpenConnectionAsync(ct);
+            await using var validarClave = new SqlCommand("""
+                SELECT TOP (1) 1
+                  FROM dbo.Usuarios
+                 WHERE UsuarioID = @UsuarioId
+                   AND dbo.desincrectar(UsuarioClave) = @Clave;
+                """, con);
+            validarClave.Parameters.Add("@UsuarioId", SqlDbType.Int).Value = usuarioId;
+            validarClave.Parameters.Add("@Clave", SqlDbType.VarChar, 200).Value = clave;
+            claveValida = await validarClave.ExecuteScalarAsync(ct) is not null;
+        }
+        else
+        {
+            var identityUserId = User.FindFirstValue("identityUserId")
+                ?? usuarioIdClaim
+                ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var identityUser = string.IsNullOrWhiteSpace(identityUserId)
+                ? null
+                : await _userManager.FindByIdAsync(identityUserId);
+            claveValida = identityUser is { IsActive: true } &&
+                await _userManager.CheckPasswordAsync(identityUser, clave);
+        }
+
+        if (!claveValida)
+            return Unauthorized(new { ok = false, mensaje = "La contraseña del usuario actual es incorrecta." });
+
         await using var con = await OpenConnectionAsync(ct);
         string ruta;
         await using (var read = new SqlCommand("SELECT RutaImagen FROM dbo.DepositosCentro WHERE IdDepo = @Id;", con))
@@ -269,5 +312,6 @@ public sealed class DepositosCentroController : ControllerBase
 
 public sealed record DepositoCentroRequest(long Id, string? Movimiento, string? Entidad, string? NroOperacion,
     string? Descripcion, decimal Importe);
+public sealed record EliminarDepositoCentroRequest(string? Clave);
 public sealed record DepositoCentroResponse(long Id, string Fecha, string Movimiento, string Entidad,
     string NroOperacion, string Descripcion, decimal Importe, string Usuario, string RutaImagen, string Estado);

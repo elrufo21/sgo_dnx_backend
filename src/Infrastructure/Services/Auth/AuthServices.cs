@@ -50,7 +50,7 @@ public class AuthService : IAuthService
         return tokenHandler.WriteToken(token);
     }
     
-    public string CreateTokenA(string? fecha, string? area = null, int? userId = null, int? companiaId = null, int? areaId = null, bool administrador = false)
+    public string CreateTokenA(string? fecha, string? area = null, int? userId = null, int? companiaId = null, int? areaId = null, bool administrador = false, string? identityUserId = null)
     {
         var claims = new List<Claim>();
         
@@ -58,6 +58,7 @@ public class AuthService : IAuthService
         claims.Add(claim);
         claims.Add(new Claim("area", area?.Trim() ?? string.Empty));
         if (userId is > 0) claims.Add(new Claim("userId", userId.Value.ToString()));
+        if (!string.IsNullOrWhiteSpace(identityUserId)) claims.Add(new Claim("identityUserId", identityUserId));
         if (companiaId is > 0) claims.Add(new Claim("companiaId", companiaId.Value.ToString()));
         if (areaId is > 0) claims.Add(new Claim("areaId", areaId.Value.ToString()));
         claims.Add(new Claim("isAdmin", administrador ? "1" : "0"));
