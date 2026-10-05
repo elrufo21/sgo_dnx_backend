@@ -242,13 +242,13 @@ public sealed class DepositosCentroController : ControllerBase
         var claveValida = false;
         if (int.TryParse(usuarioIdClaim, out var usuarioId) && usuarioId > 0)
         {
-            await using var con = await OpenConnectionAsync(ct);
+            await using var validationConnection = await OpenConnectionAsync(ct);
             await using var validarClave = new SqlCommand("""
                 SELECT TOP (1) 1
                   FROM dbo.Usuarios
                  WHERE UsuarioID = @UsuarioId
                    AND dbo.desincrectar(UsuarioClave) = @Clave;
-                """, con);
+                """, validationConnection);
             validarClave.Parameters.Add("@UsuarioId", SqlDbType.Int).Value = usuarioId;
             validarClave.Parameters.Add("@Clave", SqlDbType.VarChar, 200).Value = clave;
             claveValida = await validarClave.ExecuteScalarAsync(ct) is not null;
