@@ -4,6 +4,8 @@
 
 El módulo PDT Empresa consulta procedimientos exclusivos de la web, sin modificar los procedimientos usados por el escritorio.
 
+La columna **Estado** conserva el valor devuelto por `DocumentoVenta.DocuEstado`; el frontend no convierte `ANULADO` o `BAJA` en `EMITIDO`. Las notas de crédito se muestran como filas separadas y con importes negativos.
+
 ## Procedimientos
 
 - `dbo.LDdocumentosweb`: recibe `@FechaInicio` y `@FechaFin`, y devuelve las ventas en el formato delimitado que usa PDT Empresa.

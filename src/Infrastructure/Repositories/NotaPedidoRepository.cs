@@ -215,6 +215,7 @@ public class NotaPedidoRepository : INotaPedido
             sql.AppendLine(",                   d.DocuHash = @DocuHash");
         }
 
+        sql.AppendLine();
         sql.Append("""
             FROM DocumentoVenta d
             WHERE d.CompaniaId = @CompaniaId

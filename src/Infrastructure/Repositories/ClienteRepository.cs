@@ -141,7 +141,7 @@ public class ClienteRepository : ICliente
         return (await ListarPaginadoAsync(estado, search, page, pageSize, cancellationToken)).Items;
     }
 
-    public async Task<ClienteListResult> ListarPaginadoAsync(string? estado = "ACTIVO", string? search = null, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default)
+    public async Task<ClienteListResult> ListarPaginadoAsync(string? estado = "ACTIVO", string? search = null, int page = 1, int pageSize = 50, CancellationToken cancellationToken = default, bool rucOnly = false)
     {
         (page, pageSize) = NormalizePagination(page, pageSize);
         var searchTerm = (search ?? string.Empty).Trim();
@@ -158,10 +158,13 @@ public class ClienteRepository : ICliente
                 WHERE (@Estado IS NULL OR @Estado = '' OR ClienteEstado = @Estado)
                   AND (
                     @Search = ''
-                    OR ISNULL(ClienteCodigo, '') LIKE @SearchLike
-                    OR ISNULL(ClienteRazon, '') LIKE @SearchLike
-                    OR ISNULL(ClienteRuc, '') LIKE @SearchLike
-                    OR ISNULL(ClienteDni, '') LIKE @SearchLike
+                    OR (@RucOnly = 1 AND ISNULL(ClienteRuc, '') LIKE @SearchLike)
+                    OR (@RucOnly = 0 AND (
+                        ISNULL(ClienteCodigo, '') LIKE @SearchLike
+                        OR ISNULL(ClienteRazon, '') LIKE @SearchLike
+                        OR ISNULL(ClienteRuc, '') LIKE @SearchLike
+                        OR ISNULL(ClienteDni, '') LIKE @SearchLike
+                    ))
                   )
             )
             SELECT ClienteId, ClienteCodigo, ClienteRazon, ClienteRuc, ClienteDni, ClienteDireccion, ClienteTelefono,
@@ -176,6 +179,7 @@ public class ClienteRepository : ICliente
         cmd.Parameters.AddWithValue("@Estado", (object?)estado ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@Search", searchTerm);
         cmd.Parameters.AddWithValue("@SearchLike", $"%{searchTerm}%");
+        cmd.Parameters.AddWithValue("@RucOnly", rucOnly);
         cmd.Parameters.AddWithValue("@Start", start);
         cmd.Parameters.AddWithValue("@End", end);
         await con.OpenAsync(cancellationToken);

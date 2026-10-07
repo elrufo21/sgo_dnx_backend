@@ -24,3 +24,7 @@ El primer script amplía solamente `Indicador.ValorTexto1` a `varchar(max)` y co
 Al registrar un certificado desde Configuración > Facturación, el backend guarda el Base64 completo en `CPE_CERTIFICADO_PFX`. Para firmar, lo materializa temporalmente en `CPE_PFX_DIRECTORY`; si la variable no está configurada, usa `D:\CPE\FIRMABETA`; si no puede crearla, usa `legacy-cpe\FIRMABETA` dentro de la publicación del API.
 
 El usuario del Application Pool del API requiere lectura y escritura sobre esa carpeta. La web no descarga el certificado, ni recibe claves CPE al consultar la configuración.
+
+## Envío de resúmenes
+
+El envío de resúmenes y bajas y la consulta de sus tickets toman RUC, credenciales, certificado y entorno desde la configuración vigente de la compañía en el backend. El navegador solo envía los datos del resumen y el `CompaniaId`; no envía secretos CPE ni entorno desde la sesión, así que no hace falta volver a iniciar sesión después de cambiar la configuración.

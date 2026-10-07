@@ -16,7 +16,8 @@ public interface ICliente
         string? search = null,
         int page = 1,
         int pageSize = 50,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        bool rucOnly = false);
     Task<Cliente?> ObtenerPorIdAsync(long id, CancellationToken cancellationToken = default);
     Task<Cliente?> ObtenerPorCodigoAsync(string codigo, CancellationToken cancellationToken = default);
     Task<decimal> ObtenerPvsMesAsync(long clienteId, CancellationToken cancellationToken = default);

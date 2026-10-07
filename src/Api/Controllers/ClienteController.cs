@@ -40,9 +40,10 @@ public class ClienteController: ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
+        [FromQuery] bool rucOnly = false,
         CancellationToken cancellationToken = default)
     {
-        return Ok(await _mediator.ListarPaginadoAsync(estado, search, page, pageSize, cancellationToken));
+        return Ok(await _mediator.ListarPaginadoAsync(estado, search, page, pageSize, cancellationToken, rucOnly));
     }
 
     [AllowAnonymous]

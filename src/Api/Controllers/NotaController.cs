@@ -1030,6 +1030,12 @@ public class NotaController : ControllerBase
             return await EnviarResumenBoletas(requestBaja, cancellationToken);
         }
 
+        var errorConfiguracionBaja = await AplicarConfiguracionCpeDeCompaniaAsync(requestBaja, cancellationToken);
+        if (errorConfiguracionBaja is not null)
+        {
+            return BadRequest(new { ok = false, mensaje = errorConfiguracionBaja });
+        }
+
         var errores = ValidarRequestBaja(requestBaja);
         if (errores.Count > 0)
         {
@@ -1102,6 +1108,12 @@ public class NotaController : ControllerBase
         if (TryAplicarErrorForzadoResumen("resumen/enviar", out var respuestaForzadaResumen))
         {
             return respuestaForzadaResumen!;
+        }
+
+        var errorConfiguracion = await AplicarConfiguracionCpeDeCompaniaAsync(request, cancellationToken);
+        if (errorConfiguracion is not null)
+        {
+            return BadRequest(new { ok = false, mensaje = errorConfiguracion });
         }
 
         var errores = ValidarRequestResumen(request);
@@ -1243,6 +1255,12 @@ public class NotaController : ControllerBase
                 ok = false,
                 mensaje = "TICKET inválido. Debe ser numérico."
             });
+        }
+
+        var errorConfiguracion = await AplicarConfiguracionCpeDeCompaniaAsync(request, cancellationToken);
+        if (errorConfiguracion is not null)
+        {
+            return BadRequest(new { ok = false, mensaje = errorConfiguracion });
         }
 
         if (string.IsNullOrWhiteSpace(request.RUC) ||
@@ -7289,9 +7307,14 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             IF @DocuIdAfectado IS NOT NULL
             BEGIN
                 UPDATE DocumentoVenta
-                SET DocuEstado = 'ANULADO'
+                SET DocuEstado = 'ANULADO',
+                    EstadoSunat = CASE WHEN TipoCodigo = '03' THEN 'BAJA' ELSE 'ANULADO' END
                 WHERE DocuId = @DocuIdAfectado
-                  AND ISNULL(LTRIM(RTRIM(DocuEstado)), '') <> 'ANULADO';
+                  AND (
+                        ISNULL(LTRIM(RTRIM(DocuEstado)), '') <> 'ANULADO'
+                        OR ISNULL(LTRIM(RTRIM(EstadoSunat)), '') <>
+                            CASE WHEN TipoCodigo = '03' THEN 'BAJA' ELSE 'ANULADO' END
+                      );
 
                 UPDATE n
                 SET NotaEstado = 'ANULADO'
@@ -9112,6 +9135,75 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             ObtenerConfigOEnv("Cpe:Entorno", "CPE_ENTORNO", "CPE_TIPO_PROCESO"));
 
         return TieneAlgunaCredencialSunat(resultado) ? resultado : null;
+    }
+
+    private async Task<string?> AplicarConfiguracionCpeDeCompaniaAsync(
+        EnviarResumenBoletasRequest request,
+        CancellationToken cancellationToken)
+    {
+        var companiaId = request.COMPANIA_ID.GetValueOrDefault();
+        if (companiaId <= 0)
+        {
+            return "COMPANIA_ID es requerido para obtener la configuración CPE.";
+        }
+
+        var companias = await _companias.ListarAsync(page: 1, pageSize: 1000, cancellationToken: cancellationToken);
+        var compania = companias.FirstOrDefault(x => x.CompaniaId == companiaId);
+        if (compania is null)
+        {
+            return $"No se encontró la compañía {companiaId} para enviar el resumen.";
+        }
+
+        var credenciales = AplicarFallbackCredencialesSunat(
+            await _mediator.ObtenerCredencialesSunatAsync(companiaId, cancellationToken));
+        if (!TieneCredencialesSunatMinimas(credenciales))
+        {
+            return "La compañía no tiene credenciales SUNAT/OSE completas.";
+        }
+
+        var cpe = credenciales!;
+        request.NRO_DOCUMENTO_EMPRESA = compania.CompaniaRUC?.Trim();
+        request.RAZON_SOCIAL = compania.CompaniaRazonSocial?.Trim();
+        request.CONTRA_FIRMA = cpe.ClaveCertificado?.Trim();
+        request.USUARIO_SOL_EMPRESA = cpe.UsuarioSOL?.Trim();
+        request.PASS_SOL_EMPRESA = cpe.ClaveSOL?.Trim();
+        request.RUTA_PFX = cpe.CertificadoPFX?.Trim();
+        request.TIPO_PROCESO = JsonSerializer.SerializeToElement(ResolverTipoProcesoDesdeCredenciales(cpe));
+        return null;
+    }
+
+    private async Task<string?> AplicarConfiguracionCpeDeCompaniaAsync(
+        ConsultarResumenTicketRequest request,
+        CancellationToken cancellationToken)
+    {
+        var companiaId = request.COMPANIA_ID.GetValueOrDefault();
+        if (companiaId <= 0)
+        {
+            return "COMPANIA_ID es requerido para consultar el ticket.";
+        }
+
+        var companias = await _companias.ListarAsync(page: 1, pageSize: 1000, cancellationToken: cancellationToken);
+        var compania = companias.FirstOrDefault(x => x.CompaniaId == companiaId);
+        if (compania is null)
+        {
+            return $"No se encontró la compañía {companiaId} para consultar el ticket.";
+        }
+
+        var cpe = AplicarFallbackCredencialesSunat(
+            await _mediator.ObtenerCredencialesSunatAsync(companiaId, cancellationToken));
+        if (cpe is null ||
+            string.IsNullOrWhiteSpace(compania.CompaniaRUC) ||
+            string.IsNullOrWhiteSpace(cpe.UsuarioSOL) ||
+            string.IsNullOrWhiteSpace(cpe.ClaveSOL))
+        {
+            return "La compañía no tiene RUC y credenciales SOL completas para consultar el ticket.";
+        }
+
+        request.RUC = compania.CompaniaRUC.Trim();
+        request.USUARIO_SOL_EMPRESA = cpe.UsuarioSOL.Trim();
+        request.PASS_SOL_EMPRESA = cpe.ClaveSOL.Trim();
+        request.TIPO_PROCESO = JsonSerializer.SerializeToElement(ResolverTipoProcesoDesdeCredenciales(cpe));
+        return null;
     }
 
     private static bool TieneCredencialesSunatMinimas(CredencialesSunat? credenciales)
@@ -11423,6 +11515,7 @@ public class LdDocumentosLegacyRequest
 public class ConsultarResumenTicketRequest
 {
     public long? RESUMEN_ID { get; set; }
+    public int? COMPANIA_ID { get; set; }
     public string? TICKET { get; set; }
     public string? CODIGO_SUNAT { get; set; }
     public string? MENSAJE_SUNAT { get; set; }
