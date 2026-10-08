@@ -58,7 +58,8 @@ public sealed class CashFlowController : ControllerBase
                     Convert.ToDecimal(reader["MontoIniSol"], CultureInfo.InvariantCulture),
                     Convert.ToDecimal(reader["CajaIngresos"], CultureInfo.InvariantCulture),
                     Convert.ToDecimal(reader["CajaSalidas"], CultureInfo.InvariantCulture),
-                    Convert.ToDecimal(reader["CajaTotal"], CultureInfo.InvariantCulture),
+                    Convert.ToDecimal(reader["CajaTotal"], CultureInfo.InvariantCulture)
+                        - Convert.ToDecimal(reader["CajaIngresos"], CultureInfo.InvariantCulture),
                     reader["CajaEncargado"]?.ToString() ?? string.Empty,
                     reader["CajaUsuario"]?.ToString() ?? string.Empty,
                     reader["CajaEstado"]?.ToString() ?? string.Empty,

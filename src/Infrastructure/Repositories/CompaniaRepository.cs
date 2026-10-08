@@ -35,10 +35,7 @@ public class CompaniaRepository : ICompania
                                 CompaniaDirecSunat,
                                 ICBPER,
                                 TokenApi,
-                                ClienIdToken,
-                                RenovacionOSE,
-                                RenovacionFirma,
-                                RenovacionSome)
+                                ClienIdToken)
                               OUTPUT INSERTED.CompaniaId
                               VALUES (
                                 @CompaniaRazonSocial,
@@ -58,10 +55,7 @@ public class CompaniaRepository : ICompania
                                 @CompaniaDirecSunat,
                                 @ICBPER,
                                 @TokenApi,
-                                @ClienIdToken,
-                                @RenovacionOSE,
-                                @RenovacionFirma,
-                                @RenovacionSome)";
+                                @ClienIdToken)";
 
         await using var con = new SqlConnection(_connectionString);
         await con.OpenAsync(cancellationToken);
@@ -94,10 +88,7 @@ public class CompaniaRepository : ICompania
                                 CompaniaDirecSunat = @CompaniaDirecSunat,
                                 ICBPER = @ICBPER,
                                 TokenApi = @TokenApi,
-                                ClienIdToken = @ClienIdToken,
-                                RenovacionOSE = @RenovacionOSE,
-                                RenovacionFirma = @RenovacionFirma,
-                                RenovacionSome = @RenovacionSome
+                                ClienIdToken = @ClienIdToken
                               WHERE CompaniaId = @Id";
 
         await using var con = new SqlConnection(_connectionString);
@@ -201,9 +192,9 @@ public class CompaniaRepository : ICompania
                                     ICBPER,
                                     TokenApi,
                                     ClienIdToken,
-                                    RenovacionOSE,
-                                    RenovacionFirma,
-                                    RenovacionSome,
+                                    Configuracion.RenovacionOSE,
+                                    Configuracion.RenovacionFirma,
+                                    Configuracion.RenovacionSome,
                                     Configuracion.FechaRenovacion,
                                     Configuracion.DescuentoMax,
                                     Configuracion.CorreoSGO,
@@ -223,6 +214,9 @@ public class CompaniaRepository : ICompania
                                      MAX(CASE WHEN Descripcion = 'CORREO_SGO' THEN ValorTexto1 END) AS CorreoSGO,
                                      MAX(CASE WHEN Descripcion = 'PASSWORD_CORREO' THEN ValorTexto1 END) AS PasswordCorreo,
                                      MAX(CASE WHEN Descripcion = 'CORREOS_ADMIN' THEN ValorTexto1 END) AS CorreosAdmin,
+                                     MAX(CASE WHEN Descripcion = 'RENOVACION_OSE' THEN ValorTexto1 END) AS RenovacionOSE,
+                                     MAX(CASE WHEN Descripcion = 'RENOVACION_FIRMA' THEN ValorTexto1 END) AS RenovacionFirma,
+                                     MAX(CASE WHEN Descripcion = 'RENOVACION_SOME' THEN ValorTexto1 END) AS RenovacionSome,
                                      MAX(CASE WHEN Descripcion = 'BOLETA_POR_LOTE' THEN ValorNum END) AS BoletaPorLote,
                                      MAX(CASE WHEN Descripcion = 'CAPTURA_HTML' THEN ValorNum END) AS FlagCaptura,
                                      MAX(CASE WHEN Descripcion = 'MULTIPLES_CAJAS' THEN ValorNum END) AS FlagCaja,
@@ -347,14 +341,14 @@ public class CompaniaRepository : ICompania
         cmd.Parameters.AddWithValue("@TokenApi", (object?)compania.TokenApi ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@ClienIdToken", (object?)compania.ClienIdToken ?? DBNull.Value);
 
-        cmd.Parameters.AddWithValue("@RenovacionOSE", (object?)compania.RenovacionOSE ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@RenovacionFirma", (object?)compania.RenovacionFirma ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@RenovacionSome", (object?)compania.RenovacionSome ?? DBNull.Value);
     }
 
     private static async Task GuardarConfiguracionAsync(SqlConnection con, SqlTransaction transaction, int companiaId, Compania compania, CancellationToken cancellationToken, bool inicializarDiasMaxDep = false)
     {
         await GuardarIndicadorAsync(con, transaction, companiaId, "CONFIGURACION", "FECHA_RENOVACION", 3, compania.FechaRenovacion?.ToString("yyyy-MM-dd"), null, null, cancellationToken);
+        await GuardarIndicadorAsync(con, transaction, companiaId, "CONFIGURACION", "RENOVACION_OSE", 3, compania.RenovacionOSE?.ToString("yyyy-MM-dd"), null, null, cancellationToken);
+        await GuardarIndicadorAsync(con, transaction, companiaId, "CONFIGURACION", "RENOVACION_FIRMA", 3, compania.RenovacionFirma?.ToString("yyyy-MM-dd"), null, null, cancellationToken);
+        await GuardarIndicadorAsync(con, transaction, companiaId, "CONFIGURACION", "RENOVACION_SOME", 3, compania.RenovacionSome?.ToString("yyyy-MM-dd"), null, null, cancellationToken);
         await GuardarIndicadorAsync(con, transaction, companiaId, "VENTAS", "DESCUENTO_MAXIMO", 2, null, null, compania.DescuentoMax, cancellationToken);
         await GuardarIndicadorAsync(con, transaction, companiaId, "CORREO", "CORREO_SGO", 3, compania.CorreoSGO?.Trim(), null, null, cancellationToken);
         await GuardarIndicadorAsync(con, transaction, companiaId, "CORREO", "PASSWORD_CORREO", 3, compania.PasswordCorreo, null, null, cancellationToken);

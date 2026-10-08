@@ -21,6 +21,10 @@ public class AuthResponseA
     public string? CompaniaTelefono { get; set; }
     public bool BoletaPorLote { get; set; } = true;
     public bool FlagCaptura { get; set; }
+    public string? RenovacionOSE { get; set; }
+    public string? RenovacionFirma { get; set; }
+    public string? RenovacionSome { get; set; }
+    public bool RenovacionesCargadas { get; set; }
     public bool Administrador { get; set; }
     public IReadOnlyList<string> Permisos { get; set; } = Array.Empty<string>();
     //public string? RUC { get; set; }

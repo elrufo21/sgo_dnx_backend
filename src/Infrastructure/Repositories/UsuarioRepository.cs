@@ -48,7 +48,7 @@ public class UsuarioRepository : IUsuario
         }
         catch (SqlException ex) when (ex.Number == 2812)
         {
-            return await LoginIdentityAsync(loginUser);
+            return await LoginIdentityAsync(loginUser, cancellationToken);
         }
     }
 
@@ -79,6 +79,7 @@ public class UsuarioRepository : IUsuario
         var companiaId = contexto.CompaniaId > 0
             ? contexto.CompaniaId
             : int.TryParse(GetPayloadValue(payload, 4), out var parsedCompaniaId) ? parsedCompaniaId : 0;
+        var renovaciones = await ObtenerRenovacionesAsync(companiaId, cancellationToken);
         var permisos = contexto.Administrador || contexto.AreaId <= 0 || companiaId <= 0
             ? Array.Empty<string>()
             : await _permisos.ObtenerEfectivosAsync(companiaId, contexto.AreaId, usuarioId, cancellationToken);
@@ -104,6 +105,10 @@ public class UsuarioRepository : IUsuario
             CompaniaTelefono = GetPayloadValue(payload, 17),
             BoletaPorLote = ParseBoolFlag(GetPayloadValue(payload, 18, "1"), true),
             FlagCaptura = ParseBoolFlag(GetPayloadValue(payload, 19, "0"), false),
+            RenovacionOSE = renovaciones.Ose,
+            RenovacionFirma = renovaciones.Firma,
+            RenovacionSome = renovaciones.Some,
+            RenovacionesCargadas = renovaciones.Cargadas,
             Administrador = contexto.Administrador,
             Permisos = permisos,
             Token = _authService.CreateTokenA(expiresAtUtc.ToString("O"), GetPayloadValue(payload, 2), usuarioId, companiaId, contexto.AreaId, contexto.Administrador),
@@ -112,7 +117,7 @@ public class UsuarioRepository : IUsuario
         };
     }
 
-    private async Task<AuthResponseA> LoginIdentityAsync(EUser loginUser)
+    private async Task<AuthResponseA> LoginIdentityAsync(EUser loginUser, CancellationToken cancellationToken)
     {
         var username = loginUser.Email?.Trim();
         var password = loginUser.Password?.Trim();
@@ -134,6 +139,7 @@ public class UsuarioRepository : IUsuario
         var expiresAtUtc = nowUtc.Add(_jwtSettings.ExpireTime);
         var expiresInSeconds = (int)_jwtSettings.ExpireTime.TotalSeconds;
 
+        var renovaciones = await ObtenerRenovacionesAsync(1, cancellationToken);
         return new AuthResponseA
         {
             Id = user.Id,
@@ -146,12 +152,55 @@ public class UsuarioRepository : IUsuario
             Entorno = "3",
             BoletaPorLote = true,
             FlagCaptura = false,
+            RenovacionOSE = renovaciones.Ose,
+            RenovacionFirma = renovaciones.Firma,
+            RenovacionSome = renovaciones.Some,
+            RenovacionesCargadas = renovaciones.Cargadas,
             Administrador = true,
             Permisos = Array.Empty<string>(),
             Token = _authService.CreateTokenA(expiresAtUtc.ToString("O"), "DXN", administrador: true, identityUserId: user.Id),
             ExpiresAtUtc = expiresAtUtc,
             ExpiresInSeconds = expiresInSeconds
         };
+    }
+
+    private async Task<(string? Ose, string? Firma, string? Some, bool Cargadas)> ObtenerRenovacionesAsync(
+        int companiaId,
+        CancellationToken cancellationToken)
+    {
+        if (companiaId <= 0) return (null, null, null, false);
+
+        const string sql = """
+            SELECT Descripcion, ValorTexto1
+            FROM dbo.Indicador
+            WHERE CompaniaId = @CompaniaId
+              AND Descripcion IN ('RENOVACION_OSE', 'RENOVACION_FIRMA', 'RENOVACION_SOME');
+            """;
+
+        await using var connection = new SqlConnection(_connectionString);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@CompaniaId", companiaId);
+        await connection.OpenAsync(cancellationToken);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+
+        string? ose = null;
+        string? firma = null;
+        string? some = null;
+        var encontrados = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var descripcion = reader["Descripcion"].ToString() ?? string.Empty;
+            var valor = reader["ValorTexto1"] == DBNull.Value ? null : reader["ValorTexto1"].ToString();
+            encontrados.Add(descripcion);
+            switch (descripcion.ToUpperInvariant())
+            {
+                case "RENOVACION_OSE": ose = valor; break;
+                case "RENOVACION_FIRMA": firma = valor; break;
+                case "RENOVACION_SOME": some = valor; break;
+            }
+        }
+
+        return (ose, firma, some, encontrados.Count == 3);
     }
 
     private static string? GetPayloadValue(string[] payload, int index, string? fallback = "")
