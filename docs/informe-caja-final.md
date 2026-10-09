@@ -10,7 +10,9 @@ La lectura replica el escritorio: de `usptraerCajeros` se usa solo el primer blo
 
 `GET /api/v1/CierreCajaFinal` recibe `fechaInicio` y `fechaFin` (`YYYY-MM-DD`) para listar informes dentro de ese rango inclusivo. Rechaza rangos donde la fecha inicial sea posterior a la final.
 
-Al registrar un informe nuevo, el API comprueba con `usplistaConteoWEB` que no exista otro informe para esa fecha y valida `PAGO/VARIOS` con `uspValidarAperturaWEB`. También comprueba que `uspTraerGastosWEB` entregue un monto OBS numérico. Tanto al crear como al editar se exige que el monto OBS esté presente; cero es válido. La edición no repite las validaciones de duplicidad ni PAGO/VARIOS, igual que el flujo de edición del escritorio.
+Al registrar un informe nuevo, el API comprueba con `usplistaConteoWEB` que no exista otro informe para esa fecha y valida los PAGO/VARIOS pendientes de esa fecha con `uspValidarPagoVariosCajaFinalWEB`. Esta validación web no bloquea por documentos pendientes de otros días y no modifica `uspValidarAperturaWEB`. El API también comprueba que `uspTraerGastosWEB` entregue un monto OBS numérico. Tanto al crear como al editar se exige que el monto OBS esté presente; cero es válido. La edición no repite las validaciones de duplicidad ni PAGO/VARIOS.
+
+Antes de usar esta validación, ejecutar [20261009_validar_pago_varios_informe_caja_web.sql](../scripts/sql/20261009_validar_pago_varios_informe_caja_web.sql).
 
 Las validaciones de apertura de almacén, cierre de almacén y apertura diaria del OBS del formulario de escritorio no se portan al informe web. La diferencia de arqueo sí requiere observaciones, tanto en la página como en el API.
 

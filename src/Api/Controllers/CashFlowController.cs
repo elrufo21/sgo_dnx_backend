@@ -91,6 +91,9 @@ public sealed class CashFlowController : ControllerBase
         await using var con = new SqlConnection(connectionString);
         await con.OpenAsync(cancellationToken);
 
+        if (!await ValidarArqueoDiarioAsync(con, null, cancellationToken))
+            return Conflict(new { ok = false, mensaje = MensajeArqueoDiario });
+
         await using (var activeCmd = new SqlCommand("""
             SELECT TOP 1 CajaId FROM Caja
              WHERE UsuarioId = @UsuarioId AND CajaEstado = 'ACTIVO'
@@ -433,6 +436,11 @@ public sealed class CashFlowController : ControllerBase
             return Conflict(new { ok = false, mensaje = "La caja ya no está disponible para cerrar." });
         if (request.MontoInicial is < 0)
             return BadRequest(new { ok = false, mensaje = "El sencillo no puede ser negativo." });
+        if (!await ValidarArqueoDiarioAsync(con, tx, cancellationToken))
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return Conflict(new { ok = false, mensaje = MensajeArqueoDiario });
+        }
 
         var montoInicial = request.MontoInicial ?? caja.MontoInicial;
         var efectivoContado = request.Monedas.Sum(x => x.Billete * x.Cantidad);
@@ -518,6 +526,13 @@ public sealed class CashFlowController : ControllerBase
         var montoInicial = request.MontoInicial ?? caja.MontoInicial;
         var observacion = request.Observacion ?? caja.Observacion;
 
+        if (!string.Equals(estado, caja.Estado, StringComparison.OrdinalIgnoreCase) &&
+            !await ValidarArqueoDiarioAsync(con, tx, cancellationToken))
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return Conflict(new { ok = false, mensaje = MensajeArqueoDiario });
+        }
+
         if (estado == "ACTIVO")
         {
             await using var validarCmd = new SqlCommand("uspValidaCantCajasWeb", con, tx)
@@ -572,6 +587,21 @@ public sealed class CashFlowController : ControllerBase
         };
         cmd.Parameters.Add("@Data", SqlDbType.VarChar, -1).Value = data;
         return (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString()?.Trim() ?? string.Empty;
+    }
+
+    private const string MensajeArqueoDiario = "No podrá abrir o cerrar la caja porque no registró su conteo general de efectivo diario.";
+
+    private static async Task<bool> ValidarArqueoDiarioAsync(
+        SqlConnection con,
+        SqlTransaction? tx,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new SqlCommand("uspValidarArqueoCajaWEB", con, tx)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+        var result = (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString()?.Trim();
+        return string.Equals(result, "true", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<CajaCloseInfo?> ObtenerCajaParaCierreAsync(
@@ -629,7 +659,8 @@ public sealed class CashFlowController : ControllerBase
         CancellationToken cancellationToken)
     {
         await using var cmd = new SqlCommand("""
-            SELECT ISNULL(CajaCierre, '') AS CajaCierre, ISNULL(MontoIniSOl, 0) AS MontoInicial,
+            SELECT ISNULL(CajaCierre, '') AS CajaCierre, ISNULL(CajaEstado, '') AS Estado,
+                   ISNULL(MontoIniSOl, 0) AS MontoInicial,
                    ISNULL(CajaEncargado, '') AS Encargado, ISNULL(CajaUsuario, '') AS Usuario,
                    ISNULL(CajaIngresos, 0) AS Ingresos, ISNULL(CajaDeposito, 0) AS Depositos,
                    ISNULL(CajaSalidas, 0) AS Salidas, ISNULL(CajaTotal, 0) AS Total,
@@ -645,6 +676,7 @@ public sealed class CashFlowController : ControllerBase
         if (!await reader.ReadAsync(cancellationToken)) return null;
         return new CajaUpdateInfo(
             reader["CajaCierre"]?.ToString() ?? string.Empty,
+            reader["Estado"]?.ToString() ?? string.Empty,
             Convert.ToDecimal(reader["MontoInicial"], CultureInfo.InvariantCulture),
             reader["Encargado"]?.ToString() ?? string.Empty,
             reader["Usuario"]?.ToString() ?? string.Empty,
@@ -679,6 +711,7 @@ public sealed class CashFlowController : ControllerBase
 
     private sealed record CajaUpdateInfo(
         string FechaCierre,
+        string Estado,
         decimal MontoInicial,
         string Encargado,
         string Usuario,

@@ -67,7 +67,7 @@ public class FeriadoRepository : IFeriado
 
     private static SqlCommand CrearComando(SqlConnection con, string data)
     {
-        var cmd = new SqlCommand("dbo.usp_Feriado", con)
+        var cmd = new SqlCommand("dbo.usp_FeriadoWEB", con)
         {
             CommandTimeout = 300,
             CommandType = CommandType.StoredProcedure

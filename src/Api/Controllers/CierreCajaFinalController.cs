@@ -69,7 +69,7 @@ public sealed class CierreCajaFinalController : ControllerBase
                 .Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Any(x => x != "~");
             if (existe)
                 return Conflict(new { mensaje = "Ya existe un informe final para la fecha seleccionada." });
-            var validacion = await Scalar(con, "uspValidarAperturaWEB", "@Fecha", request.Fecha.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture), ct);
+            var validacion = await Scalar(con, "uspValidarPagoVariosCajaFinalWEB", "@Fecha", request.Fecha.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture), ct);
             if (validacion.Equals("PAGO/VARIOS", StringComparison.OrdinalIgnoreCase))
                 return Conflict(new { mensaje = "Hay documentos con la condición PAGO/VARIOS que aún no se han liquidado." });
 
