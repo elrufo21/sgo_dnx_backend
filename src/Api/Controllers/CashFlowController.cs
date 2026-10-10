@@ -74,10 +74,10 @@ public sealed class CashFlowController : ControllerBase
             .ToArray();
         if (cajasCerradas.Length > 0)
         {
-            var totales = await ObtenerTotalesCerradasAsync(con, cajasCerradas, cancellationToken);
+            var diferencias = await ObtenerDiferenciasCerradasAsync(con, cajasCerradas, cancellationToken);
             items = items
-                .Select(item => totales.TryGetValue(item.CajaId, out var total)
-                    ? item with { Ingresos = total.Ingresos, Diferencia = total.Diferencia }
+                .Select(item => diferencias.TryGetValue(item.CajaId, out var diferencia)
+                    ? item with { Diferencia = diferencia }
                     : item)
                 .ToList();
         }
@@ -86,7 +86,7 @@ public sealed class CashFlowController : ControllerBase
         return Ok(items);
     }
 
-    private static async Task<Dictionary<long, CajaFlowTotals>> ObtenerTotalesCerradasAsync(
+    private static async Task<Dictionary<long, decimal>> ObtenerDiferenciasCerradasAsync(
         SqlConnection con,
         IReadOnlyList<long> cajaIds,
         CancellationToken cancellationToken)
@@ -127,35 +127,33 @@ public sealed class CashFlowController : ControllerBase
                 FROM Cajas c
                 INNER JOIN dbo.CajaDetalle d ON d.CajaId = c.CajaId
                 GROUP BY d.CajaId
+            ), Calculos AS
+            (
+                SELECT c.CajaId,
+                       ISNULL(c.MontoIniSOl, 0)
+                       + ISNULL(v.SistemaObs, 0)
+                       + ISNULL(v.SistemaIoc, 0)
+                       - ISNULL(mv.Salidas, 0)
+                       + ISNULL(mv.IngresosManuales, 0) AS IngresosEsperados,
+                       ISNULL(m.MontoContado, 0) AS MontoContado
+                FROM Cajas c
+                LEFT JOIN Monedas m ON m.CajaId = c.CajaId
+                LEFT JOIN Ventas v ON v.CajaId = c.CajaId
+                LEFT JOIN Movimientos mv ON mv.CajaId = c.CajaId
             )
-            SELECT c.CajaId,
-                   ISNULL(c.MontoIniSOl, 0)
-                   + ISNULL(v.SistemaObs, 0)
-                   + ISNULL(v.SistemaIoc, 0)
-                   - ISNULL(mv.Salidas, 0)
-                   + ISNULL(mv.IngresosManuales, 0) AS Ingresos,
-                   ISNULL(m.MontoContado, 0)
-                   - (ISNULL(c.MontoIniSOl, 0)
-                      + ISNULL(v.SistemaObs, 0)
-                      + ISNULL(v.SistemaIoc, 0)
-                      - ISNULL(mv.Salidas, 0)
-                      + ISNULL(mv.IngresosManuales, 0)) AS Diferencia
-            FROM Cajas c
-            LEFT JOIN Monedas m ON m.CajaId = c.CajaId
-            LEFT JOIN Ventas v ON v.CajaId = c.CajaId
-            LEFT JOIN Movimientos mv ON mv.CajaId = c.CajaId;
+            SELECT CajaId, MontoContado - IngresosEsperados AS Diferencia
+            FROM Calculos;
             """;
         await using var cmd = new SqlCommand(sql, con);
         for (var i = 0; i < cajaIds.Count; i++)
             cmd.Parameters.Add(parametros[i], SqlDbType.BigInt).Value = cajaIds[i];
 
-        var totales = new Dictionary<long, CajaFlowTotals>();
+        var diferencias = new Dictionary<long, decimal>();
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
-            totales[Convert.ToInt64(reader["CajaId"], CultureInfo.InvariantCulture)] = new CajaFlowTotals(
-                Convert.ToDecimal(reader["Ingresos"], CultureInfo.InvariantCulture),
-                Convert.ToDecimal(reader["Diferencia"], CultureInfo.InvariantCulture));
-        return totales;
+            diferencias[Convert.ToInt64(reader["CajaId"], CultureInfo.InvariantCulture)] =
+                Convert.ToDecimal(reader["Diferencia"], CultureInfo.InvariantCulture);
+        return diferencias;
     }
 
     [HttpPost("open", Name = "OpenCashFlow")]
@@ -932,7 +930,6 @@ public sealed class CashFlowController : ControllerBase
         decimal IngresosManuales,
         decimal SalidasCalculadas);
 
-    private sealed record CajaFlowTotals(decimal Ingresos, decimal Diferencia);
 }
 
 public sealed record OpenCashFlowRequest(
