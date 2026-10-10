@@ -8,6 +8,7 @@ Los pagos de venta se registran en `CajaDetalle` de la caja activa del usuario y
 
 - La captura HTML envía el usuario que emite la venta como `UsuarioId`; el procedimiento usa ese dato para obtener su caja activa.
 - Antes de registrar una venta, `uspinsertarNotaBweb` exige una asistencia de hoy vinculada al `PersonalId` del usuario. Si no existe, devuelve `NO ASISTIO` y no escribe la nota. Esta regla no altera procedimientos de escritorio.
+- Las escrituras del módulo web Caja Chica también requieren asistencia del usuario autenticado; ver [validación de asistencia en Caja](validacion-asistencia-modulos-caja.md).
 - En IOC/Cashbill (`ConceptoOBS = VENTA`), un depósito, tarjeta, Yape o la parte digital de un pago mixto crea una `SALIDA`, igual que el escritorio.
 - En Venta Libre (`ConceptoOBS = VENTA LIBRE`) se crea un `INGRESO` por el total; si tiene una parte digital, se crea además su `SALIDA` por el depósito.
 - La salida se guarda con `NotaId = 0`, `NotaIdB = NotaId`, estado `D` y el detalle completo de la venta OBS.

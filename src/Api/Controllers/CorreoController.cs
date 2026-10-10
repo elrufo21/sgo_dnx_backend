@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Net;
 using System.Net.Mail;
+using Ecommerce.Api.Security;
 using Ecommerce.Application.Models.Email;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -157,6 +158,7 @@ public class CorreoController : ControllerBase
     }
 
     [Authorize]
+    [RequireAttendance]
     [HttpPost("enviar-cierre-caja", Name = "EnviarCorreoCierreCaja")]
     [RequestSizeLimit(25 * 1024 * 1024)]
     [ProducesResponseType((int)HttpStatusCode.OK)]
@@ -282,6 +284,7 @@ public class CorreoController : ControllerBase
     }
 
     [Authorize]
+    [RequireAttendance]
     [HttpPost("enviar-informe-caja-final", Name = "EnviarCorreoInformeCajaFinal")]
     [RequestSizeLimit(25 * 1024 * 1024)]
     public async Task<IActionResult> EnviarInformeCajaFinal([FromForm] EnviarInformeCajaFinalRequest request, [FromServices] IConfiguration configuration, CancellationToken cancellationToken)

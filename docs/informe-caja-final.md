@@ -16,6 +16,8 @@ Antes de usar esta validación, ejecutar [20261009_validar_pago_varios_informe_c
 
 Las validaciones de apertura de almacén, cierre de almacén y apertura diaria del OBS del formulario de escritorio no se portan al informe web. La diferencia de arqueo sí requiere observaciones, tanto en la página como en el API.
 
+Registrar o editar el informe final y enviar sus correos requiere que el usuario autenticado tenga asistencia hoy. La regla aplica también a las otras escrituras de Caja y está documentada en [validación de asistencia en Caja](validacion-asistencia-modulos-caja.md).
+
 `POST /api/v1/Correo/enviar-informe-caja-final` recibe el PDF generado en el frontend y lo remite a los correos administrativos de la compañía del usuario que registró el informe. No crea ni modifica objetos de base de datos.
 
 Antes de usarlo se debe ejecutar [20260831_informe_caja_final_web.sql](../scripts/sql/20260831_informe_caja_final_web.sql). Solo crea los adaptadores web del informe final.

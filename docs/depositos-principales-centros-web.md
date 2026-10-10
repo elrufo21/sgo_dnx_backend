@@ -26,6 +26,8 @@ La pantalla también muestra la validación histórica del escritorio: cuenta to
 
 El backend valida movimiento, importe, entidad, que el número de operación contenga solo dígitos y la duplicidad por entidad dentro de una transacción serializable. En los registros nuevos, `Usuario` se obtiene del usuario de la sesión y se guarda como primer nombre más primer apellido de `Personal`; no se acepta ese dato desde el navegador. Las consultas usan parámetros SQL. No se agregan columnas ni procedimientos: la funcionalidad trabaja sobre las columnas existentes de `DepositosCentro`.
 
+Las altas, actualizaciones de comprobante y eliminaciones requieren que el usuario autenticado tenga asistencia registrada hoy. La regla común se describe en [validación de asistencia en Caja](validacion-asistencia-modulos-caja.md).
+
 ## Ventana de validación
 
 `DiasMaxDep` se configura en **Configuración → Caja**, entre 0 y 3650. Su fuente web es `dbo.Indicador` con `Area = 'CAJA'`, `Descripcion = 'DIAS_MAX_DEPOSITO'`, `TipoIndicador = 2` y `ValorNum`. El script `scripts/sql/20260929_migrar_dias_max_deposito_a_indicador.sql` copia el valor actual de cada compañía (7 como valor por defecto). La columna `Compania.DiasMaxDep` se conserva sincronizada para el login del escritorio legado.

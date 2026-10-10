@@ -9,6 +9,7 @@ namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[RequireAttendance]
 [RequirePermission("CAJA.VER")]
 public sealed class CashFlowController : ControllerBase
 {
@@ -67,7 +68,94 @@ public sealed class CashFlowController : ControllerBase
             }
         }
 
+        var cajasCerradas = items
+            .Where(item => item.Estado.StartsWith("CERRAD", StringComparison.OrdinalIgnoreCase))
+            .Select(item => item.CajaId)
+            .ToArray();
+        if (cajasCerradas.Length > 0)
+        {
+            var totales = await ObtenerTotalesCerradasAsync(con, cajasCerradas, cancellationToken);
+            items = items
+                .Select(item => totales.TryGetValue(item.CajaId, out var total)
+                    ? item with { Ingresos = total.Ingresos, Diferencia = total.Diferencia }
+                    : item)
+                .ToList();
+        }
+
+        items.Sort((a, b) => b.CajaId.CompareTo(a.CajaId));
         return Ok(items);
+    }
+
+    private static async Task<Dictionary<long, CajaFlowTotals>> ObtenerTotalesCerradasAsync(
+        SqlConnection con,
+        IReadOnlyList<long> cajaIds,
+        CancellationToken cancellationToken)
+    {
+        var parametros = cajaIds.Select((_, index) => $"@cajaId{index}").ToArray();
+        var sql = $"""
+            WITH Cajas AS
+            (
+                SELECT c.CajaId, c.MontoIniSOl
+                FROM dbo.Caja c
+                WHERE c.CajaId IN ({string.Join(", ", parametros)})
+                  AND UPPER(LTRIM(RTRIM(c.CajaEstado))) LIKE 'CERRAD%'
+            ), Monedas AS
+            (
+                SELECT m.CajaId, SUM(ISNULL(m.Monto, 0)) AS MontoContado
+                FROM dbo.Monedas m
+                INNER JOIN Cajas c ON c.CajaId = m.CajaId
+                GROUP BY m.CajaId
+            ), Ventas AS
+            (
+                SELECT n.CajaId,
+                       SUM(CASE WHEN t.TipoVenta = 'OBS' THEN ISNULL(t.Importe, 0) ELSE 0 END) AS SistemaObs,
+                       SUM(CASE WHEN t.TipoVenta = 'IOC' THEN ISNULL(t.Importe, 0) ELSE 0 END) AS SistemaIoc
+                FROM Cajas c
+                INNER JOIN dbo.NotaPedido n ON n.CajaId = c.CajaId
+                INNER JOIN dbo.TABLAOBS t
+                    ON t.NotaTransaccion = n.NotaTransaccion
+                   AND t.TipoVenta IN ('OBS', 'IOC')
+                GROUP BY n.CajaId
+            ), Movimientos AS
+            (
+                SELECT d.CajaId,
+                       SUM(CASE WHEN d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0
+                                THEN ISNULL(d.DetalleMonto, 0) ELSE 0 END) AS Salidas,
+                       SUM(CASE WHEN d.DetalleMovimiento = 'INGRESO' AND ISNULL(d.NotaId, 0) = 0
+                                     AND ISNULL(d.DetalleConcepto, '') NOT IN ('TOTAL EFECTIVO', 'SENCILLO')
+                                THEN ISNULL(d.DetalleMonto, 0) ELSE 0 END) AS IngresosManuales
+                FROM Cajas c
+                INNER JOIN dbo.CajaDetalle d ON d.CajaId = c.CajaId
+                GROUP BY d.CajaId
+            )
+            SELECT c.CajaId,
+                   ISNULL(c.MontoIniSOl, 0)
+                   + ISNULL(v.SistemaObs, 0)
+                   + ISNULL(v.SistemaIoc, 0)
+                   - ISNULL(mv.Salidas, 0)
+                   + ISNULL(mv.IngresosManuales, 0) AS Ingresos,
+                   ISNULL(m.MontoContado, 0)
+                   - (ISNULL(c.MontoIniSOl, 0)
+                      + ISNULL(v.SistemaObs, 0)
+                      + ISNULL(v.SistemaIoc, 0)
+                      - ISNULL(mv.Salidas, 0)
+                      + ISNULL(mv.IngresosManuales, 0)) AS Diferencia
+            FROM Cajas c
+            LEFT JOIN Monedas m ON m.CajaId = c.CajaId
+            LEFT JOIN Ventas v ON v.CajaId = c.CajaId
+            LEFT JOIN Movimientos mv ON mv.CajaId = c.CajaId;
+            """;
+        await using var cmd = new SqlCommand(sql, con);
+        for (var i = 0; i < cajaIds.Count; i++)
+            cmd.Parameters.Add(parametros[i], SqlDbType.BigInt).Value = cajaIds[i];
+
+        var totales = new Dictionary<long, CajaFlowTotals>();
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+            totales[Convert.ToInt64(reader["CajaId"], CultureInfo.InvariantCulture)] = new CajaFlowTotals(
+                Convert.ToDecimal(reader["Ingresos"], CultureInfo.InvariantCulture),
+                Convert.ToDecimal(reader["Diferencia"], CultureInfo.InvariantCulture));
+        return totales;
     }
 
     [HttpPost("open", Name = "OpenCashFlow")]
@@ -90,20 +178,24 @@ public sealed class CashFlowController : ControllerBase
 
         await using var con = new SqlConnection(connectionString);
         await con.OpenAsync(cancellationToken);
+        await using var tx = (SqlTransaction)await con.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
 
-        if (!await ValidarArqueoDiarioAsync(con, null, cancellationToken))
+        if (!await BloquearUsuarioCajaAsync(con, tx, request.UsuarioId, cancellationToken))
+            return NotFound(new { ok = false, mensaje = "No se encontró el usuario encargado de la caja." });
+
+        if (!await ValidarArqueoDiarioAsync(con, tx, cancellationToken))
             return Conflict(new { ok = false, mensaje = MensajeArqueoDiario });
 
         await using (var activeCmd = new SqlCommand("""
-            SELECT TOP 1 CajaId FROM Caja
+            SELECT TOP 1 CajaId FROM Caja WITH (UPDLOCK, HOLDLOCK)
              WHERE UsuarioId = @UsuarioId AND CajaEstado = 'ACTIVO'
              ORDER BY CajaId DESC
-            """, con))
+            """, con, tx))
         {
             activeCmd.Parameters.Add("@UsuarioId", SqlDbType.Int).Value = request.UsuarioId;
             var activeCajaId = await activeCmd.ExecuteScalarAsync(cancellationToken);
             if (activeCajaId is not null && activeCajaId != DBNull.Value)
-                return Conflict(new { ok = false, mensaje = $"Ya tienes la caja activa N.º {activeCajaId}. Ciérrala antes de abrir otra." });
+                return Conflict(new { ok = false, mensaje = "Ya se encuentra una caja abierta. Ciérrela antes de modificar." });
         }
 
         var data = string.Join("|", new[]
@@ -114,17 +206,18 @@ public sealed class CashFlowController : ControllerBase
             "0.00", "0.00", "0.00", "0.00",
             request.UsuarioId.ToString(CultureInfo.InvariantCulture), CajaField(request.Observacion)
         });
-        var raw = await EjecutarCajaInsertaCsvAsync(con, null, data, cancellationToken);
+        var raw = await EjecutarCajaInsertaCsvAsync(con, tx, data, cancellationToken);
         if (!string.Equals(raw, "true", StringComparison.OrdinalIgnoreCase))
             return Conflict(new { ok = false, mensaje = MensajeCajaInserta(raw) });
 
         await using var cajaCmd = new SqlCommand("""
-            SELECT TOP 1 CajaId FROM Caja
+            SELECT TOP 1 CajaId FROM Caja WITH (UPDLOCK, HOLDLOCK)
              WHERE UsuarioId = @UsuarioId AND CajaEstado = 'ACTIVO'
              ORDER BY CajaId DESC
-            """, con);
+            """, con, tx);
         cajaCmd.Parameters.Add("@UsuarioId", SqlDbType.Int).Value = request.UsuarioId;
         var cajaId = Convert.ToInt64(await cajaCmd.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture);
+        await tx.CommitAsync(cancellationToken);
         return Ok(new { ok = true, cajaId, mensaje = "Caja abierta correctamente." });
     }
 
@@ -508,6 +601,10 @@ public sealed class CashFlowController : ControllerBase
         var estado = request.Estado?.Trim().ToUpperInvariant();
         if (cajaId <= 0 || estado is not ("ACTIVO" or "CERRADA"))
             return BadRequest(new { ok = false, mensaje = "El estado de caja no es válido." });
+        if (request.Monedas is { } monedas &&
+            (monedas.Count == 0 || monedas.Any(x => x.Billete <= 0 || x.Cantidad < 0) ||
+             monedas.Select(x => x.Billete).Distinct().Count() != monedas.Count))
+            return BadRequest(new { ok = false, mensaje = "Ingrese un conteo válido para las denominaciones." });
 
         var connectionString = _configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -515,16 +612,72 @@ public sealed class CashFlowController : ControllerBase
 
         await using var con = new SqlConnection(connectionString);
         await con.OpenAsync(cancellationToken);
+
+        int usuarioIdCaja;
+        await using (var propietarioCmd = new SqlCommand("SELECT UsuarioId FROM Caja WHERE CajaId = @CajaId", con))
+        {
+            propietarioCmd.Parameters.Add("@CajaId", SqlDbType.Decimal).Value = cajaId;
+            propietarioCmd.Parameters["@CajaId"].Precision = 38;
+            propietarioCmd.Parameters["@CajaId"].Scale = 0;
+            var propietario = await propietarioCmd.ExecuteScalarAsync(cancellationToken);
+            if (propietario is null || propietario == DBNull.Value)
+                return NotFound(new { ok = false, mensaje = "No se encontró la caja." });
+            usuarioIdCaja = Convert.ToInt32(propietario, CultureInfo.InvariantCulture);
+        }
+
         await using var tx = (SqlTransaction)await con.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+
+        if (!await BloquearUsuarioCajaAsync(con, tx, usuarioIdCaja, cancellationToken))
+            return Conflict(new { ok = false, mensaje = "No se encontró el usuario encargado de la caja." });
 
         var caja = await ObtenerCajaParaActualizarAsync(con, tx, cajaId, cancellationToken);
         if (caja is null)
             return NotFound(new { ok = false, mensaje = "No se encontró la caja." });
+        if (caja.UsuarioId != usuarioIdCaja)
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return Conflict(new { ok = false, mensaje = "El encargado de la caja cambió. Vuelve a cargar el registro." });
+        }
         if (request.MontoInicial is < 0)
             return BadRequest(new { ok = false, mensaje = "El sencillo no puede ser negativo." });
 
         var montoInicial = request.MontoInicial ?? caja.MontoInicial;
         var observacion = request.Observacion ?? caja.Observacion;
+        var cajaIngresos = caja.Ingresos;
+        var cajaTotal = caja.Total;
+
+        if (request.Monedas is { } conteo)
+        {
+            foreach (var moneda in conteo)
+            {
+                await using var monedaCmd = new SqlCommand("""
+                    UPDATE Monedas
+                       SET Efectivo = @Cantidad, Monto = @Monto
+                     WHERE CajaId = @CajaId AND Billete = @Billete
+                    """, con, tx);
+                monedaCmd.Parameters.Add("@Cantidad", SqlDbType.Int).Value = moneda.Cantidad;
+                var monto = monedaCmd.Parameters.Add("@Monto", SqlDbType.Decimal);
+                monto.Precision = 18;
+                monto.Scale = 2;
+                monto.Value = moneda.Billete * moneda.Cantidad;
+                var cajaIdMonedas = monedaCmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+                cajaIdMonedas.Precision = 38;
+                cajaIdMonedas.Scale = 0;
+                cajaIdMonedas.Value = cajaId;
+                var billete = monedaCmd.Parameters.Add("@Billete", SqlDbType.Decimal);
+                billete.Precision = 18;
+                billete.Scale = 2;
+                billete.Value = moneda.Billete;
+                if (await monedaCmd.ExecuteNonQueryAsync(cancellationToken) != 1)
+                {
+                    await tx.RollbackAsync(cancellationToken);
+                    return Conflict(new { ok = false, mensaje = "No se encontró una denominación de la caja." });
+                }
+            }
+
+            cajaTotal = conteo.Sum(x => x.Billete * x.Cantidad);
+            cajaIngresos = montoInicial + caja.SistemaObs - caja.SalidasCalculadas + caja.IngresosManuales;
+        }
 
         if (!string.Equals(estado, caja.Estado, StringComparison.OrdinalIgnoreCase) &&
             !await ValidarArqueoDiarioAsync(con, tx, cancellationToken))
@@ -535,14 +688,36 @@ public sealed class CashFlowController : ControllerBase
 
         if (estado == "ACTIVO")
         {
+            await using var usuarioCajaCmd = new SqlCommand("""
+                SELECT TOP 1 CajaId FROM Caja WITH (UPDLOCK, HOLDLOCK)
+                 WHERE UsuarioId = @UsuarioId AND CajaEstado = 'ACTIVO' AND CajaId <> @CajaId
+                 ORDER BY CajaId DESC
+                """, con, tx);
+            var usuarioIdParameter = usuarioCajaCmd.Parameters.Add("@UsuarioId", SqlDbType.Int);
+            usuarioIdParameter.Value = caja.UsuarioId;
+            var cajaIdParameter = usuarioCajaCmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+            cajaIdParameter.Precision = 38;
+            cajaIdParameter.Scale = 0;
+            cajaIdParameter.Value = cajaId;
+            var cajaActiva = await usuarioCajaCmd.ExecuteScalarAsync(cancellationToken);
+            if (cajaActiva is not null && cajaActiva != DBNull.Value)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return Conflict(new
+                {
+                    ok = false,
+                    mensaje = "Ya se encuentra una caja abierta. Ciérrela antes de modificar."
+                });
+            }
+
             await using var validarCmd = new SqlCommand("uspValidaCantCajasWeb", con, tx)
             {
                 CommandType = CommandType.StoredProcedure
             };
-            var cajaIdParameter = validarCmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
-            cajaIdParameter.Precision = 38;
-            cajaIdParameter.Scale = 0;
-            cajaIdParameter.Value = cajaId;
+            var validarCajaIdParameter = validarCmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+            validarCajaIdParameter.Precision = 38;
+            validarCajaIdParameter.Scale = 0;
+            validarCajaIdParameter.Value = cajaId;
             validarCmd.Parameters.Add("@UsuarioId", SqlDbType.Int).Value = caja.UsuarioId;
             var validacion = (await validarCmd.ExecuteScalarAsync(cancellationToken))?.ToString()?.Trim().ToUpperInvariant();
 
@@ -558,10 +733,10 @@ public sealed class CashFlowController : ControllerBase
             cajaId.ToString(CultureInfo.InvariantCulture), CajaField(estado == "ACTIVO" ? string.Empty : caja.FechaCierre),
             montoInicial.ToString("0.00", CultureInfo.InvariantCulture),
             CajaField(caja.Encargado), CajaField(caja.Usuario), estado,
-            caja.Ingresos.ToString("0.00", CultureInfo.InvariantCulture),
+            cajaIngresos.ToString("0.00", CultureInfo.InvariantCulture),
             caja.Depositos.ToString("0.00", CultureInfo.InvariantCulture),
             caja.Salidas.ToString("0.00", CultureInfo.InvariantCulture),
-            caja.Total.ToString("0.00", CultureInfo.InvariantCulture),
+            cajaTotal.ToString("0.00", CultureInfo.InvariantCulture),
             caja.UsuarioId.ToString(CultureInfo.InvariantCulture), CajaField(observacion)
         });
         var raw = await EjecutarCajaInsertaCsvAsync(con, tx, data, cancellationToken);
@@ -664,9 +839,22 @@ public sealed class CashFlowController : ControllerBase
                    ISNULL(CajaEncargado, '') AS Encargado, ISNULL(CajaUsuario, '') AS Usuario,
                    ISNULL(CajaIngresos, 0) AS Ingresos, ISNULL(CajaDeposito, 0) AS Depositos,
                    ISNULL(CajaSalidas, 0) AS Salidas, ISNULL(CajaTotal, 0) AS Total,
-                   ISNULL(UsuarioId, 0) AS UsuarioId, ISNULL(Observacion, '') AS Observacion
-              FROM Caja WITH (UPDLOCK, HOLDLOCK)
-             WHERE CajaId = @CajaId
+                   ISNULL(UsuarioId, 0) AS UsuarioId, ISNULL(Observacion, '') AS Observacion,
+                   ISNULL((SELECT SUM(ISNULL(T.Importe, 0))
+                             FROM TABLAOBS T
+                             LEFT JOIN NotaPedido n ON n.NotaTransaccion = T.NotaTransaccion
+                            WHERE T.TipoVenta = 'OBS' AND n.CajaId = c.CajaId), 0) AS SistemaObs,
+                   ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0))
+                             FROM CajaDetalle d
+                            WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'INGRESO'
+                              AND ISNULL(d.NotaId, 0) = 0
+                              AND ISNULL(d.DetalleConcepto, '') NOT IN ('TOTAL EFECTIVO', 'SENCILLO')), 0) AS IngresosManuales,
+                   ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0))
+                             FROM CajaDetalle d
+                            WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA'
+                              AND ISNULL(d.NotaId, 0) = 0), 0) AS SalidasCalculadas
+              FROM Caja c WITH (UPDLOCK, HOLDLOCK)
+             WHERE c.CajaId = @CajaId
             """, con, tx);
         cmd.Parameters.Add("@CajaId", SqlDbType.Decimal).Value = cajaId;
         cmd.Parameters["@CajaId"].Precision = 38;
@@ -685,10 +873,29 @@ public sealed class CashFlowController : ControllerBase
             Convert.ToDecimal(reader["Salidas"], CultureInfo.InvariantCulture),
             Convert.ToDecimal(reader["Total"], CultureInfo.InvariantCulture),
             Convert.ToInt32(reader["UsuarioId"], CultureInfo.InvariantCulture),
-            reader["Observacion"]?.ToString() ?? string.Empty);
+            reader["Observacion"]?.ToString() ?? string.Empty,
+            Convert.ToDecimal(reader["SistemaObs"], CultureInfo.InvariantCulture),
+            Convert.ToDecimal(reader["IngresosManuales"], CultureInfo.InvariantCulture),
+            Convert.ToDecimal(reader["SalidasCalculadas"], CultureInfo.InvariantCulture));
     }
 
     private static string CajaField(string? value) => (value ?? string.Empty).Replace('|', ' ').Trim();
+
+    private static async Task<bool> BloquearUsuarioCajaAsync(
+        SqlConnection con,
+        SqlTransaction tx,
+        int usuarioId,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new SqlCommand("""
+            SELECT UsuarioID
+              FROM dbo.Usuarios WITH (UPDLOCK, HOLDLOCK)
+             WHERE UsuarioID = @UsuarioId
+            """, con, tx);
+        cmd.Parameters.Add("@UsuarioId", SqlDbType.Int).Value = usuarioId;
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+        return result is not null && result != DBNull.Value;
+    }
 
     private static string MensajeCajaInserta(string raw) => raw.ToUpperInvariant() switch
     {
@@ -720,7 +927,12 @@ public sealed class CashFlowController : ControllerBase
         decimal Salidas,
         decimal Total,
         int UsuarioId,
-        string Observacion);
+        string Observacion,
+        decimal SistemaObs,
+        decimal IngresosManuales,
+        decimal SalidasCalculadas);
+
+    private sealed record CajaFlowTotals(decimal Ingresos, decimal Diferencia);
 }
 
 public sealed record OpenCashFlowRequest(
@@ -763,7 +975,11 @@ public sealed record CashCountResponse(decimal Billete, int Cantidad);
 
 public sealed record CloseCashFlowRequest(int UsuarioId, decimal? MontoInicial, string? Observacion, List<CashCountRequest>? Monedas);
 
-public sealed record UpdateCashFlowStateRequest(string? Estado, decimal? MontoInicial, string? Observacion);
+public sealed record UpdateCashFlowStateRequest(
+    string? Estado,
+    decimal? MontoInicial,
+    string? Observacion,
+    List<CashCountRequest>? Monedas);
 
 public sealed record UpdateCashFlowManualIncomeRequest(List<CashFlowManualIncomeRequest>? Movimientos);
 

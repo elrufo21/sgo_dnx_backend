@@ -14,6 +14,7 @@ namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Authorize]
+[RequireAttendance]
 [RequirePermission("CAJA.VER")]
 [Route("api/v1/[controller]")]
 public sealed class DepositosCentroController : ControllerBase

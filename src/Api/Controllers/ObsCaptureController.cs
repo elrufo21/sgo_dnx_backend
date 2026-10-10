@@ -1,5 +1,6 @@
 using System.Data;
 using System.Globalization;
+using Ecommerce.Api.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 
@@ -7,6 +8,7 @@ namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[RequireAttendance]
 public sealed class ObsCaptureController : ControllerBase
 {
     private readonly IConfiguration _configuration;

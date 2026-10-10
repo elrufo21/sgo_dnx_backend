@@ -1,5 +1,6 @@
 using System.Data;
 using System.Globalization;
+using Ecommerce.Api.Security;
 using Ecommerce.Application.Contracts.Infrastructure;
 using Ecommerce.Application.Models.ImageManagement;
 using Ecommerce.Infrastructure.ImageLocal;
@@ -10,6 +11,7 @@ namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/v1/[controller]")]
+[RequireAttendance]
 public sealed class PettyCashMovementController : ControllerBase
 {
     private const long MaxImageSizeBytes = 5 * 1024 * 1024;
