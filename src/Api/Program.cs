@@ -67,7 +67,13 @@ builder.Services.AddRateLimiter(options =>
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
-        var key = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var userId = context.User.Identity?.IsAuthenticated == true
+            ? context.User.FindFirst("userId")?.Value
+            : null;
+        var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var key = !string.IsNullOrWhiteSpace(userId)
+            ? $"user:{userId}"
+            : $"ip:{remoteIp}";
         return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = 120,
@@ -197,8 +203,6 @@ else
 {
     app.UseExceptionHandler();
 }
-app.UseRateLimiter();
-
 app.UseCors("CorsPolicy");
 app.UseStaticFiles(new StaticFileOptions
 {
@@ -206,6 +210,7 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = localMediaRequestPath
 });
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapControllers();

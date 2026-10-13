@@ -1,6 +1,7 @@
 using System.Data;
 using System.Globalization;
 using System.Net;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -851,11 +852,28 @@ public sealed class CashFlowController : ControllerBase
 
     private const string MensajeArqueoDiario = "No podrá abrir o cerrar la caja porque no registró su conteo general de efectivo diario.";
 
-    private static async Task<bool> ValidarArqueoDiarioAsync(
+    private async Task<bool> ValidarArqueoDiarioAsync(
         SqlConnection con,
         SqlTransaction? tx,
         CancellationToken cancellationToken)
     {
+        if (!int.TryParse(User.FindFirstValue("companiaId"), out var companiaId) || companiaId <= 0)
+            return true;
+
+        await using (var configCmd = new SqlCommand("""
+            SELECT TOP (1) ISNULL(ValorNum, 0)
+              FROM dbo.Indicador
+             WHERE CompaniaId = @CompaniaId
+               AND Area = 'CAJA'
+               AND Descripcion = 'MULTIPLES_CAJAS'
+             ORDER BY FechaActualizacion DESC, Id DESC
+            """, con, tx))
+        {
+            configCmd.Parameters.Add("@CompaniaId", SqlDbType.Int).Value = companiaId;
+            if (Convert.ToInt32(await configCmd.ExecuteScalarAsync(cancellationToken) ?? 0, CultureInfo.InvariantCulture) != 1)
+                return true;
+        }
+
         await using var cmd = new SqlCommand("uspValidarArqueoCajaWEB", con, tx)
         {
             CommandType = CommandType.StoredProcedure

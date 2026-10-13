@@ -20,5 +20,6 @@ El sitio web incluye `web.config` para redirigir las rutas de React a `index.htm
 ## Extensión y agente de impresión
 
 - Instalar la extensión desde la carpeta `extension` con **Cargar descomprimida** en Chrome o Edge. Está enlazada a `http://192.168.1.38:8080`.
-- Instalar Node.js 20 o superior y ejecutar `npm ci` dentro de `print-agent`.
-- Dentro de la carpeta del agente, ejecutar una sola vez `powershell -ExecutionPolicy Bypass -File .\install-auto-start.ps1`. Registra la tarea **DNX Print Agent** para inicio de sesión y la reinicia ante fallos. El agente usa `127.0.0.1:5174`, por lo que va en cada PC que imprima, no como servicio de red.
+- El agente debe instalarse en cada PC donde se abra DNX y se imprima. Si el propio servidor también es una estación de impresión, puede instalarse allí como servicio de Windows; escucha solo en `127.0.0.1:5174` y no como servicio de red.
+- Para instalarlo como servicio, instalar Node.js 20 o superior para todo el equipo, ejecutar `npm ci` en `print-agent`, configurar `agent.config.json` y ejecutar `install-service.ps1` desde PowerShell como administrador.
+- Si el servidor no imprime desde una sesión de navegador local, no necesita el agente. Para retirar una instalación anterior, seguir `dnx-print-agent/docs/servicio-windows-y-desinstalacion.md` y ejecutar `uninstall-agent.ps1` en la carpeta del agente del servidor.
