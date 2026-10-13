@@ -64,7 +64,23 @@ public sealed class CierreCajaFinalController : ControllerBase
         var monedas = conteoId == 0
             ? string.Join(";", request.Monedas.Select(x => $"{x.Cantidad}|{Dinero(x.Denominacion)}|{Dinero(x.Cantidad * x.Denominacion)}|"))
             : string.Join(";", request.Monedas.Select(x => $"{x.Id}|{x.Cantidad}|{Dinero(x.Cantidad * x.Denominacion)}"));
+        var claveAdministrador = request.ClaveAdministrador?.Trim();
+        if (string.IsNullOrWhiteSpace(claveAdministrador))
+            return Unauthorized(new { ok = false, mensaje = "Solo el administrador puede cerrar la caja final." });
+
         await using var con = await Abrir(ct);
+        await using (var validarClave = new SqlCommand("""
+            SELECT TOP (1) 1
+              FROM Usuarios
+             WHERE dbo.desincrectar(UsuarioClave) = @Clave
+               AND Administrador = 1;
+            """, con))
+        {
+            validarClave.Parameters.AddWithValue("@Clave", claveAdministrador);
+            if (await validarClave.ExecuteScalarAsync(ct) is null)
+                return Unauthorized(new { ok = false, mensaje = "Solo el administrador puede cerrar la caja final." });
+        }
+
         if (conteoId == 0)
         {
             var existe = (await Scalar(con, "usplistaConteoWEB", null, null, ct, request.Fecha, request.Fecha))
@@ -101,4 +117,4 @@ public sealed class CierreCajaFinalController : ControllerBase
 
 public sealed record Movimiento(string Descripcion, decimal Importe, long Id = 0, string? Estado = "T");
 public sealed record Moneda(decimal Denominacion, int Cantidad, long Id = 0);
-public sealed record GuardarCierre(DateOnly Fecha, int UsuarioId, string Usuario, string? Cajeros, decimal? TotalObs, string? Observaciones, List<Movimiento> Ingresos, List<Movimiento> Gastos, List<Moneda> Monedas);
+public sealed record GuardarCierre(DateOnly Fecha, string? ClaveAdministrador, int UsuarioId, string Usuario, string? Cajeros, decimal? TotalObs, string? Observaciones, List<Movimiento> Ingresos, List<Movimiento> Gastos, List<Moneda> Monedas);

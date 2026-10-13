@@ -1,5 +1,6 @@
 using System.Data;
 using System.Globalization;
+using System.Net;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -84,6 +85,44 @@ public sealed class CashFlowController : ControllerBase
 
         items.Sort((a, b) => b.CajaId.CompareTo(a.CajaId));
         return Ok(items);
+    }
+
+    [HttpGet("ventas-no-capturadas")]
+    public async Task<IActionResult> VentasNoCapturadas(
+        [FromQuery] DateOnly fecha,
+        CancellationToken cancellationToken)
+    {
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return StatusCode(500, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
+
+        await using var con = new SqlConnection(connectionString);
+        await using var cmd = new SqlCommand("dbo.uspCruzeOBS", con)
+        {
+            CommandType = CommandType.StoredProcedure
+        };
+        cmd.Parameters.Add("@Fecha", SqlDbType.Date).Value = fecha.ToDateTime(TimeOnly.MinValue);
+        await con.OpenAsync(cancellationToken);
+        var payload = Convert.ToString(await cmd.ExecuteScalarAsync(cancellationToken), CultureInfo.InvariantCulture) ?? string.Empty;
+        var dataEnd = payload.IndexOf('[');
+        var sections = (dataEnd >= 0 ? payload[..dataEnd] : payload).Split('¬');
+        var rows = new List<UncapturedObsSale>();
+
+        foreach (var section in sections.Skip(3))
+        {
+            if (string.IsNullOrWhiteSpace(section) || section == "~") continue;
+            var fields = section.Split('|');
+            if (fields.Length != 4 || !decimal.TryParse(fields[3].Replace(",", string.Empty), NumberStyles.Number, CultureInfo.InvariantCulture, out var importe))
+                return StatusCode(500, new { ok = false, mensaje = "El procedimiento devolvió una venta con formato inválido." });
+
+            rows.Add(new UncapturedObsSale(
+                WebUtility.HtmlDecode(fields[0]) ?? string.Empty,
+                WebUtility.HtmlDecode(fields[1]) ?? string.Empty,
+                WebUtility.HtmlDecode(fields[2]) ?? string.Empty,
+                importe));
+        }
+
+        return Ok(new { fecha, ventasNoCapturadas = rows });
     }
 
     private static async Task<Dictionary<long, decimal>> ObtenerDiferenciasCerradasAsync(
@@ -256,7 +295,8 @@ public sealed class CashFlowController : ControllerBase
             Convert.ToDecimal(reader["EfectivoEsperado"], CultureInfo.InvariantCulture),
             monedas,
             "ACTIVO",
-            string.Empty);
+            string.Empty,
+            usuarioId);
 
         if (await reader.NextResultAsync(cancellationToken))
         {
@@ -286,6 +326,7 @@ public sealed class CashFlowController : ControllerBase
                    ISNULL(c.CajaCierre, '') AS FechaCierre, ISNULL(c.CajaEstado, '') AS Estado,
                    ISNULL(c.MontoIniSOl, 0) AS MontoInicial, ISNULL(c.CajaEncargado, '') AS Encargado,
                    ISNULL(c.CajaUsuario, '') AS Usuario, ISNULL(c.Observacion, '') AS Observacion,
+                   ISNULL(c.UsuarioId, 0) AS UsuarioId,
                    ISNULL((SELECT SUM(ISNULL(n.Efectivo, 0)) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS VentasEfectivo,
                    ISNULL((SELECT SUM(CASE WHEN UPPER(ISNULL(n.NotaFormaPago, '')) LIKE '%TARJETA%' THEN ISNULL(n.Deposito, 0) ELSE 0 END) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS VentasTarjeta,
                    ISNULL((SELECT SUM(CASE WHEN UPPER(ISNULL(n.NotaFormaPago, '')) LIKE '%TARJETA%' THEN 0 ELSE ISNULL(n.Deposito, 0) END) FROM NotaPedido n WHERE n.CajaId = c.CajaId AND ISNULL(n.NotaEstado, '') <> 'ANULADO'), 0) AS VentasDeposito,
@@ -319,7 +360,8 @@ public sealed class CashFlowController : ControllerBase
             Convert.ToDecimal(reader["VentasDeposito"], CultureInfo.InvariantCulture), salidas,
             montoInicial + sistemaObs - salidas + ingresosCajaChica, monedas,
             reader["Estado"]?.ToString() ?? string.Empty,
-            reader["FechaCierre"]?.ToString() ?? string.Empty);
+            reader["FechaCierre"]?.ToString() ?? string.Empty,
+            Convert.ToInt32(reader["UsuarioId"], CultureInfo.InvariantCulture));
 
         if (await reader.NextResultAsync(cancellationToken))
             while (await reader.ReadAsync(cancellationToken))
@@ -417,7 +459,57 @@ public sealed class CashFlowController : ControllerBase
 
         await using var con = new SqlConnection(connectionString);
         await con.OpenAsync(cancellationToken);
+
+        int usuarioIdCaja;
+        await using (var propietarioCmd = new SqlCommand(
+            "SELECT UsuarioId FROM Caja WHERE CajaId = @CajaId", con))
+        {
+            propietarioCmd.Parameters.Add("@CajaId", SqlDbType.Decimal).Value = cajaId;
+            propietarioCmd.Parameters["@CajaId"].Precision = 38;
+            propietarioCmd.Parameters["@CajaId"].Scale = 0;
+            var propietario = await propietarioCmd.ExecuteScalarAsync(cancellationToken);
+            if (propietario is null || propietario == DBNull.Value)
+                return NotFound(new { ok = false, mensaje = "No se encontró la caja." });
+            usuarioIdCaja = Convert.ToInt32(propietario, CultureInfo.InvariantCulture);
+        }
+
         await using var tx = (SqlTransaction)await con.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        if (!await BloquearUsuarioCajaAsync(con, tx, usuarioIdCaja, cancellationToken))
+            return Conflict(new { ok = false, mensaje = "No se encontró el usuario encargado de la caja." });
+
+        string estadoCaja;
+        await using (var cajaCmd = new SqlCommand("""
+            SELECT CajaEstado, UsuarioId
+              FROM Caja WITH (UPDLOCK, HOLDLOCK)
+             WHERE CajaId = @CajaId
+            """, con, tx))
+        {
+            cajaCmd.Parameters.Add("@CajaId", SqlDbType.Decimal).Value = cajaId;
+            cajaCmd.Parameters["@CajaId"].Precision = 38;
+            cajaCmd.Parameters["@CajaId"].Scale = 0;
+            await using var reader = await cajaCmd.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken))
+            {
+                await reader.DisposeAsync();
+                await tx.RollbackAsync(cancellationToken);
+                return NotFound(new { ok = false, mensaje = "No se encontró la caja." });
+            }
+            estadoCaja = reader["CajaEstado"]?.ToString()?.Trim().ToUpperInvariant() ?? string.Empty;
+            if (Convert.ToInt32(reader["UsuarioId"], CultureInfo.InvariantCulture) != usuarioIdCaja)
+            {
+                await reader.DisposeAsync();
+                await tx.RollbackAsync(cancellationToken);
+                return Conflict(new { ok = false, mensaje = "El encargado de la caja cambió. Vuelve a cargar el registro." });
+            }
+        }
+
+        if (estadoCaja.StartsWith("CERR", StringComparison.Ordinal) &&
+            await TieneOtraCajaActivaAsync(con, tx, usuarioIdCaja, cajaId, cancellationToken))
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return Conflict(new { ok = false, mensaje = MensajeEdicionCajaCerrada });
+        }
+
         foreach (var movimiento in request.Movimientos)
         {
             await using var cmd = new SqlCommand("""
@@ -639,6 +731,13 @@ public sealed class CashFlowController : ControllerBase
         if (request.MontoInicial is < 0)
             return BadRequest(new { ok = false, mensaje = "El sencillo no puede ser negativo." });
 
+        if (caja.Estado.Trim().ToUpperInvariant().StartsWith("CERR", StringComparison.Ordinal) &&
+            await TieneOtraCajaActivaAsync(con, tx, caja.UsuarioId, cajaId, cancellationToken))
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return Conflict(new { ok = false, mensaje = MensajeEdicionCajaCerrada });
+        }
+
         var montoInicial = request.MontoInicial ?? caja.MontoInicial;
         var observacion = request.Observacion ?? caja.Observacion;
         var cajaIngresos = caja.Ingresos;
@@ -686,19 +785,7 @@ public sealed class CashFlowController : ControllerBase
 
         if (estado == "ACTIVO")
         {
-            await using var usuarioCajaCmd = new SqlCommand("""
-                SELECT TOP 1 CajaId FROM Caja WITH (UPDLOCK, HOLDLOCK)
-                 WHERE UsuarioId = @UsuarioId AND CajaEstado = 'ACTIVO' AND CajaId <> @CajaId
-                 ORDER BY CajaId DESC
-                """, con, tx);
-            var usuarioIdParameter = usuarioCajaCmd.Parameters.Add("@UsuarioId", SqlDbType.Int);
-            usuarioIdParameter.Value = caja.UsuarioId;
-            var cajaIdParameter = usuarioCajaCmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
-            cajaIdParameter.Precision = 38;
-            cajaIdParameter.Scale = 0;
-            cajaIdParameter.Value = cajaId;
-            var cajaActiva = await usuarioCajaCmd.ExecuteScalarAsync(cancellationToken);
-            if (cajaActiva is not null && cajaActiva != DBNull.Value)
+            if (await TieneOtraCajaActivaAsync(con, tx, caja.UsuarioId, cajaId, cancellationToken))
             {
                 await tx.RollbackAsync(cancellationToken);
                 return Conflict(new
@@ -879,6 +966,30 @@ public sealed class CashFlowController : ControllerBase
 
     private static string CajaField(string? value) => (value ?? string.Empty).Replace('|', ' ').Trim();
 
+    private const string MensajeEdicionCajaCerrada =
+        "Hay una caja aperturada. Ciérrala antes de modificar una caja cerrada.";
+
+    private static async Task<bool> TieneOtraCajaActivaAsync(
+        SqlConnection con,
+        SqlTransaction tx,
+        int usuarioId,
+        long cajaId,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new SqlCommand("""
+            SELECT TOP (1) CajaId
+              FROM Caja WITH (UPDLOCK, HOLDLOCK)
+             WHERE UsuarioId = @UsuarioId AND CajaEstado = 'ACTIVO' AND CajaId <> @CajaId
+             ORDER BY CajaId DESC
+            """, con, tx);
+        cmd.Parameters.Add("@UsuarioId", SqlDbType.Int).Value = usuarioId;
+        var cajaIdParameter = cmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+        cajaIdParameter.Precision = 38;
+        cajaIdParameter.Scale = 0;
+        cajaIdParameter.Value = cajaId;
+        return await cmd.ExecuteScalarAsync(cancellationToken) is not null;
+    }
+
     private static async Task<bool> BloquearUsuarioCajaAsync(
         SqlConnection con,
         SqlTransaction tx,
@@ -932,6 +1043,8 @@ public sealed class CashFlowController : ControllerBase
 
 }
 
+public sealed record UncapturedObsSale(string Transaccion, string Codigo, string Cliente, decimal Importe);
+
 public sealed record OpenCashFlowRequest(
     int UsuarioId,
     string Encargado,
@@ -966,7 +1079,8 @@ public sealed record ActiveCashFlowResponse(
     decimal EfectivoEsperado,
     List<CashCountResponse> Monedas,
     string Estado,
-    string FechaCierre);
+    string FechaCierre,
+    int UsuarioId);
 
 public sealed record CashCountResponse(decimal Billete, int Cantidad);
 

@@ -24,4 +24,6 @@ Antes de usarlo se debe ejecutar [20260831_informe_caja_final_web.sql](../script
 
 El mismo script crea `uspEditarConteoCajaWEB`, que delega en el procedimiento de edición del escritorio sin modificarlo. El candado del informe habilita esa edición y al volver a bloquear descarta los cambios no guardados.
 
+Los PDF del cierre individual y del informe final incluyen la sección **Ventas que no se capturaron al facturador**. El backend obtiene las filas de `dbo.uspCruzeOBS` para la fecha del cierre y expone transacción, código, cliente e importe en `GET /api/v1/CashFlow/ventas-no-capturadas?fecha=YYYY-MM-DD`. El procedimiento define el filtro como `NotaPedido.CajaId IS NULL`; por tanto, el reporte representa ventas de `TABLAOBS` sin caja asociada según ese criterio.
+
 Al crear un informe, el procedimiento heredado devuelve su identificador numérico (por ejemplo, `98`), no la palabra `true`. El API reconoce ese identificador como éxito y lo devuelve como `id`; registrar el informe no abre, cierra ni modifica una `Caja`.
