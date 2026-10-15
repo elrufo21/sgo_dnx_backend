@@ -10,6 +10,8 @@ En **Configuración > Caja**, registrar los destinatarios. En la pantalla de una
 
 En esa misma vista, **Permitir múltiples cajas abiertas** administra el indicador `dbo.Indicador` con `Area = 'CAJA'` y `Descripcion = 'MULTIPLES_CAJAS'`: `ValorNum = 0` permite una sola caja activa por compañía y oculta el módulo **Generar informe final**; `ValorNum = 1` permite varias cajas activas y muestra el módulo en el menú. **Exigir asistencia** administra el indicador `ASISTENCIA` de esa compañía: activado, ventas web y escrituras de Caja requieren asistencia del día; desactivado, esas validaciones no bloquean. La API conserva `FlagCaja` como nombre del campo de configuración que recibe y devuelve, pero el dato persistido está en `Indicador`, no en una columna de `Compania`.
 
+Toda la configuración de **Configuración > Caja** solo se puede editar cuando no queda ninguna caja en estado `ACTIVO` para la compañía. La web consulta ese estado y deshabilita los campos y el guardado mientras haya una caja abierta. El endpoint de estado es informativo; el `PATCH /api/v1/Compania/{id}/caja-configuracion` vuelve a revisar el estado dentro de una transacción serializable y responde `409 Conflict` si hay cajas abiertas, para cubrir datos desactualizados y llamadas directas a la API. El resto de los indicadores de compañía no está sujeto a esta regla.
+
 El asunto conserva el formato del escritorio: `DXN CIERRE DE CAJA GENERAL DEL DIA dd-MM-yyyy`. El correo usa una plantilla HTML con el número de caja, fecha, estado del cuadre, detalle de la diferencia y el aviso del PDF adjunto. La firma muestra el primer nombre y apellido del responsable de la caja.
 
 ## Alcance técnico

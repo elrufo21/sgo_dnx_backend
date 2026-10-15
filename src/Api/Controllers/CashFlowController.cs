@@ -312,6 +312,24 @@ public sealed class CashFlowController : ControllerBase
         return Ok(response);
     }
 
+    [HttpGet("active/exists", Name = "HasActiveCashFlow")]
+    public async Task<IActionResult> ExisteCajaActiva(CancellationToken cancellationToken)
+    {
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+            return StatusCode(500, new { ok = false, mensaje = "No se encontró la cadena de conexión." });
+
+        await using var con = new SqlConnection(connectionString);
+        await using var cmd = new SqlCommand("""
+            SELECT TOP (1) CajaId
+              FROM Caja
+             WHERE CajaEstado = 'ACTIVO'
+            """, con);
+        await con.OpenAsync(cancellationToken);
+        var result = await cmd.ExecuteScalarAsync(cancellationToken);
+        return Ok(new { existe = result is not null && result != DBNull.Value });
+    }
+
     [HttpGet("{cajaId:long}/detail", Name = "GetCashFlowDetail")]
     public async Task<IActionResult> ObtenerDetalle(long cajaId, CancellationToken cancellationToken)
     {
@@ -505,7 +523,7 @@ public sealed class CashFlowController : ControllerBase
         }
 
         if (estadoCaja.StartsWith("CERR", StringComparison.Ordinal) &&
-            await TieneOtraCajaActivaAsync(con, tx, usuarioIdCaja, cajaId, cancellationToken))
+            await ExisteOtraCajaActivaAsync(con, tx, cajaId, cancellationToken))
         {
             await tx.RollbackAsync(cancellationToken);
             return Conflict(new { ok = false, mensaje = MensajeEdicionCajaCerrada });
@@ -733,7 +751,7 @@ public sealed class CashFlowController : ControllerBase
             return BadRequest(new { ok = false, mensaje = "El sencillo no puede ser negativo." });
 
         if (caja.Estado.Trim().ToUpperInvariant().StartsWith("CERR", StringComparison.Ordinal) &&
-            await TieneOtraCajaActivaAsync(con, tx, caja.UsuarioId, cajaId, cancellationToken))
+            await ExisteOtraCajaActivaAsync(con, tx, cajaId, cancellationToken))
         {
             await tx.RollbackAsync(cancellationToken);
             return Conflict(new { ok = false, mensaje = MensajeEdicionCajaCerrada });
@@ -1001,6 +1019,25 @@ public sealed class CashFlowController : ControllerBase
              ORDER BY CajaId DESC
             """, con, tx);
         cmd.Parameters.Add("@UsuarioId", SqlDbType.Int).Value = usuarioId;
+        var cajaIdParameter = cmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
+        cajaIdParameter.Precision = 38;
+        cajaIdParameter.Scale = 0;
+        cajaIdParameter.Value = cajaId;
+        return await cmd.ExecuteScalarAsync(cancellationToken) is not null;
+    }
+
+    private static async Task<bool> ExisteOtraCajaActivaAsync(
+        SqlConnection con,
+        SqlTransaction tx,
+        long cajaId,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new SqlCommand("""
+            SELECT TOP (1) CajaId
+              FROM Caja WITH (UPDLOCK, HOLDLOCK)
+             WHERE CajaEstado = 'ACTIVO' AND CajaId <> @CajaId
+             ORDER BY CajaId DESC
+            """, con, tx);
         var cajaIdParameter = cmd.Parameters.Add("@CajaId", SqlDbType.Decimal);
         cajaIdParameter.Precision = 38;
         cajaIdParameter.Scale = 0;

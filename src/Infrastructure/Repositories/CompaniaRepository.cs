@@ -1,5 +1,6 @@
 using Ecommerce.Application.Contracts.Companias;
 using Ecommerce.Domain;
+using System.Data;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
 
@@ -123,7 +124,7 @@ public class CompaniaRepository : ICompania
         return await GuardarIndicadorAsync(con, null, id, "VENTAS", "CAPTURA_HTML", 1, null, flagCaptura ? 1 : 0, null, cancellationToken);
     }
 
-    public async Task<bool> ActualizarConfiguracionCajaAsync(
+    public async Task<ActualizarConfiguracionCajaResult> ActualizarConfiguracionCajaAsync(
         int id,
         bool flagCaja,
         string? correosAdmin,
@@ -131,15 +132,21 @@ public class CompaniaRepository : ICompania
         bool? flagAsistencia = null,
         CancellationToken cancellationToken = default)
     {
-        if (diasMaxDep is < 0 or > 3650) return false;
+        if (diasMaxDep is < 0 or > 3650) return ActualizarConfiguracionCajaResult.CompaniaNoEncontrada;
         await using var con = new SqlConnection(_connectionString);
         await con.OpenAsync(cancellationToken);
-        await using var transaction = (SqlTransaction)await con.BeginTransactionAsync(cancellationToken);
+        await using var transaction = (SqlTransaction)await con.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        if (await TieneCajasAbiertasAsync(con, transaction, id, cancellationToken))
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return ActualizarConfiguracionCajaResult.CajasAbiertas;
+        }
+
         var existe = await GuardarIndicadorAsync(con, transaction, id, "CAJA", "MULTIPLES_CAJAS", 1, null, flagCaja ? 1 : 0, null, cancellationToken);
         if (!existe)
         {
             await transaction.RollbackAsync(cancellationToken);
-            return false;
+            return ActualizarConfiguracionCajaResult.CompaniaNoEncontrada;
         }
 
         await GuardarIndicadorAsync(con, transaction, id, "CORREO", "CORREOS_ADMIN", 3, correosAdmin?.Trim(), null, null, cancellationToken);
@@ -153,7 +160,35 @@ public class CompaniaRepository : ICompania
             await legacy.ExecuteNonQueryAsync(cancellationToken);
         }
         await transaction.CommitAsync(cancellationToken);
-        return true;
+        return ActualizarConfiguracionCajaResult.Actualizado;
+    }
+
+    public async Task<bool> TieneCajasAbiertasAsync(int id, CancellationToken cancellationToken = default)
+    {
+        await using var con = new SqlConnection(_connectionString);
+        await con.OpenAsync(cancellationToken);
+        return await TieneCajasAbiertasAsync(con, null, id, cancellationToken);
+    }
+
+    private static async Task<bool> TieneCajasAbiertasAsync(
+        SqlConnection con,
+        SqlTransaction? transaction,
+        int companiaId,
+        CancellationToken cancellationToken)
+    {
+        const string sql = """
+            SELECT CASE WHEN EXISTS (
+                SELECT 1
+                  FROM dbo.Caja c WITH (UPDLOCK, HOLDLOCK)
+                  INNER JOIN dbo.Usuarios u ON u.UsuarioID = c.UsuarioId
+                  INNER JOIN dbo.Personal p ON p.PersonalId = u.PersonalId
+                 WHERE p.CompaniaId = @CompaniaId
+                   AND UPPER(LTRIM(RTRIM(ISNULL(c.CajaEstado, '')))) = 'ACTIVO'
+            ) THEN CAST(1 AS bit) ELSE CAST(0 AS bit) END;
+            """;
+        await using var cmd = new SqlCommand(sql, con, transaction);
+        cmd.Parameters.Add("@CompaniaId", SqlDbType.Int).Value = companiaId;
+        return Convert.ToBoolean(await cmd.ExecuteScalarAsync(cancellationToken));
     }
 
     public async Task<bool> EliminarAsync(int id, CancellationToken cancellationToken = default)

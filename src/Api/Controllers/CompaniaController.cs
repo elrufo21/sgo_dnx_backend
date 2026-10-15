@@ -110,6 +110,15 @@ public class CompaniaController : ControllerBase
     }
 
     [Authorize]
+    [HttpGet("{id}/caja-configuracion/estado", Name = "ObtenerEstadoCajasConfiguracion")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    public async Task<IActionResult> ObtenerEstadoCajasConfiguracion(int id, CancellationToken cancellationToken)
+    {
+        if (id <= 0) return BadRequest("Id inválido.");
+        return Ok(new { hayCajasAbiertas = await _mediator.TieneCajasAbiertasAsync(id, cancellationToken) });
+    }
+
+    [Authorize]
     [HttpPatch("{id}/caja-configuracion", Name = "ActualizarConfiguracionCaja")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     [ProducesResponseType((int)HttpStatusCode.BadRequest)]
@@ -123,14 +132,23 @@ public class CompaniaController : ControllerBase
         if (request is null) return BadRequest("Payload requerido.");
         if (request.DiasMaxDep is < 0 or > 3650) return BadRequest("DiasMaxDep debe estar entre 0 y 3650.");
 
-        var actualizado = await _mediator.ActualizarConfiguracionCajaAsync(
+        var resultado = await _mediator.ActualizarConfiguracionCajaAsync(
             id,
             request.FlagCaja,
             request.CorreosAdmin,
             request.DiasMaxDep,
             request.FlagAsistencia,
             cancellationToken);
-        if (!actualizado)
+        if (resultado == ActualizarConfiguracionCajaResult.CajasAbiertas)
+        {
+            return Conflict(new
+            {
+                ok = false,
+                mensaje = "Cierra todas las cajas aperturadas antes de modificar la configuración de caja."
+            });
+        }
+
+        if (resultado == ActualizarConfiguracionCajaResult.CompaniaNoEncontrada)
             return NotFound(new { ok = false, mensaje = $"No se encontró la compañía con id {id}." });
 
         return Ok(new

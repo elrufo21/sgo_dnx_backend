@@ -13,9 +13,37 @@ public class EcommerceDbContext : IdentityDbContext<Usuario>
     public EcommerceDbContext(DbContextOptions<EcommerceDbContext> options) : base(options)
     { }
 
+    public override int SaveChanges()
+    {
+        PrepareChanges();
+        return base.SaveChanges();
+    }
+
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        PrepareChanges();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void PrepareChanges()
+    {
         var userName = "system";
+
+        foreach (var entry in ChangeTracker.Entries()
+                     .Where(entry => entry.State is EntityState.Added or EntityState.Modified))
+        {
+            foreach (var property in entry.Properties)
+            {
+                if (property.Metadata.ClrType != typeof(string) ||
+                    property.CurrentValue is not string value ||
+                    IsIdentitySecret(property.Metadata.Name))
+                {
+                    continue;
+                }
+
+                property.CurrentValue = DbDepurarTexto(value);
+            }
+        }
 
         foreach (var entry in ChangeTracker.Entries<BaseDomainModel>())
         {
@@ -33,8 +61,22 @@ public class EcommerceDbContext : IdentityDbContext<Usuario>
             }
         }
 
-        return base.SaveChangesAsync(cancellationToken);
     }
+
+    private static string DbDepurarTexto(string texto) =>
+        texto.Replace("'", "")
+            .Replace("[", "")
+            .Replace("]", "")
+            .Replace(";", "")
+            .Replace("|", "")
+            .Replace("¬", "")
+            .Replace("}", "")
+            .Replace("{", "");
+
+    private static bool IsIdentitySecret(string propertyName) =>
+        propertyName is nameof(IdentityUser.PasswordHash)
+            or nameof(IdentityUser.SecurityStamp)
+            or nameof(IdentityUser.ConcurrencyStamp);
 
     protected override void OnModelCreating(ModelBuilder builder)
     {

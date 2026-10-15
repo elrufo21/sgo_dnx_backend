@@ -5,6 +5,7 @@ using Ecommerce.Api.Legacy;
 using Ecommerce.Api.Interfaces;
 using Ecommerce.Api.Options;
 using Ecommerce.Api.Services;
+using Ecommerce.Api.Filters;
 using Ecommerce.Application;
 using Ecommerce.Application.Contracts.Areas;
 using Ecommerce.Application.Contracts.Clientes;
@@ -113,6 +114,7 @@ builder.Services.AddTransient<IPermisosIndicador, PermisosIndicadorRepository>()
 
 builder.Services.AddControllers(opt =>
 {
+    opt.Filters.Add(new DepurarTextoEntradaFilter());
     var policy = new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build();
     opt.Filters.Add(new AuthorizeFilter(policy));
 }).AddJsonOptions(x =>
