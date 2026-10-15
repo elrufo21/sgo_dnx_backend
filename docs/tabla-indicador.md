@@ -25,4 +25,6 @@ Ejecutar [20260918_crear_tabla_indicador.sql](../scripts/sql/20260918_crear_tabl
 
 Para una tabla ya creada, ejecutar después [20260918_configurar_flags_indicador.sql](../scripts/sql/20260918_configurar_flags_indicador.sql). El script agrega el alcance por compañía y crea, desactivados por defecto, los flags `MULTIPLES_CAJAS`, `CAPTURA_HTML` y `BOLETA_POR_LOTE` bajo las categorías `CONFIGURACION_CAJA` y `CONFIGURACION_VENTAS`.
 
+El flag `ASISTENCIA` controla por compañía si la web exige marcación del día en ventas y operaciones de Caja. Se guarda con `Area = 'CAJA'`, `TipoIndicador = 1`, `ValorNum = 1` para exigirla y `0` para omitirla. El valor inicial es `1`. Ejecutar [20261014_configurar_validacion_asistencia_indicador.sql](../scripts/sql/20261014_configurar_validacion_asistencia_indicador.sql) después de instalar la estructura de `Indicador` y el procedimiento `uspinsertarNotaBweb`.
+
 Para configurar los plazos de anulación, ejecutar [20260922_configurar_anulacion_indicador.sql](../scripts/sql/20260922_configurar_anulacion_indicador.sql). Agrega tres indicadores por compañía bajo `CONFIGURACION_VENTAS`, sin reemplazar valores existentes. Los plazos se pueden modificar actualizando `ValorNum` y `FechaActualizacion` del indicador y la compañía correspondientes.

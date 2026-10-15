@@ -63,7 +63,7 @@ public class CompaniaRepository : ICompania
         await using var cmd = new SqlCommand(sql, con, transaction);
         AddParameters(cmd, compania);
         var id = Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken));
-        await GuardarConfiguracionAsync(con, transaction, id, compania, cancellationToken, inicializarDiasMaxDep: true);
+        await GuardarConfiguracionAsync(con, transaction, id, compania, cancellationToken, inicializarIndicadoresPredeterminados: true);
         await transaction.CommitAsync(cancellationToken);
         return id > 0;
     }
@@ -128,6 +128,7 @@ public class CompaniaRepository : ICompania
         bool flagCaja,
         string? correosAdmin,
         int diasMaxDep,
+        bool? flagAsistencia = null,
         CancellationToken cancellationToken = default)
     {
         if (diasMaxDep is < 0 or > 3650) return false;
@@ -143,6 +144,8 @@ public class CompaniaRepository : ICompania
 
         await GuardarIndicadorAsync(con, transaction, id, "CORREO", "CORREOS_ADMIN", 3, correosAdmin?.Trim(), null, null, cancellationToken);
         await GuardarIndicadorAsync(con, transaction, id, "CAJA", "DIAS_MAX_DEPOSITO", 2, null, diasMaxDep, null, cancellationToken);
+        if (flagAsistencia.HasValue)
+            await GuardarIndicadorAsync(con, transaction, id, "CAJA", "ASISTENCIA", 1, "Exigir asistencia en ventas y caja", flagAsistencia.Value ? 1 : 0, null, cancellationToken);
         await using (var legacy = new SqlCommand("UPDATE dbo.Compania SET DiasMaxDep = @DiasMaxDep WHERE CompaniaId = @CompaniaId;", con, transaction))
         {
             legacy.Parameters.AddWithValue("@CompaniaId", id);
@@ -204,6 +207,7 @@ public class CompaniaRepository : ICompania
                                     CAST(COALESCE(Configuracion.BoletaPorLote, 1) AS bit) AS BoletaPorLote,
                                     CAST(COALESCE(Configuracion.FlagCaptura, 0) AS bit) AS FlagCaptura,
                                     CAST(COALESCE(Configuracion.FlagCaja, 0) AS bit) AS FlagCaja,
+                                    CAST(COALESCE(Configuracion.FlagAsistencia, 1) AS bit) AS FlagAsistencia,
                                     ROW_NUMBER() OVER (ORDER BY CompaniaId DESC) AS RowNum
                              FROM Compania
                              OUTER APPLY
@@ -220,6 +224,7 @@ public class CompaniaRepository : ICompania
                                      MAX(CASE WHEN Descripcion = 'BOLETA_POR_LOTE' THEN ValorNum END) AS BoletaPorLote,
                                      MAX(CASE WHEN Descripcion = 'CAPTURA_HTML' THEN ValorNum END) AS FlagCaptura,
                                      MAX(CASE WHEN Descripcion = 'MULTIPLES_CAJAS' THEN ValorNum END) AS FlagCaja,
+                                     MAX(CASE WHEN Descripcion = 'ASISTENCIA' THEN ValorNum END) AS FlagAsistencia,
                                      MAX(CASE WHEN Descripcion = 'DIAS_MAX_DEPOSITO' THEN ValorNum END) AS DiasMaxDep
                                  FROM dbo.Indicador
                                  WHERE CompaniaId = Compania.CompaniaId
@@ -272,7 +277,8 @@ public class CompaniaRepository : ICompania
                 CorreosAdmin = reader["CorreosAdmin"].ToString(),
                 BoletaPorLote = reader["BoletaPorLote"] != DBNull.Value && Convert.ToBoolean(reader["BoletaPorLote"]),
                 FlagCaptura = reader["FlagCaptura"] != DBNull.Value && Convert.ToBoolean(reader["FlagCaptura"]),
-                FlagCaja = reader["FlagCaja"] != DBNull.Value && Convert.ToBoolean(reader["FlagCaja"])
+                FlagCaja = reader["FlagCaja"] != DBNull.Value && Convert.ToBoolean(reader["FlagCaja"]),
+                FlagAsistencia = reader["FlagAsistencia"] != DBNull.Value && Convert.ToBoolean(reader["FlagAsistencia"])
             });
         }
 
@@ -343,7 +349,7 @@ public class CompaniaRepository : ICompania
 
     }
 
-    private static async Task GuardarConfiguracionAsync(SqlConnection con, SqlTransaction transaction, int companiaId, Compania compania, CancellationToken cancellationToken, bool inicializarDiasMaxDep = false)
+    private static async Task GuardarConfiguracionAsync(SqlConnection con, SqlTransaction transaction, int companiaId, Compania compania, CancellationToken cancellationToken, bool inicializarIndicadoresPredeterminados = false)
     {
         await GuardarIndicadorAsync(con, transaction, companiaId, "CONFIGURACION", "FECHA_RENOVACION", 3, compania.FechaRenovacion?.ToString("yyyy-MM-dd"), null, null, cancellationToken);
         await GuardarIndicadorAsync(con, transaction, companiaId, "CONFIGURACION", "RENOVACION_OSE", 3, compania.RenovacionOSE?.ToString("yyyy-MM-dd"), null, null, cancellationToken);
@@ -356,7 +362,9 @@ public class CompaniaRepository : ICompania
         await GuardarIndicadorAsync(con, transaction, companiaId, "VENTAS", "BOLETA_POR_LOTE", 1, null, compania.BoletaPorLote ? 1 : 0, null, cancellationToken);
         await GuardarIndicadorAsync(con, transaction, companiaId, "VENTAS", "CAPTURA_HTML", 1, null, compania.FlagCaptura ? 1 : 0, null, cancellationToken);
         await GuardarIndicadorAsync(con, transaction, companiaId, "CAJA", "MULTIPLES_CAJAS", 1, null, compania.FlagCaja ? 1 : 0, null, cancellationToken);
-        if ((inicializarDiasMaxDep || compania.DiasMaxDep.HasValue) && compania.DiasMaxDep.GetValueOrDefault(7) is >= 0 and <= 3650)
+        if (inicializarIndicadoresPredeterminados)
+            await GuardarIndicadorAsync(con, transaction, companiaId, "CAJA", "ASISTENCIA", 1, "Exigir asistencia en ventas y caja", compania.FlagAsistencia ? 1 : 0, null, cancellationToken);
+        if ((inicializarIndicadoresPredeterminados || compania.DiasMaxDep.HasValue) && compania.DiasMaxDep.GetValueOrDefault(7) is >= 0 and <= 3650)
         {
             var dias = compania.DiasMaxDep ?? 7;
             await GuardarIndicadorAsync(con, transaction, companiaId, "CAJA", "DIAS_MAX_DEPOSITO", 2, null, dias, null, cancellationToken);

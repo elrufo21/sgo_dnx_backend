@@ -3742,6 +3742,12 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             var clienteDocumento = await ObtenerDatosClienteDocumentoConFallbackAsync(request.Nota.ClienteId, cancellationToken);
             var vdataNota = BuildOrdenPayload(request.Nota, detalles, clienteDocumento);
             var resultado = await _mediator.RegistrarOrdenAsync(vdataNota, cancellationToken);
+            var notaIdRegistrada = ExtraerNotaIdDeRegistro(resultado);
+            if (!notaIdRegistrada.HasValue || notaIdRegistrada.Value <= 0)
+            {
+                return Ok(new { resultado });
+            }
+
             if (EsPagoVarios(request.Nota))
             {
                 await ForzarPendientePagoVariosAsync(resultado, cancellationToken);

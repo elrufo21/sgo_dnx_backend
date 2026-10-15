@@ -128,6 +128,7 @@ public class CompaniaController : ControllerBase
             request.FlagCaja,
             request.CorreosAdmin,
             request.DiasMaxDep,
+            request.FlagAsistencia,
             cancellationToken);
         if (!actualizado)
             return NotFound(new { ok = false, mensaje = $"No se encontró la compañía con id {id}." });
@@ -138,7 +139,8 @@ public class CompaniaController : ControllerBase
             companiaId = id,
             flagCaja = request.FlagCaja,
             correosAdmin = request.CorreosAdmin?.Trim() ?? string.Empty,
-            diasMaxDep = request.DiasMaxDep
+            diasMaxDep = request.DiasMaxDep,
+            flagAsistencia = request.FlagAsistencia
         });
     }
 
@@ -188,4 +190,5 @@ public class ActualizarConfiguracionCajaRequest
     public bool FlagCaja { get; set; }
     public string? CorreosAdmin { get; set; }
     public int DiasMaxDep { get; set; } = 7;
+    public bool? FlagAsistencia { get; set; }
 }

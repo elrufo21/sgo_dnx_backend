@@ -7,7 +7,7 @@ Los pagos de venta se registran en `CajaDetalle` de la caja activa del usuario y
 ## Reglas de registro
 
 - La captura HTML envía el usuario que emite la venta como `UsuarioId`; el procedimiento usa ese dato para obtener su caja activa.
-- Antes de registrar una venta, `uspinsertarNotaBweb` exige una asistencia de hoy vinculada al `PersonalId` del usuario. Si no existe, devuelve `NO ASISTIO` y no escribe la nota. Esta regla no altera procedimientos de escritorio.
+- Antes de registrar una venta, `uspinsertarNotaBweb` exige una asistencia de hoy vinculada al `PersonalId` del usuario cuando el indicador `ASISTENCIA` de su compañía está activado. Si no existe, devuelve `NO ASISTIO` y no escribe la nota. El flag está en **Configuración > Caja** y no altera procedimientos de escritorio.
 - Las escrituras del módulo web Caja Chica también requieren asistencia del usuario autenticado; ver [validación de asistencia en Caja](validacion-asistencia-modulos-caja.md).
 - En IOC/Cashbill (`ConceptoOBS = VENTA`), un depósito, tarjeta, Yape o la parte digital de un pago mixto crea una `SALIDA`, igual que el escritorio.
 - En Venta Libre (`ConceptoOBS = VENTA LIBRE`) se crea un `INGRESO` por el total; si tiene una parte digital, se crea además su `SALIDA` por el depósito.
@@ -30,9 +30,11 @@ Los pagos de venta se registran en `CajaDetalle` de la caja activa del usuario y
 
 ## Aplicación
 
+Si una venta al contado devuelve `OPERACION_REQUERIDA` aunque la solicitud sí envíe `NroOperacion`, verificar que `uspinsertarNotaBweb` lea los campos 30-44 del encabezado. El script `20261014_reparar_parser_uspinsertarNotaBweb.sql` completa esas asignaciones sin reemplazar el resto del procedimiento instalado; ejecutar en la misma base configurada para la API. La API solo debe continuar a SUNAT si el procedimiento devolvió un `NotaId`; ante un rechazo, devuelve el resultado SQL directamente y no intenta emitir el comprobante.
+
 En bases que ya tienen el procedimiento completo, aplicar `20260826_uspinsertarNotaBweb_pago_varios_sin_operacion.sql`. Para una instalación desde cero, aplicar `20260824_uspinsertarNotaBweb_completo_ubigeo_y_fecha_edita.sql` y después `20260824_uspInsertarPagoVarios_movimientos_caja_chica.sql`.
 
-Para incorporar la validación de asistencia en una base existente, aplicar `20260922_validar_asistencia_venta_web.sql`.
+Para incorporar la validación configurable en una base existente, aplicar `20261014_configurar_validacion_asistencia_indicador.sql`. El script crea el indicador activado para cada compañía que no lo tenga y actualiza `uspinsertarNotaBweb`, tanto si la validación anterior ya estaba instalada como si aún no existía.
 
 Para el cálculo del consolidado OBS en flujo de caja, revisar `caja-flujo-obs.md` y aplicar `20260826_caja_obs_consolidado.sql`.
 
