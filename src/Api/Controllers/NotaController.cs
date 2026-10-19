@@ -1140,6 +1140,12 @@ public class NotaController : ControllerBase
 
         try
         {
+            var errorIntegridad = await ValidarCompletitudResumenBoletasAsync(request, cancellationToken);
+            if (errorIntegridad is not null)
+            {
+                return Conflict(new { ok = false, mensaje = errorIntegridad });
+            }
+
             var rutaPfxNormalizada = ResolverRutaPfx(request.RUTA_PFX ?? string.Empty);
             var errorCertificado = CrearRespuestaCertificadoInvalidoSiCorresponde(request.RUTA_PFX, rutaPfxNormalizada);
             if (errorCertificado is not null)
@@ -4468,6 +4474,95 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             .Trim()
             .Replace("\r", string.Empty, StringComparison.Ordinal)
             .Replace("\n", string.Empty, StringComparison.Ordinal);
+    }
+
+    private async Task<string?> ValidarCompletitudResumenBoletasAsync(
+        EnviarResumenBoletasRequest request,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(request.CODIGO?.Trim(), "RC", StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(request.TIPO_DOCUMENTO?.Trim(), "6", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        if (!request.COMPANIA_ID.HasValue || request.COMPANIA_ID.Value <= 0 ||
+            !DateTime.TryParseExact(
+                request.FECHA_REFERENCIA?.Trim(),
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var fechaReferencia))
+        {
+            return "No se pudo validar la compañía y fecha de las boletas pendientes.";
+        }
+
+        var detalle = request.detalle ?? new List<EnviarResumenBoletasDetalleRequest>();
+        if (detalle.Any(item => item is null || !item.docuId.HasValue || item.docuId.Value <= 0))
+        {
+            return "No se envió el resumen: cada boleta debe incluir su identificador de DocumentoVenta.";
+        }
+
+        var idsEnviados = detalle.Select(item => item.docuId!.Value).ToList();
+        var idsEnviadosUnicos = idsEnviados.ToHashSet();
+        if (idsEnviados.Count != idsEnviadosUnicos.Count)
+        {
+            return "No se envió el resumen: el detalle contiene boletas duplicadas.";
+        }
+
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new InvalidOperationException("Missing connection string: DefaultConnection");
+        }
+
+        var documentosPendientes = new Dictionary<int, string>();
+        await using (var connection = new SqlConnection(connectionString))
+        await using (var command = new SqlCommand(
+            @"SELECT DocuId, DocuSerie, DocuNumero
+              FROM dbo.DocumentoVenta
+              WHERE CompaniaId = @CompaniaId
+                AND TipoCodigo = '03'
+                AND EstadoSunat = 'PENDIENTE'
+                AND DocuEmision >= @FechaInicio
+                AND DocuEmision < @FechaFin;",
+            connection))
+        {
+            command.Parameters.Add("@CompaniaId", SqlDbType.Int).Value = request.COMPANIA_ID.Value;
+            command.Parameters.Add("@FechaInicio", SqlDbType.Date).Value = fechaReferencia.Date;
+            command.Parameters.Add("@FechaFin", SqlDbType.Date).Value = fechaReferencia.Date.AddDays(1);
+
+            await connection.OpenAsync(cancellationToken);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                var docuId = Convert.ToInt32(reader["DocuId"], CultureInfo.InvariantCulture);
+                var serie = reader["DocuSerie"]?.ToString()?.Trim() ?? string.Empty;
+                var numero = reader["DocuNumero"]?.ToString()?.Trim() ?? string.Empty;
+                documentosPendientes[docuId] = $"{serie}-{numero}";
+            }
+        }
+
+        var idsPendientes = documentosPendientes.Keys.ToHashSet();
+        var faltantes = idsPendientes.Except(idsEnviadosUnicos).ToList();
+        var noPendientes = idsEnviadosUnicos.Except(idsPendientes).ToList();
+        if (faltantes.Count == 0 && noPendientes.Count == 0)
+        {
+            return null;
+        }
+
+        var numerosFaltantes = faltantes
+            .Select(id => documentosPendientes[id])
+            .Take(10)
+            .ToList();
+        var detalleFaltantes = numerosFaltantes.Count == 0
+            ? string.Empty
+            : $" Faltan: {string.Join(", ", numerosFaltantes)}";
+        var masFaltantes = faltantes.Count > numerosFaltantes.Count ? "…" : string.Empty;
+
+        return $"No se envió el resumen: el detalle contiene {idsEnviadosUnicos.Count} boleta(s), " +
+               $"pero hay {idsPendientes.Count} boleta(s) pendientes para esa compañía y fecha." +
+               $"{detalleFaltantes}{masFaltantes} Actualiza el listado e intenta nuevamente.";
     }
 
     private static List<string> ValidarRequestResumen(EnviarResumenBoletasRequest request)

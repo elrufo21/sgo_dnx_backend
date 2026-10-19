@@ -1,0 +1,29 @@
+{
+  "archivos_front_alcanzables": 188,
+  "llamadas_http_inspeccionadas": 168,
+  "llamadas_excluidas": 10,
+  "endpoints_confirmados": 134,
+  "llamadas_sin_resolver": 0,
+  "objetos_requeridos": 105,
+  "faltantes_por_tipo": {
+    "SQL_STORED_PROCEDURE": 43,
+    "TABLE": 2,
+    "PROCEDIMIENTO_AUSENTE_EN_REFERENCIA": 10
+  },
+  "ausentes_en_ambas": [
+    "dbo.uspeliminarcategoria",
+    "dbo.uspeliminarproducto",
+    "dbo.uspeliminarproveedor",
+    "dbo.uspguardarunidadmedidaproducto",
+    "dbo.uspinsertarcategoria",
+    "dbo.uspinsertarcuentaproveedor",
+    "dbo.uspinsertarproveedor",
+    "dbo.uspinsertarusuario",
+    "dbo.usplistadocumentosweb",
+    "dbo.usplistarcomprasweb"
+  ],
+  "tablas_faltantes": [
+    "dbo.documentoventacpeweb",
+    "dbo.indicador"
+  ]
+}

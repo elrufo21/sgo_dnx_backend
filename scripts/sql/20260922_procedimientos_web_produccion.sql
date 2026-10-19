@@ -6553,9 +6553,65 @@ end
 
 GO
 
+CREATE OR ALTER PROCEDURE dbo.uspListaDocumentosWEB
+    @Data varchar(max)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @CompaniaId int;
+    DECLARE @FechaReferencia date;
+
+    SET @Data = LTRIM(RTRIM(@Data));
+    SET @CompaniaId = TRY_CONVERT(int, @Data);
+
+    SET @FechaReferencia = (
+        SELECT TOP (1) DocuEmision
+        FROM dbo.DocumentoVenta
+        WHERE TipoCodigo = '03'
+          AND CompaniaId = @CompaniaId
+          AND EstadoSunat = 'PENDIENTE'
+          AND DocuEmision <= CONVERT(date, GETDATE())
+        GROUP BY DocuEmision
+        ORDER BY DocuEmision ASC
+    );
+
+    SELECT
+        'DocuId|Compania|NotaId|FechaEmision|Documento|Numero|RazonSocial|DNI|SubTotal|IGV|ICBPER|Total|Usuario|Estado¬100|80|100|115|95|130|350|90|115|115|100|115|160|125¬String|String|String|String|String|String|String|String|String|String|String|String|String|String|String¬'
+        + ISNULL((
+            SELECT STUFF((
+                SELECT
+                    '¬' + CONVERT(varchar, d.DocuId)
+                    + '|' + CONVERT(varchar, d.CompaniaId)
+                    + '|' + CONVERT(varchar, d.NotaId)
+                    + '|' + CONVERT(char(10), d.DocuEmision, 103)
+                    + '|' + d.DocuDocumento
+                    + '|' + d.DocuSerie + '-' + d.DocuNumero
+                    + '|' + c.ClienteRazon
+                    + '|' + c.ClienteDni
+                    + '|' + CONVERT(varchar(50), CAST(d.DocuSubTotal AS money), -1)
+                    + '|' + CONVERT(varchar(50), CAST(d.DocuIgv AS money), -1)
+                    + '|' + CONVERT(varchar(50), CAST(ISNULL(d.ICBPER, 0) AS money), -1)
+                    + '|' + CONVERT(varchar(50), CAST(d.DocuTotal AS money), -1)
+                    + '|' + d.DocuUsuario
+                    + '|' + d.EstadoSunat
+                FROM dbo.DocumentoVenta d
+                INNER JOIN dbo.Cliente c ON c.ClienteId = d.ClienteId
+                WHERE d.TipoCodigo = '03'
+                  AND d.CompaniaId = @CompaniaId
+                  AND d.EstadoSunat = 'PENDIENTE'
+                  AND d.DocuEmision = @FechaReferencia
+                ORDER BY d.DocuSerie, d.DocuNumero ASC
+                FOR XML PATH('')
+            ), 1, 1, '')
+        ), '~');
+END;
+
+GO
+
 -- FIN DEFINICIONES
 
-DECLARE @Esperados int = 54;
+DECLARE @Esperados int = 55;
 DECLARE @Instalados int;
 
 SELECT @Instalados = COUNT(*)
@@ -6574,7 +6630,7 @@ WHERE schema_id = SCHEMA_ID(N'dbo')
       N'usplistaConteoWEB', N'usplistaDetalleConteoWEB', N'uspListarComprasweb',
       N'usplistarPagoVariosWEB', N'uspObtenerCajaActivaWEB',
       N'uspObtenerCredencialesSunatweb', N'uspResumenFechaweb',
-      N'uspRetornaBoletaPorTicketWEB', N'uspRetornarBoletasWEB', N'usptraerCajerosWEB',
+      N'uspListaDocumentosWEB', N'uspRetornaBoletaPorTicketWEB', N'uspRetornarBoletasWEB', N'usptraerCajerosWEB',
       N'uspTraerGastosWEB', N'uspTraerGastosAWEB', N'usptraerSecuenciaResumen',
       N'uspTraeTodasMonedasWEB', N'uspValidaCantCajasWeb', N'uspValidarAperturaWEB',
       N'uspValidaUsuarioweb', N'usp_DeleteOldBackupFiles', N'usp_Sublinea',
@@ -6584,6 +6640,6 @@ WHERE schema_id = SCHEMA_ID(N'dbo')
   );
 
 IF @Instalados <> @Esperados
-    THROW 51000, 'Validación fallida: no se instalaron los 54 procedimientos requeridos.', 1;
+    THROW 51000, 'Validación fallida: no se instalaron los 55 procedimientos requeridos.', 1;
 
 -- FIN PROCEDIMIENTOS

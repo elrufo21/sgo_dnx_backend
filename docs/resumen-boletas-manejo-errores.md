@@ -12,9 +12,11 @@ El rango de comprobantes persistido y presentado por la API usa la nomenclatura 
 
 ## Listado de boletas pendientes
 
-`uspListaDocumentos` selecciona la fecha pendiente más antigua de la compañía y devuelve las boletas de esa fecha. El límite superior incluye la fecha actual (`DocuEmision <= CONVERT(date, GETDATE())`), por lo que también aparecen las boletas emitidas hoy. Para actualizar una base que aún tenga el filtro anterior (`<`), ejecutar `scripts/sql/20261006_fix_uspListaDocumentos_incluir_hoy.sql` en la base conectada al backend.
+`uspListaDocumentosWEB` selecciona la fecha pendiente más antigua de la compañía y devuelve las boletas de esa fecha. El límite superior incluye la fecha actual (`DocuEmision <= CONVERT(date, GETDATE())`), por lo que también aparecen las boletas emitidas hoy. La variante convierte `ICBPER` nulo a cero antes de concatenar cada fila; si se concatenara el valor nulo directamente, la fila completa podría desaparecer del resultado. Instalarla con `scripts/sql/20261016_uspListaDocumentosWEB_icbper.sql`; el procedimiento de escritorio `uspListaDocumentos` permanece intacto. El script independiente evita `CREATE OR ALTER` y `TRY_CONVERT` para mantener compatibilidad con SQL Server 2008.
 
 El procedimiento filtra por tipo de documento y `EstadoSunat = 'PENDIENTE'`; no filtra el estado local `DocuEstado`. Este cambio afecta qué documentos se listan, pero no modifica estados ni los envía al OSE/SUNAT.
+
+Antes de enviar un resumen RC, el backend compara los `docuId` recibidos con todas las boletas pendientes de la misma compañía y `FECHA_REFERENCIA`. Si falta, sobra o se repite algún documento, devuelve conflicto y no llama a SUNAT. Así se detecta una lista incompleta incluso si el navegador conserva datos viejos o el usuario tenía una búsqueda activa.
 
 ## Bajas de boletas por fecha de emisión
 

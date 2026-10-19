@@ -1,0 +1,109 @@
+nombre                               tipo_referencia                                              tipo_comas                                                   referencia            comas         
+------------------------------------ ------------------------------------------------------------ ------------------------------------------------------------ --------------------- --------------
+dbo.anulardocumento                  SQL_STORED_PROCEDURE                                         SQL_STORED_PROCEDURE                                         Existe                Existe        
+dbo.anulardocumentoweb               SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.apertura_almacen                 USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.aperturaobs                      USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.area                             USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.asistencia                       USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.caja                             USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.cajadetalle                      USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.cliente                          USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.compania                         USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.compras                          USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.conteomonedas                    USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.cuentaproveedor                  USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.depositoscentro                  USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.desincrectar                     SQL_SCALAR_FUNCTION                                          SQL_SCALAR_FUNCTION                                          Existe                Existe        
+dbo.detaliquidaventa                 USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.detalleapertura                  USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.detallecompra                    USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.detalleconteo                    USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.detalledocumento                 USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.detallepedido                    USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.detallepvarios                   USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.detallespvs                      USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.documentoventa                   USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.documentoventacpeweb             USER_TABLE                                                   NULL                                                         Existe                Falta en COMAS
+dbo.editarproductoweb                SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.eliminarnotapedido               SQL_STORED_PROCEDURE                                         SQL_STORED_PROCEDURE                                         Existe                Existe        
+dbo.encriptar                        SQL_SCALAR_FUNCTION                                          SQL_SCALAR_FUNCTION                                          Existe                Existe        
+dbo.feriados                         USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.fnsplitstring                    SQL_TABLE_VALUED_FUNCTION                                    SQL_TABLE_VALUED_FUNCTION                                    Existe                Existe        
+dbo.genenerarnrofactura              SQL_SCALAR_FUNCTION                                          SQL_SCALAR_FUNCTION                                          Existe                Existe        
+dbo.guialiquidacion                  USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.guiarelacion                     USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.indicador                        USER_TABLE                                                   NULL                                                         Existe                Falta en COMAS
+dbo.ingresarproductoweb              SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.kardex                           USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.lddocumentosweb                  SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.listanotapedido                  SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.listarcajafechaweb               SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.listarcajaweb                    SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.listardetacajaweb                SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.maquinas                         USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.moneda                           USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.monedas                          USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.notapedido                       USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.pagovarios                       USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.personal                         USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.producto                         USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.proveedor                        USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.resumenboletas                   USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.sublinea                         USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.tablaobs                         USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.temporalmoneda                   USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.temporalventa                    USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.ubigeo                           USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.unidadmedida                     USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+dbo.usp_area                         SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usp_feriado                      SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usp_feriadoweb                   SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usp_maquina                      SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usp_permisoindicador             SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usp_personal                     SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usp_usuario                      SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspasistencialistacsvbweb        SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspcajainsertacsvweb             SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspcruzeobs                      SQL_STORED_PROCEDURE                                         SQL_STORED_PROCEDURE                                         Existe                Existe        
+dbo.uspeditarconteocaja              SQL_STORED_PROCEDURE                                         SQL_STORED_PROCEDURE                                         Existe                Existe        
+dbo.uspeditarconteocajaweb           SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspeditarnotapedido              SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspeditarrbweb                   SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspeliminarcajadetalleweb        SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspeliminarcategoria             NULL                                                         NULL                                                         Ausente en referencia Falta en COMAS
+dbo.uspeliminarpagovweb              SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspeliminarproducto              NULL                                                         NULL                                                         Ausente en referencia Falta en COMAS
+dbo.uspeliminarproveedor             NULL                                                         NULL                                                         Ausente en referencia Falta en COMAS
+dbo.uspguardarcredencialessunatweb   SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspguardarlistapreciospdfweb     SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspguardarunidadmedidaproducto   NULL                                                         NULL                                                         Ausente en referencia Falta en COMAS
+dbo.uspinsertarcategoria             NULL                                                         NULL                                                         Ausente en referencia Falta en COMAS
+dbo.uspinsertarconteocajaweb         SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspinsertarcuentaproveedor       NULL                                                         NULL                                                         Ausente en referencia Falta en COMAS
+dbo.uspinsertarnotabweb              SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspinsertarpagovariosweb         SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspinsertarproveedor             NULL                                                         NULL                                                         Ausente en referencia Falta en COMAS
+dbo.uspinsertarrbweb                 SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspinsertarusuario               NULL                                                         NULL                                                         Ausente en referencia Falta en COMAS
+dbo.usplistabajas                    SQL_STORED_PROCEDURE                                         SQL_STORED_PROCEDURE                                         Existe                Existe        
+dbo.usplistaconteoweb                SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usplistadetalleconteoweb         SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usplistadocumentosweb            NULL                                                         NULL                                                         Ausente en referencia Falta en COMAS
+dbo.usplistarcomprasweb              NULL                                                         NULL                                                         Ausente en referencia Falta en COMAS
+dbo.usplistarpagovariosweb           SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspobtenercredencialessunatweb   SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspresumenfechaweb               SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspretornarboletasweb            SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usptraercajerosweb               SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usptraergastosaweb               SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usptraergastosweb                SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usptraersecuenciaresumen         SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usptraetodasmonedasweb           SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspvalidacantcajasweb            SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspvalidararqueocajaweb          SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspvalidarpagovarioscajafinalweb SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.uspvalidausuarioweb              SQL_STORED_PROCEDURE                                         NULL                                                         Existe                Falta en COMAS
+dbo.usuarios                         USER_TABLE                                                   USER_TABLE                                                   Existe                Existe        
+
+(105 rows affected)

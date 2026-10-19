@@ -46,7 +46,7 @@ public class NotaPedidoRepository : INotaPedido
 
     public async Task<string> ListarDocumentosAsync(string data, CancellationToken cancellationToken = default)
     {
-        return await _accesoDatos.EjecutarComandoAsync("uspListaDocumentos", "@Data", data, cancellationToken);
+        return await _accesoDatos.EjecutarComandoAsync("uspListaDocumentosWEB", "@Data", data, cancellationToken);
     }
 
     public async Task<string> ListarLdDocumentosAsync(int mes, int anno, CancellationToken cancellationToken = default)

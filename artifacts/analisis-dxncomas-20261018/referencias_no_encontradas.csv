@@ -1,0 +1,19 @@
+﻿nombre,evidencia
+uspbuscawebproducto,src/Infrastructure/Repositories/ProductoRepository.cs:307
+uspeliminarcategoria,src/Infrastructure/Repositories/LineaRepository.cs:24
+uspeliminarpersonal,src/Infrastructure/Repositories/PersonalRepository.cs:32
+uspeliminarproducto,src/Infrastructure/Repositories/ProductoRepository.cs:207
+uspeliminarproveedor,src/Infrastructure/Repositories/ProveedorRepository.cs:31
+uspeliminarusuario,src/Infrastructure/Repositories/UsuariosCrudRepository.cs:39
+uspguardarunidadmedidaproducto,src/Infrastructure/Repositories/ProductoRepository.cs:315; src/Infrastructure/Repositories/ProductoRepository.cs:357
+uspingresarpersonal,src/Infrastructure/Repositories/PersonalRepository.cs:26
+uspingresarproducto,src/Infrastructure/Repositories/ProductoRepository.cs:113
+uspinsertarcategoria,src/Infrastructure/Repositories/LineaRepository.cs:41
+uspinsertarcuentaproveedor,src/Infrastructure/Repositories/CuentaProveedorRepository.cs:25
+uspinsertarproveedor,src/Infrastructure/Repositories/ProveedorRepository.cs:25
+uspinsertarusuario,src/Infrastructure/Repositories/UsuariosCrudRepository.cs:336
+usplistadocumentosweb,src/Infrastructure/Repositories/NotaPedidoRepository.cs:49
+usplistarcomprasweb,src/Infrastructure/Repositories/CompraRepository.cs:140
+usplistarproducto,src/Infrastructure/Repositories/ProductoRepository.cs:252; src/Infrastructure/Repositories/ProductoRepository.cs:253
+usplistawebproducto,src/Infrastructure/Repositories/ProductoRepository.cs:300
+uspobtenernotapedido,src/Infrastructure/Repositories/NotaPedidoRepository.cs:618
