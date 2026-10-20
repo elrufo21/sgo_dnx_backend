@@ -1,12 +1,15 @@
 """Filtra diferencias usando llamadas HTTP del frontend y metodos alcanzables."""
 import collections
+import argparse
 import csv
 import json
 import pathlib
 import re
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
-OUT = ROOT / 'artifacts/analisis-dxncomas-20261018'
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--carpeta', type=pathlib.Path, default=ROOT / 'artifacts/analisis-dxncomas-20261018')
+OUT = parser.parse_args().carpeta.resolve()
 
 def read(name):
     return json.loads((OUT/name).read_text(encoding='utf-8-sig'))

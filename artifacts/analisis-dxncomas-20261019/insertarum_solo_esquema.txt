@@ -1,0 +1,62 @@
+create procedure [dbo].[InsertarUM]
+@Data varchar(max)
+as
+begin
+Declare @pos1 int
+Declare @pos2 int
+Declare @pos3 int
+Declare @pos4 int
+Declare @pos5 int
+Declare @pos6 int
+Declare @pos7 int
+declare @IdUm int,
+@IdProducto numeric(20),
+@UMDescripcion varchar(80),
+@ValorUM decimal(18,4),
+@PrecioVenta decimal(18,2),
+@PrecioVentaB decimal(18,2),
+@PrecioCosto decimal(18,4)
+Set @Data = LTRIM(RTrim(@Data))
+Set @pos1 = CharIndex('|',@Data,0)
+Set @pos2 = CharIndex('|',@Data,@pos1+1)
+Set @pos3 = CharIndex('|',@Data,@pos2+1)
+Set @pos4 = CharIndex('|',@Data,@pos3+1)
+Set @pos5 = CharIndex('|',@Data,@pos4+1)
+Set @pos6 =CharIndex('|',@Data,@pos5+1)
+Set @pos7 = Len(@Data)+1
+Set @IdUm =convert(int,SUBSTRING(@Data,1,@pos1-1))
+Set @IdProducto=convert(numeric,SUBSTRING(@Data,@pos1+1,@pos2-@pos1-1))
+Set @UMDescripcion=SUBSTRING(@Data,@pos2+1,@pos3-@pos2-1)
+Set @ValorUM=convert(decimal(18,4),SUBSTRING(@Data,@pos3+1,@pos4-@pos3-1))
+Set @PrecioVenta=convert(decimal(18,2),SUBSTRING(@Data,@pos4+1,@pos5-@pos4-1))
+Set @PrecioVentaB=convert(decimal(18,2),SUBSTRING(@Data,@pos5+1,@pos6-@pos5-1))
+Set @PrecioCosto=convert(decimal(18,4),SUBSTRING(@Data,@pos6+1,@pos7-@pos6-1))
+declare @CostoPro decimal(18,4),@costoTotal decimal(18,4)
+set @CostoPro=(select top 1 p.ProductoCosto from Producto p where p.IdProducto=@IdProducto)
+set @costoTotal=@ValorUM * @CostoPro
+if @IdUm=0
+begin
+IF EXISTS(select u.UMDescripcion from UnidadMedida u where u.IdProducto=@IdProducto and u.UMDescripcion=@UMDescripcion)
+select 'UM'
+else IF EXISTS(select u.ValorUM from UnidadMedida u where u.IdProducto=@IdProducto and u.ValorUM=@ValorUM)
+select 'VALOR'
+else
+begin
+insert into UnidadMedida values(@IdProducto,@UMDescripcion,@ValorUM,@PrecioVenta,@PrecioVentaB,@costoTotal)
+(select STUFF ((select '¬'+convert(varchar,m.IdUm)+'|'+CONVERT(varchar,m.IdProducto)+'|'+m.UMDescripcion+'|'+
+CONVERT(VarChar(50),cast(m.ValorUM as money ),2)+'|'+CONVERT(VarChar(50),cast(m.PrecioVenta as money ), 1)+'|'+CONVERT(VarChar(50), cast(m.PrecioVentaB as money ), 1)+'|'+
+CONVERT(varchar(50),m.PrecioCosto)
+from UnidadMedida m
+where m.IdProducto=@IdProducto
+order by m.ValorUM asc
+for xml path('')),1,1,''))
+end
+end
+else
+begin
+update UnidadMedida
+set PrecioVenta=@PrecioVenta,PrecioVentaB=@PrecioVentaB,PrecioCosto=@PrecioCosto
+where IdUm=@IdUm
+select 'true'
+end
+end

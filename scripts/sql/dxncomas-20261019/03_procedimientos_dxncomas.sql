@@ -1,5 +1,6 @@
 ﻿/*
   DXNCOMAS - esquema requerido por los flujos llamados desde el frontend web
+  Destino de sintaxis: SQL Server 2008.
   Fuente de definiciones: DXN_ICA15102026, comparada con el alcance frontend confirmado.
   No contiene datos ni configuraciones propias de ICA.
   Aplicar en DXNCOMAS. Revisar docs/migracion-sql-dxncomas-20261019.md.
@@ -8,8 +9,8 @@ USE [DXNCOMAS];
 GO
 
 /*
-  43 procedimientos confirmados por la cadena frontend -> endpoint -> backend -> SQL.
-  Se excluyen los 10 procedimientos llamados por la web que faltan en ambas copias,
+  44 procedimientos confirmados por la cadena frontend -> endpoint -> backend -> SQL.
+  Se excluyen los 9 procedimientos llamados por la web que faltan en ambas copias,
   según solicitud. Aplicar después de tablas y columnas.
 */
 /* dbo.anularDocumentoWEB */
@@ -17,7 +18,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER procedure [dbo].[anularDocumentoWEB]
+IF OBJECT_ID(N'dbo.anularDocumentoWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[anularDocumentoWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[anularDocumentoWEB]
 @ListaOrden varchar(Max)
 as
 begin
@@ -194,7 +198,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER procedure [dbo].[editarProductoWEB]
+IF OBJECT_ID(N'dbo.editarProductoWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[editarProductoWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[editarProductoWEB]
  @IdProducto numeric(20),
  @IdSubLinea numeric(20),
  @ProductoCodigo varchar(300),
@@ -259,7 +266,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.ingresarProductoWEB
+IF OBJECT_ID(N'dbo.ingresarProductoWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[ingresarProductoWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[ingresarProductoWEB]
     @IdSubLinea numeric(20),
     @ProductoCodigo varchar(300),
     @ProductoNombre varchar(max),
@@ -324,7 +334,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.LDdocumentosweb
+IF OBJECT_ID(N'dbo.LDdocumentosweb', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[LDdocumentosweb] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[LDdocumentosweb]
     @FechaInicio date,
     @FechaFin date
 AS
@@ -389,7 +402,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.listaNotaPedido
+IF OBJECT_ID(N'dbo.listaNotaPedido', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[listaNotaPedido] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[listaNotaPedido]
     @FechaInicio DATE,
     @FechaFin DATE
 AS
@@ -467,7 +483,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER procedure [dbo].[listarCajaFechaWEB]
+IF OBJECT_ID(N'dbo.listarCajaFechaWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[listarCajaFechaWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[listarCajaFechaWEB]
 @fechainicio date,
 @fechafin date
 as
@@ -490,7 +509,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER procedure [dbo].[listarCajaWEB]
+IF OBJECT_ID(N'dbo.listarCajaWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[listarCajaWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[listarCajaWEB]
 as
 begin
 select c.CajaId,c.CajaFecha,c.CajaCierre,
@@ -511,7 +533,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER procedure [dbo].[listarDetaCajaWEB]
+IF OBJECT_ID(N'dbo.listarDetaCajaWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[listarDetaCajaWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[listarDetaCajaWEB]
 @CajaId numeric(38)
 as
 begin
@@ -555,7 +580,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.usp_Area
+IF OBJECT_ID(N'dbo.usp_Area', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[usp_Area] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[usp_Area]
     @Data VARCHAR(MAX)
 AS
 BEGIN
@@ -841,7 +869,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.usp_Feriado
+IF OBJECT_ID(N'dbo.usp_Feriado', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[usp_Feriado] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[usp_Feriado]
     @Data VARCHAR(MAX)
 AS
 BEGIN
@@ -1195,7 +1226,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.usp_FeriadoWEB
+IF OBJECT_ID(N'dbo.usp_FeriadoWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[usp_FeriadoWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[usp_FeriadoWEB]
     @Data VARCHAR(MAX)
 AS
 BEGIN
@@ -1385,7 +1419,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.usp_Maquina
+IF OBJECT_ID(N'dbo.usp_Maquina', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[usp_Maquina] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[usp_Maquina]
     @Data VARCHAR(MAX)
 AS
 BEGIN
@@ -1949,7 +1986,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.usp_PermisoIndicador
+IF OBJECT_ID(N'dbo.usp_PermisoIndicador', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[usp_PermisoIndicador] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[usp_PermisoIndicador]
     @Operacion varchar(20),
     @CompaniaId int,
     @AreaId int,
@@ -2317,7 +2357,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.usp_Personal
+IF OBJECT_ID(N'dbo.usp_Personal', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[usp_Personal] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[usp_Personal]
     @Data VARCHAR(MAX),
     @Huella VARBINARY(MAX) = NULL
 AS
@@ -3242,7 +3285,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.usp_Usuario  
+IF OBJECT_ID(N'dbo.usp_Usuario', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[usp_Usuario] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[usp_Usuario]
     @Data VARCHAR(MAX),  
     @UsuarioClave VARBINARY(500) = NULL  
 AS  
@@ -4136,7 +4182,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspAsistenciaListaCsvBWeb
+IF OBJECT_ID(N'dbo.uspAsistenciaListaCsvBWeb', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspAsistenciaListaCsvBWeb] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspAsistenciaListaCsvBWeb]
     @Data date
 AS
 BEGIN
@@ -4178,7 +4227,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspCajaInsertaCsvWeb
+IF OBJECT_ID(N'dbo.uspCajaInsertaCsvWeb', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspCajaInsertaCsvWeb] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspCajaInsertaCsvWeb]
     @Data varchar(max)
 AS
 BEGIN
@@ -4318,7 +4370,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspEditarConteoCajaWEB @ListaOrden varchar(max) AS BEGIN SET NOCOUNT ON; EXEC dbo.uspEditarConteoCaja @ListaOrden = @ListaOrden; END
+IF OBJECT_ID(N'dbo.uspEditarConteoCajaWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspEditarConteoCajaWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspEditarConteoCajaWEB] @ListaOrden varchar(max) AS BEGIN SET NOCOUNT ON; EXEC dbo.uspEditarConteoCaja @ListaOrden = @ListaOrden; END
 GO
 
 /* dbo.uspEditarNotaPedido */
@@ -4326,7 +4381,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspEditarNotaPedido
+IF OBJECT_ID(N'dbo.uspEditarNotaPedido', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspEditarNotaPedido] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspEditarNotaPedido]
     @Data varchar(max)
 AS
 BEGIN
@@ -4682,7 +4740,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspEditarRBweb
+IF OBJECT_ID(N'dbo.uspEditarRBweb', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspEditarRBweb] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspEditarRBweb]
     @Data varchar(max)
 AS
 BEGIN
@@ -4726,7 +4787,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.[uspEliminarCajaDetalleWEB] @Datas varchar(max)
+IF OBJECT_ID(N'dbo.uspEliminarCajaDetalleWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspEliminarCajaDetalleWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspEliminarCajaDetalleWEB] @Datas varchar(max)
 as
 begin
 Declare @pos1 int,@pos2 int
@@ -4784,7 +4848,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.[uspEliminarPagoVWEB] @ListaOrden varchar(Max)  
+IF OBJECT_ID(N'dbo.uspEliminarPagoVWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspEliminarPagoVWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspEliminarPagoVWEB] @ListaOrden varchar(Max)
 as  
 begin  
 Declare @pos int  
@@ -4852,7 +4919,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspGuardarCredencialesSunatweb
+IF OBJECT_ID(N'dbo.uspGuardarCredencialesSunatweb', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspGuardarCredencialesSunatweb] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspGuardarCredencialesSunatweb]
     @CompaniaId int,
     @UsuarioSOL varchar(max),
     @ClaveSOL varchar(max),
@@ -4925,7 +4995,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspGuardarListaPreciosPdfWEB
+IF OBJECT_ID(N'dbo.uspGuardarListaPreciosPdfWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspGuardarListaPreciosPdfWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspGuardarListaPreciosPdfWEB]
     @Productos xml,
     @ProductoUsuario varchar(60)
 AS
@@ -5082,7 +5155,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.[uspInsertarConteoCajaWEB] @ListaOrden varchar(Max)  
+IF OBJECT_ID(N'dbo.uspInsertarConteoCajaWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspInsertarConteoCajaWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspInsertarConteoCajaWEB] @ListaOrden varchar(Max)
 as  
 Declare @pos1 int,@pos2 int,@pos3 int  
 Declare @orden varchar(max),  
@@ -5190,7 +5266,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspinsertarNotaBweb     @ListaOrden varchar(max) AS BEGIN     SET NOCOUNT ON;      DECLARE         @pos1 int,         @orden varchar(max),         @detalle varchar(max);      SET @pos1 = CHARINDEX('[', @ListaOrden, 1);      IF @pos1 <= 0     BEGIN         RAISERROR('Formato de orden invalido.', 16, 1);         RETURN;     END;      SET @orden = SUBSTRING(         @ListaOrden,         1,         @pos1 - 1     );      SET @detalle = SUBSTRING(         @ListaOrden,         @pos1 + 1,         LEN(@ListaOrden) - @pos1     );      DECLARE @campos TABLE     (         Pos int IDENTITY(1,1) NOT NULL,         Valor varchar(max) NULL     );      DECLARE         @start int,         @end int;      SET @start = 1;      WHILE @start <= LEN(@orden) + 1     BEGIN         SET @end = CHARINDEX('|', @orden, @start);          IF @end = 0             SET @end = LEN(@orden) + 1;          INSERT INTO @campos         (             Valor         )         VALUES         (             SUBSTRING(                 @orden,                 @start,                 @end - @start             )         );          SET @start = @end + 1;     END;      DECLARE         @NotaDocu varchar(60),         @ClienteId numeric(20),         @NotaUsuario varchar(60),         @NotaFormaPago varchar(60),         @NotaCondicion varchar(60),         @NotaDireccion varchar(max),         @CompaniaUbigeo varchar(250),          @NotaSubtotal decimal(18,2),         @NotaMovilidad decimal(18,2),         @NotaDescuento decimal(18,2),         @NotaTotal decimal(18,2),         @NotaAcuenta decimal(18,2),         @NotaSaldo decimal(18,2),         @NotaAdicional decimal(18,2),         @NotaTarjeta decimal(18,2),         @NotaPagar decimal(18,2),          @NotaEstado varchar(60),         @CompaniaId int,         @NotaEntrega varchar(40),         @NotaConcepto varchar(60),          @Serie varchar(60),         @Numero varchar(60),         @NotaGanancia decimal(18,2),          @Letra varchar(max),         @DocuAdicional decimal(18,2),         @DocuHash varchar(250),         @EstadoSunat varchar(80),         @DocuSubtotal decimal(18,2),         @DocuIGV decimal(18,2),          @UsuarioId int,         @NotaTransaccion varchar(250),         @Miembro varchar(300),         @CodigoCliente varchar(80),          @ICBPER decimal(18,2),         @DocuGravada decimal(18,2),          @ConceptoOBS varchar(80),         @EstadoOBS varchar(20),         @PV varchar(40),         @Image varchar(max),          @CodigoRes varchar(80),         @Responsable varchar(300),          @EntidadBancaria varchar(80),         @Efectivo decimal(18,2),         @Deposito decimal(18,2),         @NroOperacion varchar(80),          @ClienteRazon varchar(140),         @ClienteRuc varchar(40),         @ClienteDni varchar(40),         @DireccionFiscal varchar(max),          @TipoCodigo char(20),         @cod varchar(60),          @NotaId numeric(38),         @DocuId numeric(38);      SELECT @NotaDocu = Valor     FROM @campos     WHERE Pos = 1;      SELECT @ClienteId =         CONVERT(             numeric(20),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 2;      SELECT @NotaUsuario = Valor     FROM @campos     WHERE Pos = 3;      SELECT @NotaFormaPago = Valor     FROM @campos     WHERE Pos = 4;      SELECT @NotaCondicion = Valor     FROM @campos     WHERE Pos = 5;      SELECT @NotaDireccion = Valor     FROM @campos     WHERE Pos = 6;      SELECT @NotaSubtotal =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 7;      SELECT @NotaMovilidad =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 8;      SELECT @NotaDescuento =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 9;      SELECT @NotaTotal =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 10;      SELECT @NotaAcuenta =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 11;      SELECT @NotaSaldo =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 12;      SELECT @NotaAdicional =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 13;      SELECT @NotaTarjeta =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 14;      SELECT @NotaPagar =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 15;      SELECT @NotaEstado = Valor     FROM @campos     WHERE Pos = 16;      SELECT @CompaniaId =         CONVERT(             int,             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 17;      SELECT @NotaEntrega = Valor     FROM @campos     WHERE Pos = 18;      SELECT @NotaConcepto = Valor     FROM @campos     WHERE Pos = 19;      SELECT @Serie = Valor     FROM @campos     WHERE Pos = 20;      SELECT @Numero = Valor     FROM @campos     WHERE Pos = 21;      SELECT @NotaGanancia =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 22;      SELECT @Letra = Valor     FROM @campos     WHERE Pos = 23;      SELECT @DocuAdicional =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 24;      SELECT @DocuHash = Valor     FROM @campos     WHERE Pos = 25;      SELECT @EstadoSunat = Valor     FROM @campos     WHERE Pos = 26;      SELECT @DocuSubtotal =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 27;      SELECT @DocuIGV =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 28;      SELECT @UsuarioId =         CONVERT(             int,             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 29;
+IF OBJECT_ID(N'dbo.uspinsertarNotaBweb', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspinsertarNotaBweb] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspinsertarNotaBweb]     @ListaOrden varchar(max) AS BEGIN     SET NOCOUNT ON;      DECLARE         @pos1 int,         @orden varchar(max),         @detalle varchar(max);      SET @pos1 = CHARINDEX('[', @ListaOrden, 1);      IF @pos1 <= 0     BEGIN         RAISERROR('Formato de orden invalido.', 16, 1);         RETURN;     END;      SET @orden = SUBSTRING(         @ListaOrden,         1,         @pos1 - 1     );      SET @detalle = SUBSTRING(         @ListaOrden,         @pos1 + 1,         LEN(@ListaOrden) - @pos1     );      DECLARE @campos TABLE     (         Pos int IDENTITY(1,1) NOT NULL,         Valor varchar(max) NULL     );      DECLARE         @start int,         @end int;      SET @start = 1;      WHILE @start <= LEN(@orden) + 1     BEGIN         SET @end = CHARINDEX('|', @orden, @start);          IF @end = 0             SET @end = LEN(@orden) + 1;          INSERT INTO @campos         (             Valor         )         VALUES         (             SUBSTRING(                 @orden,                 @start,                 @end - @start             )         );          SET @start = @end + 1;     END;      DECLARE         @NotaDocu varchar(60),         @ClienteId numeric(20),         @NotaUsuario varchar(60),         @NotaFormaPago varchar(60),         @NotaCondicion varchar(60),         @NotaDireccion varchar(max),         @CompaniaUbigeo varchar(250),          @NotaSubtotal decimal(18,2),         @NotaMovilidad decimal(18,2),         @NotaDescuento decimal(18,2),         @NotaTotal decimal(18,2),         @NotaAcuenta decimal(18,2),         @NotaSaldo decimal(18,2),         @NotaAdicional decimal(18,2),         @NotaTarjeta decimal(18,2),         @NotaPagar decimal(18,2),          @NotaEstado varchar(60),         @CompaniaId int,         @NotaEntrega varchar(40),         @NotaConcepto varchar(60),          @Serie varchar(60),         @Numero varchar(60),         @NotaGanancia decimal(18,2),          @Letra varchar(max),         @DocuAdicional decimal(18,2),         @DocuHash varchar(250),         @EstadoSunat varchar(80),         @DocuSubtotal decimal(18,2),         @DocuIGV decimal(18,2),          @UsuarioId int,         @NotaTransaccion varchar(250),         @Miembro varchar(300),         @CodigoCliente varchar(80),          @ICBPER decimal(18,2),         @DocuGravada decimal(18,2),          @ConceptoOBS varchar(80),         @EstadoOBS varchar(20),         @PV varchar(40),         @Image varchar(max),          @CodigoRes varchar(80),         @Responsable varchar(300),          @EntidadBancaria varchar(80),         @Efectivo decimal(18,2),         @Deposito decimal(18,2),         @NroOperacion varchar(80),          @ClienteRazon varchar(140),         @ClienteRuc varchar(40),         @ClienteDni varchar(40),         @DireccionFiscal varchar(max),          @TipoCodigo char(20),         @cod varchar(60),          @NotaId numeric(38),         @DocuId numeric(38);      SELECT @NotaDocu = Valor     FROM @campos     WHERE Pos = 1;      SELECT @ClienteId =         CONVERT(             numeric(20),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 2;      SELECT @NotaUsuario = Valor     FROM @campos     WHERE Pos = 3;      SELECT @NotaFormaPago = Valor     FROM @campos     WHERE Pos = 4;      SELECT @NotaCondicion = Valor     FROM @campos     WHERE Pos = 5;      SELECT @NotaDireccion = Valor     FROM @campos     WHERE Pos = 6;      SELECT @NotaSubtotal =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 7;      SELECT @NotaMovilidad =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 8;      SELECT @NotaDescuento =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 9;      SELECT @NotaTotal =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 10;      SELECT @NotaAcuenta =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 11;      SELECT @NotaSaldo =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 12;      SELECT @NotaAdicional =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 13;      SELECT @NotaTarjeta =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 14;      SELECT @NotaPagar =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 15;      SELECT @NotaEstado = Valor     FROM @campos     WHERE Pos = 16;      SELECT @CompaniaId =         CONVERT(             int,             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 17;      SELECT @NotaEntrega = Valor     FROM @campos     WHERE Pos = 18;      SELECT @NotaConcepto = Valor     FROM @campos     WHERE Pos = 19;      SELECT @Serie = Valor     FROM @campos     WHERE Pos = 20;      SELECT @Numero = Valor     FROM @campos     WHERE Pos = 21;      SELECT @NotaGanancia =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 22;      SELECT @Letra = Valor     FROM @campos     WHERE Pos = 23;      SELECT @DocuAdicional =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 24;      SELECT @DocuHash = Valor     FROM @campos     WHERE Pos = 25;      SELECT @EstadoSunat = Valor     FROM @campos     WHERE Pos = 26;      SELECT @DocuSubtotal =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 27;      SELECT @DocuIGV =         CONVERT(             decimal(18,2),             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 28;      SELECT @UsuarioId =         CONVERT(             int,             ISNULL(NULLIF(Valor, ''), '0')         )     FROM @campos     WHERE Pos = 29;
     SELECT @NotaTransaccion = Valor FROM @campos WHERE Pos = 30;
     SELECT @Miembro = Valor FROM @campos WHERE Pos = 31;
     SELECT @CodigoCliente = Valor FROM @campos WHERE Pos = 32;
@@ -5244,7 +5323,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.[uspInsertarPagoVariosWEB] @ListaOrden varchar(Max)          
+IF OBJECT_ID(N'dbo.uspInsertarPagoVariosWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspInsertarPagoVariosWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspInsertarPagoVariosWEB] @ListaOrden varchar(Max)
 as          
 begin          
 Declare @pos int          
@@ -5476,7 +5558,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspinsertarRBweb
+IF OBJECT_ID(N'dbo.uspinsertarRBweb', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspinsertarRBweb] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspinsertarRBweb]
     @ListaOrden varchar(max)
 AS
 BEGIN
@@ -5636,7 +5721,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER procedure [dbo].[usplistaConteoWEB]
+IF OBJECT_ID(N'dbo.usplistaConteoWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[usplistaConteoWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[usplistaConteoWEB]
 @fechainicio date,
 @fechafin date
 as
@@ -5662,7 +5750,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER procedure [dbo].[usplistaDetalleConteoWEB]
+IF OBJECT_ID(N'dbo.usplistaDetalleConteoWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[usplistaDetalleConteoWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[usplistaDetalleConteoWEB]
 @ConteoId numeric(38)
 as
 begin
@@ -5702,7 +5793,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.[usplistarPagoVariosWEB] @UsuarioId varchar(20)    
+IF OBJECT_ID(N'dbo.usplistarPagoVariosWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[usplistarPagoVariosWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[usplistarPagoVariosWEB] @UsuarioId varchar(20)
 as    
 begin    
 Declare @CajaId numeric(38)     
@@ -5729,7 +5823,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspObtenerCredencialesSunatweb
+IF OBJECT_ID(N'dbo.uspObtenerCredencialesSunatweb', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspObtenerCredencialesSunatweb] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspObtenerCredencialesSunatweb]
     @CompaniaId int
 AS
 BEGIN
@@ -5754,7 +5851,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspResumenFechaweb
+IF OBJECT_ID(N'dbo.uspResumenFechaweb', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspResumenFechaweb] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspResumenFechaweb]
     @Data varchar(max)
 AS
 BEGIN
@@ -5818,7 +5918,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER procedure [dbo].[uspRetornarBoletasWEB]
+IF OBJECT_ID(N'dbo.uspRetornarBoletasWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspRetornarBoletasWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspRetornarBoletasWEB]
 @ResumenId varchar(80)
 as
 begin
@@ -5840,7 +5943,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.[usptraerCajerosWEB] @Fecha Date
+IF OBJECT_ID(N'dbo.usptraerCajerosWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[usptraerCajerosWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[usptraerCajerosWEB] @Fecha Date
 as
 begin
 select isnull((select stuff((SELECT ', '+ c.CajaEncargado
@@ -5885,7 +5991,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.[uspTraerGastosAWEB] @CajaId numeric(38)
+IF OBJECT_ID(N'dbo.uspTraerGastosAWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspTraerGastosAWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspTraerGastosAWEB] @CajaId numeric(38)
 as
 begin
 Select
@@ -5930,7 +6039,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.[uspTraerGastosWEB] @Fecha date    
+IF OBJECT_ID(N'dbo.uspTraerGastosWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspTraerGastosWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspTraerGastosWEB] @Fecha date
 as    
 begin    
 Declare @Aviso int    
@@ -6020,7 +6132,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE [dbo].[usptraerSecuenciaResumen]  
+IF OBJECT_ID(N'dbo.usptraerSecuenciaResumen', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[usptraerSecuenciaResumen] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[usptraerSecuenciaResumen]
 @CompaniaId varchar(20)  
 as  
 begin  
@@ -6044,7 +6159,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.[uspTraeTodasMonedasWEB] @Fecha date
+IF OBJECT_ID(N'dbo.uspTraeTodasMonedasWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspTraeTodasMonedasWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspTraeTodasMonedasWEB] @Fecha date
 as
 begin
 Declare @Count int,@Aviso int
@@ -6105,7 +6223,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspValidaCantCajasWeb
+IF OBJECT_ID(N'dbo.uspValidaCantCajasWeb', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspValidaCantCajasWeb] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspValidaCantCajasWeb]
     @CajaId numeric(38, 0),
     @UsuarioId int
 AS
@@ -6155,7 +6276,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspValidarArqueoCajaWEB
+IF OBJECT_ID(N'dbo.uspValidarArqueoCajaWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspValidarArqueoCajaWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspValidarArqueoCajaWEB]
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -6193,7 +6317,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspValidarPagoVariosCajaFinalWEB
+IF OBJECT_ID(N'dbo.uspValidarPagoVariosCajaFinalWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspValidarPagoVariosCajaFinalWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspValidarPagoVariosCajaFinalWEB]
     @Fecha date
 AS
 BEGIN
@@ -6224,7 +6351,10 @@ SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-CREATE OR ALTER PROCEDURE dbo.uspValidaUsuarioweb
+IF OBJECT_ID(N'dbo.uspValidaUsuarioweb', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspValidaUsuarioweb] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspValidaUsuarioweb]
     @Data VARCHAR(MAX)
 AS
 BEGIN
@@ -6334,3 +6464,78 @@ BEGIN
 END;
 GO
 
+
+/* dbo.uspListaDocumentosWEB - incorporado en la revisión 2026-10-19 */
+SET ANSI_NULLS ON;
+GO
+SET QUOTED_IDENTIFIER OFF;
+GO
+IF OBJECT_ID(N'dbo.uspListaDocumentosWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[uspListaDocumentosWEB] AS BEGIN SET NOCOUNT ON; END');
+GO
+ALTER PROCEDURE dbo.[uspListaDocumentosWEB]
+    @Data varchar(max)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE @CompaniaId int;
+    DECLARE @FechaReferencia date;
+    DECLARE @CompaniaIdBigint bigint;
+
+    SET @Data = LTRIM(RTRIM(@Data));
+    SET @CompaniaId = NULL;
+
+    IF @Data IS NOT NULL
+       AND @Data <> ''
+       AND LEN(@Data) <= 10
+       AND @Data NOT LIKE '%[^0-9]%'
+    BEGIN
+        SET @CompaniaIdBigint = CONVERT(bigint, @Data);
+
+        IF @CompaniaIdBigint <= 2147483647
+            SET @CompaniaId = CONVERT(int, @CompaniaIdBigint);
+    END;
+
+    SET @FechaReferencia = (
+        SELECT TOP (1) DocuEmision
+        FROM dbo.DocumentoVenta
+        WHERE TipoCodigo = '03'
+          AND CompaniaId = @CompaniaId
+          AND EstadoSunat = 'PENDIENTE'
+          AND DocuEmision <= CONVERT(date, GETDATE())
+        GROUP BY DocuEmision
+        ORDER BY DocuEmision ASC
+    );
+
+    SELECT
+        'DocuId|Compania|NotaId|FechaEmision|Documento|Numero|RazonSocial|DNI|SubTotal|IGV|ICBPER|Total|Usuario|EstadoÂ¬100|80|100|115|95|130|350|90|115|115|100|115|160|125Â¬String|String|String|String|String|String|String|String|String|String|String|String|String|String|StringÂ¬'
+        + ISNULL((
+            SELECT STUFF((
+                SELECT
+                    'Â¬' + CONVERT(varchar, d.DocuId)
+                    + '|' + CONVERT(varchar, d.CompaniaId)
+                    + '|' + CONVERT(varchar, d.NotaId)
+                    + '|' + CONVERT(char(10), d.DocuEmision, 103)
+                    + '|' + d.DocuDocumento
+                    + '|' + d.DocuSerie + '-' + d.DocuNumero
+                    + '|' + c.ClienteRazon
+                    + '|' + c.ClienteDni
+                    + '|' + CONVERT(varchar(50), CAST(d.DocuSubTotal AS money), -1)
+                    + '|' + CONVERT(varchar(50), CAST(d.DocuIgv AS money), -1)
+                    + '|' + CONVERT(varchar(50), CAST(ISNULL(d.ICBPER, 0) AS money), -1)
+                    + '|' + CONVERT(varchar(50), CAST(d.DocuTotal AS money), -1)
+                    + '|' + d.DocuUsuario
+                    + '|' + d.EstadoSunat
+                FROM dbo.DocumentoVenta d
+                INNER JOIN dbo.Cliente c ON c.ClienteId = d.ClienteId
+                WHERE d.TipoCodigo = '03'
+                  AND d.CompaniaId = @CompaniaId
+                  AND d.EstadoSunat = 'PENDIENTE'
+                  AND d.DocuEmision = @FechaReferencia
+                ORDER BY d.DocuSerie, d.DocuNumero ASC
+                FOR XML PATH('')
+            ), 1, 1, '')
+        ), '~');
+END;
+GO

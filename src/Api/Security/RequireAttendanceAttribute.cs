@@ -11,24 +11,34 @@ public sealed class RequireAttendanceAttribute : TypeFilterAttribute
     public RequireAttendanceAttribute() : base(typeof(RequireAttendanceFilter)) { }
 }
 
-public sealed class RequireAttendanceFilter : IAsyncAuthorizationFilter
+public sealed class RequireAttendanceFilter : IAsyncActionFilter
 {
     private const string AttendanceMessage = "NO PODRÁ REALIZAR NINGUNA OPERACIÓN EN CAJA PORQUE NO MARCÓ SU ASISTENCIA.";
     private readonly IConfiguration _configuration;
 
     public RequireAttendanceFilter(IConfiguration configuration) => _configuration = configuration;
 
-    public async Task OnAuthorizationAsync(AuthorizationFilterContext context)
+    public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         var method = context.HttpContext.Request.Method;
         if (HttpMethods.IsGet(method) || HttpMethods.IsHead(method) || HttpMethods.IsOptions(method))
+        {
+            await next();
             return;
+        }
 
         if (!int.TryParse(context.HttpContext.User.FindFirstValue("userId"), out var usuarioId) || usuarioId <= 0)
         {
             context.Result = new ForbidResult();
             return;
         }
+
+        var usuarioAsistenciaId = context.ActionArguments.Values
+            .OfType<IAttendanceUserRequest>()
+            .Select(request => request.AttendanceUserId)
+            .FirstOrDefault(id => id > 0);
+        if (usuarioAsistenciaId > 0)
+            usuarioId = usuarioAsistenciaId;
 
         var connectionString = _configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -50,6 +60,9 @@ public sealed class RequireAttendanceFilter : IAsyncAuthorizationFilter
                          INNER JOIN dbo.Personal AS p ON p.PersonalId = u.PersonalId
                          LEFT JOIN dbo.Indicador AS i
                            ON i.CompaniaId = p.CompaniaId
+                          AND i.Area = 'CAJA'
+                          AND i.TipoIndicador = 1
+                          AND i.IdIndicador IS NULL
                           AND i.Descripcion = 'ASISTENCIA'
                          WHERE u.UsuarioID = @UsuarioId
                      ) = 0 THEN CAST(1 AS bit)
@@ -80,6 +93,14 @@ public sealed class RequireAttendanceFilter : IAsyncAuthorizationFilter
             {
                 StatusCode = StatusCodes.Status409Conflict
             };
+            return;
         }
+
+        await next();
     }
+}
+
+public interface IAttendanceUserRequest
+{
+    int AttendanceUserId { get; }
 }

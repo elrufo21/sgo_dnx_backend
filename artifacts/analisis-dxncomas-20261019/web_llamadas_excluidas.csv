@@ -1,0 +1,11 @@
+﻿frontend,accion,url,motivo
+src/store/cashFlow/cashFlow.store.ts:136,getActiveCashFlow,/api/v1/CashFlow/active/{usuarioId},Accion del store sin consumidores; las pantallas usan otros endpoints de caja.
+src/store/users/users.store.ts:214,addUser,/api/v1/UsuariosCrud/register,Sin consumidores; las altas actuales usan addMaintenanceUser.
+src/store/users/users.store.ts:280,deleteUser,/api/v1/UsuariosCrud/{id},Sin consumidores; mantenimiento usa deleteMaintenanceUser.
+src/store/employees/employees.store.ts:196,addEmployee,/api/v1/Personal/registerpersonal,Sin consumidores; las altas usan addMaintenanceEmployee.
+src/store/employees/employees.store.ts:220,updateEmployee,/api/v1/Personal/registerpersonal,Sin consumidores; la edicion usa updateMaintenanceEmployee.
+src/store/employees/employees.store.ts:246,deleteEmployee,/api/v1/Personal/{id},Solo referida por la entrada employees de listRegistry; ninguna pantalla instancia GenericList con ese moduleKey. EmployeeListPage usa deleteMaintenanceEmployee.
+src/store/maintenance/maintenance.store.ts:455,deleteCategory,/api/v1/Linea/{idSubLinea},Sin consumidores; la pantalla usa deleteCategoryApi -> /Linea/maintenance/{id}.
+src/features/maintenance/holidays/holidays.api.ts:126,fetchHolidayByIdApi,/api/v1/Feriados/{id},Sin consumidores; holidayEdit carga el listado y busca el registro en memoria.
+src/store/orderNote/orderNote.store.ts:553,fetchNoteDetail,/api/v1/Nota/sp/{Math.floor}; /api/v1/Nota/sp/{Math.floor},Sin consumidores; /Nota/sp/{id} no se solicita desde las pantallas actuales.
+src/store/orderNote/orderNote.store.ts:650,updateNoteDetail,/api/v1/Nota/editarOrden,Sin consumidores; PUT editarOrden se mantiene por PaymentPage.

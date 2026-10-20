@@ -1,0 +1,10 @@
+{
+  "comas_sin_cambios": true,
+  "procedimientos_paquete": 44,
+  "definiciones_coinciden_referencia_actual": true,
+  "contratos_excluidos": 9,
+  "tablas_nuevas": 2,
+  "columnas_tablas_existentes": 14,
+  "cuerpos_procedimientos_preservados_sql2008": true,
+  "motor_sql2008_real": false
+}

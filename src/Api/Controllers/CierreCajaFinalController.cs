@@ -21,12 +21,13 @@ public sealed class CierreCajaFinalController : ControllerBase
         var gastosRaw = await Scalar(con, "uspTraerGastosWEB", "@Fecha", f, ct);
         var monedasRaw = await Scalar(con, "uspTraeTodasMonedasWEB", "@Fecha", f, ct);
         var cajerosRaw = await Scalar(con, "usptraerCajerosWEB", "@Fecha", f, ct);
+        var resumenCajeros = cajerosRaw.Split('[');
         var p = gastosRaw.Split('['); var gastos = Rows(p.ElementAtOrDefault(0));
         var totalObsDisponible = TryMoney(p.ElementAtOrDefault(3), out var totalObs);
         var ingresos = new List<Movimiento> { new("VITRINA", Money(p.ElementAtOrDefault(7))), new("IOC", Money(p.ElementAtOrDefault(4), 1)), new("REVISTAS", Money(p.ElementAtOrDefault(5))), new("COPIAS Y OTROS", Money(p.ElementAtOrDefault(6))) };
         ingresos.AddRange(Rows(p.ElementAtOrDefault(1)));
         var yaExiste = (await Scalar(con, "usplistaConteoWEB", null, null, ct, fecha, fecha)).Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Any(x => x != "~");
-        return Ok(new { fecha, cajeros = cajerosRaw.Split('[')[0].Trim('~', ' ', ','), totalObs, totalObsDisponible, sencillo = Money(p.ElementAtOrDefault(2)), monedas = Monedas(monedasRaw), ingresos, gastos, existe = yaExiste });
+        return Ok(new { fecha, cajeros = resumenCajeros.ElementAtOrDefault(0)?.Trim('~', ' ', ',') ?? string.Empty, productos = ProductosVendidos(resumenCajeros.ElementAtOrDefault(2)), totalObs, totalObsDisponible, sencillo = Money(p.ElementAtOrDefault(2)), monedas = Monedas(monedasRaw), ingresos, gastos, existe = yaExiste });
     }
 
     [HttpGet]
@@ -105,6 +106,7 @@ public sealed class CierreCajaFinalController : ControllerBase
     private async Task<SqlConnection> Abrir(CancellationToken ct) { var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")); await con.OpenAsync(ct); return con; }
     private static async Task<string> Scalar(SqlConnection con, string sp, string? name, string? value, CancellationToken ct, DateOnly? inicio = null, DateOnly? fin = null) { await using var cmd = new SqlCommand(sp, con) { CommandType = CommandType.StoredProcedure }; if (inicio.HasValue) { cmd.Parameters.Add("@fechainicio", SqlDbType.Date).Value = inicio.Value.ToDateTime(TimeOnly.MinValue); cmd.Parameters.Add("@fechafin", SqlDbType.Date).Value = fin!.Value.ToDateTime(TimeOnly.MinValue); } else if (name is not null) cmd.Parameters.AddWithValue(name, value ?? ""); return (await cmd.ExecuteScalarAsync(ct))?.ToString() ?? ""; }
     private static List<Movimiento> Rows(string? raw) => string.IsNullOrWhiteSpace(raw) || raw == "~" ? new List<Movimiento>() : raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Select(x => x.Split('|')).Where(x => x.Length > 1).Select(x => new Movimiento(x[0], Money(x[1]))).ToList();
+    private static List<ProductoVendido> ProductosVendidos(string? raw) => string.IsNullOrWhiteSpace(raw) || raw == "~" ? new List<ProductoVendido>() : raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Select(x => x.Split('|')).Where(x => x.Length >= 4 && x[0] != "~").Select(x => new ProductoVendido(x[0], x[1], Money(x[2]), Money(x[3]))).ToList();
     private static List<Movimiento> DetalleRows(string? raw) => string.IsNullOrWhiteSpace(raw) || raw == "~" ? new List<Movimiento>() : raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Split('|')).Where(x => x.Length > 1).Select(x => new Movimiento(x[0], Money(x[1]), Number(x.ElementAtOrDefault(3)), x.ElementAtOrDefault(2) ?? "T")).ToList();
     private static List<Moneda> Monedas(string raw) => string.IsNullOrWhiteSpace(raw) || raw == "~" ? new List<Moneda>() : raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Split('|')).Where(x => x.Length > 2).Select(x => new Moneda(Money(x[2]), (int)Number(x[1]), Number(x[0]))).ToList();
     private static bool TryMoney(string? value, out decimal amount) => decimal.TryParse(value?.Split('|').ElementAtOrDefault(0)?.Replace(",", "").Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out amount);
@@ -116,5 +118,6 @@ public sealed class CierreCajaFinalController : ControllerBase
 }
 
 public sealed record Movimiento(string Descripcion, decimal Importe, long Id = 0, string? Estado = "T");
+public sealed record ProductoVendido(string Codigo, string Descripcion, decimal Cantidad, decimal Importe);
 public sealed record Moneda(decimal Denominacion, int Cantidad, long Id = 0);
 public sealed record GuardarCierre(DateOnly Fecha, string? ClaveAdministrador, int UsuarioId, string Usuario, string? Cajeros, decimal? TotalObs, string? Observaciones, List<Movimiento> Ingresos, List<Movimiento> Gastos, List<Moneda> Monedas);

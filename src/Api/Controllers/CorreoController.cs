@@ -208,6 +208,9 @@ public class CorreoController : ControllerBase
                   SELECT TOP (1) ValorTexto1 AS CorreosAdmin
                   FROM dbo.Indicador
                   WHERE CompaniaId = compania.CompaniaId
+                    AND Area = 'CORREO'
+                    AND TipoIndicador = 3
+                    AND IdIndicador IS NULL
                     AND Descripcion = 'CORREOS_ADMIN'
                   ORDER BY Id DESC
               ) configuracion
@@ -251,7 +254,7 @@ public class CorreoController : ControllerBase
             {
                 From = new MailAddress(emisor, string.IsNullOrWhiteSpace(_emailSettings.DisplayName) ? null : _emailSettings.DisplayName.Trim()),
                 Subject = $"DXN CIERRE DE CAJA GENERAL DEL DIA {fechaTexto}",
-                Body = ConstruirCuerpoCierreCaja(nombreCompania, nombreResponsable, fecha, "Caja", request.CajaId, diferencial),
+                Body = ConstruirCuerpoCierreCaja(nombreCompania, nombreResponsable, diferencial, request.Observacion),
                 IsBodyHtml = true
             };
 
@@ -307,6 +310,9 @@ public class CorreoController : ControllerBase
                   SELECT TOP (1) ValorTexto1 AS CorreosAdmin
                   FROM dbo.Indicador
                   WHERE CompaniaId = compania.CompaniaId
+                    AND Area = 'CORREO'
+                    AND TipoIndicador = 3
+                    AND IdIndicador IS NULL
                     AND Descripcion = 'CORREOS_ADMIN'
                   ORDER BY Id DESC
               ) configuracion
@@ -325,7 +331,7 @@ public class CorreoController : ControllerBase
         {
             var fecha = request.FechaReporte?.Date ?? DateTime.Today;
             await using var pdfStream = request.Pdf.OpenReadStream();
-            using var mail = new MailMessage { From = new MailAddress(emisor, string.IsNullOrWhiteSpace(_emailSettings.DisplayName) ? null : _emailSettings.DisplayName.Trim()), Subject = $"DXN INFORME FINAL DE CAJA DEL DIA {fecha:dd-MM-yyyy}", Body = ConstruirCuerpoCierreCaja(compania, responsable, fecha, "Informe final", request.ConteoId, request.Diferencial), IsBodyHtml = true };
+            using var mail = new MailMessage { From = new MailAddress(emisor, string.IsNullOrWhiteSpace(_emailSettings.DisplayName) ? null : _emailSettings.DisplayName.Trim()), Subject = $"DXN INFORME FINAL DE CAJA DEL DIA {fecha:dd-MM-yyyy}", Body = ConstruirCuerpoCierreCaja(compania, responsable, request.Diferencial, request.Observacion), IsBodyHtml = true };
             foreach (var correo in correos) mail.To.Add(correo);
             mail.Attachments.Add(new Attachment(pdfStream, request.Pdf.FileName, "application/pdf"));
             using var smtp = new SmtpClient { Host = string.IsNullOrWhiteSpace(_emailSettings.Host) ? "smtp.gmail.com" : _emailSettings.Host.Trim(), Port = _emailSettings.Port.GetValueOrDefault(587), EnableSsl = _emailSettings.EnableSsl ?? true, DeliveryMethod = SmtpDeliveryMethod.Network, UseDefaultCredentials = false, Credentials = new NetworkCredential(emisor, clave) };
@@ -567,10 +573,8 @@ public class CorreoController : ControllerBase
     private static string ConstruirCuerpoCierreCaja(
         string? nombreCompania,
         string? nombreResponsable,
-        DateTime fecha,
-        string etiquetaRegistro,
-        long cajaId,
-        decimal diferencial)
+        decimal diferencial,
+        string? observacion)
     {
         var compania = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(nombreCompania)
             ? "SGO"
@@ -579,18 +583,15 @@ public class CorreoController : ControllerBase
             ? "Equipo de caja"
             : nombreResponsable.Trim());
         var cultura = CultureInfo.GetCultureInfo("es-PE");
-        var fechaLarga = fecha.ToString("dddd, dd 'de' MMMM 'de' yyyy", cultura);
-        var fechaVisible = WebUtility.HtmlEncode(char.ToUpper(fechaLarga[0], cultura) + fechaLarga[1..]);
-        var cajaVisible = WebUtility.HtmlEncode(cajaId.ToString(CultureInfo.InvariantCulture));
         var esCuadre = diferencial == 0m;
         var esSobrante = diferencial > 0m;
         var importe = Math.Abs(diferencial).ToString("N2", cultura);
         var estado = esCuadre ? "Caja cuadrada" : esSobrante ? "Sobrante de efectivo" : "Faltante de efectivo";
-        var detalle = esCuadre
-            ? "La caja cuadró correctamente."
-            : esSobrante
-                ? $"Se registró un sobrante de efectivo de S/ {importe}."
-                : $"Se registró un faltante de efectivo de S/ {importe}.";
+        var estadoConImporte = $"{estado}: S/ {importe}";
+        var observacionVisible = WebUtility.HtmlEncode(observacion?.Trim() ?? string.Empty);
+        var observacionHtml = string.IsNullOrWhiteSpace(observacionVisible)
+            ? string.Empty
+            : $"<tr><td style=\"padding:0 16px 15px;color:#334155;font-size:14px;line-height:1.55;white-space:pre-line;\"><strong>Observación:</strong><br>{observacionVisible}</td></tr>";
         var colorEstado = esCuadre ? "#16794a" : esSobrante ? "#b45309" : "#b42318";
         var fondoEstado = esCuadre ? "#eaf8ef" : esSobrante ? "#fff7e8" : "#fff0f0";
 
@@ -609,23 +610,11 @@ public class CorreoController : ControllerBase
                       <div style="font-size:21px;font-weight:700;color:#172033;">Cierre de caja confirmado</div>
                       <div style="width:44px;height:3px;margin:16px 0 22px;background:#b23636;border-radius:2px;"></div>
                       <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">Buen día,</p>
-                      <p style="margin:0;font-size:15px;line-height:1.65;">Se ha generado el reporte de cierre de caja. Encontrará el documento PDF adjunto a este correo.</p>
-                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;border:1px solid #e5e7eb;border-radius:10px;">
-                        <tr>
-                          <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">{WebUtility.HtmlEncode(etiquetaRegistro)}</td>
-                          <td align="right" style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#172033;font-size:14px;font-weight:700;">#{cajaVisible}</td>
-                        </tr>
-                        <tr>
-                          <td style="padding:14px 16px;color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">Fecha de cierre</td>
-                          <td align="right" style="padding:14px 16px;color:#172033;font-size:14px;font-weight:700;">{fechaVisible}</td>
-                        </tr>
-                      </table>
-                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:16px;background:{fondoEstado};border-radius:10px;">
-                        <tr><td style="padding:15px 16px;color:{colorEstado};font-size:14px;font-weight:700;">{estado}</td></tr>
-                        <tr><td style="padding:0 16px 15px;color:#334155;font-size:14px;line-height:1.55;">{detalle}</td></tr>
-                      </table>
-                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:16px;background:#f8fafc;border-radius:10px;">
-                        <tr><td style="padding:14px 16px;color:#475569;font-size:13px;line-height:1.5;">Archivo adjunto: <strong>Reporte de cierre de caja en formato PDF.</strong></td></tr>
+                      <p style="margin:0;font-size:15px;line-height:1.65;">Se ha generado el reporte de cierre de caja.</p>
+                      <p style="margin:12px 0 0;font-size:14px;line-height:1.55;color:#475569;">Archivo adjunto: <strong>Reporte de cierre de caja en el formato PDF.</strong></p>
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:24px;background:{fondoEstado};border-radius:10px;">
+                        <tr><td style="padding:15px 16px;color:{colorEstado};font-size:14px;font-weight:700;">{WebUtility.HtmlEncode(estadoConImporte)}</td></tr>
+                        {observacionHtml}
                       </table>
                       <p style="margin:26px 0 0;font-size:15px;line-height:1.6;">Saludos cordiales,<br><strong>{responsable}</strong></p>
                     </td></tr>
@@ -703,6 +692,7 @@ public sealed class EnviarCierreCajaRequest
     public long CajaId { get; set; }
     public DateTime? FechaReporte { get; set; }
     public decimal Diferencial { get; set; }
+    public string? Observacion { get; set; }
     public IFormFile? Pdf { get; set; }
 }
 
@@ -711,5 +701,6 @@ public sealed class EnviarInformeCajaFinalRequest
     public long ConteoId { get; set; }
     public DateTime? FechaReporte { get; set; }
     public decimal Diferencial { get; set; }
+    public string? Observacion { get; set; }
     public IFormFile? Pdf { get; set; }
 }

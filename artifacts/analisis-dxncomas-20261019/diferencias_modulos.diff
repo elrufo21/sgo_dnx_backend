@@ -1,0 +1,2549 @@
+--- DXNCOMAS/dbo.uspCajaInsertaCsv
++++ DXN_ICA15102026/dbo.uspCajaInsertaCsv
+@@ -1,190 +1,190 @@
+-CREATE procedure [dbo].[uspCajaInsertaCsv]  
+-@Data varchar(max)  
+-as  
+-Begin  
+-Declare @p1 int,@p2 int,@p3 int,  
+-        @p4 int,@p5 int,@p6 int,  
+-        @p7 int,@p8 int,@p9 int,  
+-        @p10 int,@p11 int,@p12 int  
+-Declare @CajaId  numeric(38),@CajaCierre  varchar(40),  
+-        @MontoIniSOl  decimal(18,2),@CajaEncargado  varchar(60),  
+-        @CajaUsuario  varchar(60),@CajaEstado  varchar(40),@CajaIngresos  decimal(18,2),  
+-        @CajaDeposito  decimal(18,2),@CajaSalidas  decimal(18,2),@CajaTotal  decimal(18,2),  
+-        @UsuarioId  int,@CantCajas int,@SerieFactura varchar(10),@Asistencia int,  
+-        @Observacion varchar(max)  
+-Set @Data = LTRIM(RTrim(@Data))  
+-Set @p1 = CharIndex('|',@Data,0)  
+-Set @p2=CharIndex('|',@Data,@p1+1)  
+-Set @p3=CharIndex('|',@Data,@p2+1)  
+-Set @p4=CharIndex('|',@Data,@p3+1)  
+-Set @p5=CharIndex('|',@Data,@p4+1)  
+-Set @p6=CharIndex('|',@Data,@p5+1)  
+-Set @p7=CharIndex('|',@Data,@p6+1)  
+-Set @p8=CharIndex('|',@Data,@p7+1)  
+-Set @p9=CharIndex('|',@Data,@p8+1)  
+-Set @p10=CharIndex('|',@Data,@p9+1)  
+-Set @p11=CharIndex('|',@Data,@p10+1)  
+-Set @p12= Len(@Data)+1  
+-Set @CajaId=convert(numeric(38),SUBSTRING(@Data,1,@p1-1))  
+-Set @CajaCierre=SUBSTRING(@Data,@p1+1,@p2-@p1-1)  
+-Set @MontoIniSOl=convert(decimal(18,2),SUBSTRING(@Data,@p2+1,@p3-@p2-1))  
+-Set @CajaEncargado=SUBSTRING(@Data,@p3+1,@p4-@p3-1)  
+-Set @CajaUsuario=SUBSTRING(@Data,@p4+1,@p5-@p4-1)  
+-Set @CajaEstado=SUBSTRING(@Data,@p5+1,@p6-@p5-1)  
+-Set @CajaIngresos=convert(decimal(18,2),SUBSTRING(@Data,@p6+1,@p7-@p6-1))  
+-Set @CajaDeposito=convert(decimal(18,2),SUBSTRING(@Data,@p7+1,@p8-@p7-1))  
+-Set @CajaSalidas=convert(decimal(18,2),SUBSTRING(@Data,@p8+1,@p9-@p8-1))  
+-Set @CajaTotal=convert(decimal(18,2),SUBSTRING(@Data,@p9+1,@p10-@p9-1))  
+-Set @UsuarioId=convert(int,SUBSTRING(@Data,@p10+1,@p11-@p10-1))  
+-Set @Observacion=SUBSTRING(@Data,@p11+1,@p12-@p11-1)  
+-Declare @FechaAyer date  
+-Declare @Dia varchar(20)  
+-Declare @Arqueo int  
+---Declare @Aviso numeric(38),@Vitrina nvarchar(1)  
+-set @FechaAyer=(SELECT DATEADD(DAY,-1,convert(date,GETDATE())))  
+-set @Dia=(select dbo.diaNombre(@FechaAyer))  
+-if(@Dia='DOMINGO')  
+-begin  
+-set @FechaAyer=(SELECT DATEADD(DAY,-2,convert(date,GETDATE())))  
+-end  
+-set @Arqueo=(select top 1 Count(FechaConteo) from ConteoMonedas  
+-where FechaConteo=@FechaAyer)  
+-if(@Arqueo=0)  
+-begin  
+-set @Arqueo=(select top 1 Count(Fecha) from Feriados  
+-where Fecha=@FechaAyer)  
+-end  
+-if(@Arqueo=0)  
+-begin  
+-Select 'NO ARQUEO'  
+-end  
+-else  
+-begin  
+-if(@CajaId=0)  
+-begin  
+-Declare @DataAsis varchar(80)  
+-Declare @Tardanza nvarchar(1),  
+-        @OBS varchar(max),  
+-        @NroTardanza int  
+-Declare @pos1 int,@pos2 int,  
+-        @pos3 int,@pos4 int         
+-set @DataAsis=isnull((select top 1 convert(varchar,COUNT(a.PersonalId))+'|'+  
+-a.Estado+'|'+a.Observaciones+'|'+convert(varchar,a.NroTardanza)  
+-from Asistencia a  
+-inner join Usuarios u  
+-on u.PersonalId=a.PersonalId  
+-inner join Personal p  
+-on p.PersonalId=u.PersonalId  
+-where u.UsuarioID=@UsuarioId and a.Fecha=convert(date,GETDATE())  
+-group by a.HoraIngreso,a.Estado,a.Observaciones,a.NroTardanza),'0|||0')  
+-Set @DataAsis= LTRIM(RTrim(@DataAsis))  
+-Set @pos1 = CharIndex('|',@DataAsis,0)  
+-Set @pos2 = CharIndex('|',@DataAsis,@pos1+1)  
+-Set @pos3 = CharIndex('|',@DataAsis,@pos2+1)  
+-Set @pos4= Len(@DataAsis)+1  
+-Set @Asistencia=convert(int,SUBSTRING(@DataAsis,1,@pos1-1))  
+-Set @Tardanza=SUBSTRING(@DataAsis,@pos1+1,@pos2-@pos1-1)  
+-Set @OBS=SUBSTRING(@DataAsis,@pos2+1,@pos3-@pos2-1)  
+-Set @NroTardanza=convert(int,SUBSTRING(@DataAsis,@pos3+1,@pos4-@pos3-1))  
+-if(@Asistencia=0)  
+-begin  
+-Select 'NO ASISTIO'  
+-end  
+-else  
+-begin  
+-if(@Tardanza='T' and @OBS='')  
+-begin  
+-select '['+convert(varchar,@NroTardanza)+']'  
+-end  
+-else  
+-begin  
+-IF EXISTS(select top 1 CajaId from Caja where CajaEstado='ACTIVO' and UsuarioId=@UsuarioId order by 1 desc)  
+-begin  
+-select 'existe'  
+-end  
+-else  
+-begin  
+-set @CantCajas=(select convert(varchar,count(u.UsuarioID))from Caja c  
+-inner join Usuarios u  
+-on u.UsuarioID=c.UsuarioId  
+-where CajaEstado='ACTIVO')  
+-if(@CantCajas>=2)  
+-begin  
+-select 'NO CERRO'  
+-end  
+-else  
+-begin  
+-insert into Caja values(GETDATE(),@CajaCierre,@MontoIniSOl,  
+-@CajaEncargado,@CajaUsuario,@CajaEstado,@CajaIngresos,@CajaDeposito,  
+-@CajaSalidas,@CajaTotal,@UsuarioId,@Observacion)  
+-set @CajaId=@@identity  
+-----  
+---set @Aviso=(select top 1 count(c.CajaId) from CajaDetalle d  
+---inner join Caja c  
+---on c.CajaId=d.CajaId  
+---where convert(date,d.DetalleFecha)=CONVERT(date,GETDATE()) and   
+---d.DetalleConcepto='VITRINA' AND D.Estado='D' and c.CajaEstado='ACTIVO')  
+---if(@Aviso=0)set @Vitrina='D'  
+---else set @Vitrina='T'  
+-insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO','TOTAL EFECTIVO',0,0,0,'','T','V',0,'','','','')  
+-insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO','VITRINA',0,0,0,'','D','V',0,'','','','')  
+-insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO','SENCILLO',0,0,0,'','T','V',0,'','','','')  
+-insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO','IOC',0,0,0,'','T','V',0,'','','','')  
+-insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO','REVISTAS',0,0,0,'','D','V',0,'','','','')  
+-insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO','COPIAS Y OTROS',0,0,0,'','D','V',0,'','','','')  
+-insert into Monedas values(0,0,'200.00',0,'B',@CajaId)  
+-insert into Monedas values(0,0,'100.00',0,'B',@CajaId)  
+-insert into Monedas values(0,0,'50.00',0,'B',@CajaId)  
+-insert into Monedas values(0,0,'20.00',0,'B',@CajaId)  
+-insert into Monedas values(0,0,'10.00',0,'B',@CajaId)  
+-insert into Monedas values(0,0,'5.00',0,'M',@CajaId)  
+-insert into Monedas values(0,0,'2.00',0,'M',@CajaId)  
+-insert into Monedas values(0,0,'1.00',0,'M',@CajaId)  
+-insert into Monedas values(0,0,'0.50',0,'M',@CajaId)  
+-insert into Monedas values(0,0,'0.20',0,'M',@CajaId)  
+-insert into Monedas values(0,0,'0.10',0,'M',@CajaId)  
+-Select 'true'  
+-end  
+-end  
+-end  
+-end  
+-end  
+-else  
+-begin  
+-if(@CajaEstado='CERRADA')  
+-begin  
+-Declare @Descripcion varchar(max)  
+-set @Descripcion=isnull((select top 1 d.DetalleConcepto + ' TOTAL S/ '+CONVERT(varChar(max),cast(d.DetalleMonto as money ), 1)  
+-from CajaDetalle d  
+-where d.RutaImagen like '%file.png%' and(d.CajaId=@CajaId and d.NotaId=0 and d.DetalleMonto>=5000000)  
+-order by d.DetalleId asc),'0')  
+-if(@Descripcion='0')  
+-begin  
+-update Caja  
+-set CajaCierre=@CajaCierre,MontoIniSOl=@MontoIniSOl,  
+-CajaEncargado=@CajaEncargado,CajaUsuario=@CajaUsuario,  
+-CajaEstado=@CajaEstado,CajaIngresos=@CajaIngresos,CajaDeposito=@CajaDeposito,  
+-CajaSalidas=@CajaSalidas,CajaTotal=@CajaTotal,UsuarioId=@UsuarioId,  
+-observacion=@Observacion  
+-where CajaId=@CajaId  
+-Select 'true'  
+-end  
+-else  
+-begin  
+-select 'Falta Adjuntar el Archivo de: '+@Descripcion  
+-end  
+-end  
+-else  
+-begin  
+-update Caja  
+-set CajaCierre=@CajaCierre,MontoIniSOl=@MontoIniSOl,  
+-CajaEncargado=@CajaEncargado,CajaUsuario=@CajaUsuario,  
+-CajaEstado=@CajaEstado,CajaIngresos=@CajaIngresos,CajaDeposito=@CajaDeposito,  
+-CajaSalidas=@CajaSalidas,CajaTotal=@CajaTotal,UsuarioId=@UsuarioId,  
+-observacion=@Observacion  
+-where CajaId=@CajaId  
+-Select 'true'  
+-end  
+-end  
+-end  
+-end  +CREATE procedure [dbo].[uspCajaInsertaCsv]
++@Data varchar(max)
++as
++Begin
++Declare @p1 int,@p2 int,@p3 int,
++        @p4 int,@p5 int,@p6 int,
++        @p7 int,@p8 int,@p9 int,
++        @p10 int,@p11 int,@p12 int
++Declare @CajaId  numeric(38),@CajaCierre  varchar(40),
++        @MontoIniSOl  decimal(18,2),@CajaEncargado  varchar(60),
++        @CajaUsuario  varchar(60),@CajaEstado  varchar(40),@CajaIngresos  decimal(18,2),
++        @CajaDeposito  decimal(18,2),@CajaSalidas  decimal(18,2),@CajaTotal  decimal(18,2),
++        @UsuarioId  int,@CantCajas int,@SerieFactura varchar(10),@Asistencia int,
++        @Observacion varchar(max)
++Set @Data = LTRIM(RTrim(@Data))
++Set @p1 = CharIndex('|',@Data,0)
++Set @p2=CharIndex('|',@Data,@p1+1)
++Set @p3=CharIndex('|',@Data,@p2+1)
++Set @p4=CharIndex('|',@Data,@p3+1)
++Set @p5=CharIndex('|',@Data,@p4+1)
++Set @p6=CharIndex('|',@Data,@p5+1)
++Set @p7=CharIndex('|',@Data,@p6+1)
++Set @p8=CharIndex('|',@Data,@p7+1)
++Set @p9=CharIndex('|',@Data,@p8+1)
++Set @p10=CharIndex('|',@Data,@p9+1)
++Set @p11=CharIndex('|',@Data,@p10+1)
++Set @p12= Len(@Data)+1
++Set @CajaId=convert(numeric(38),SUBSTRING(@Data,1,@p1-1))
++Set @CajaCierre=SUBSTRING(@Data,@p1+1,@p2-@p1-1)
++Set @MontoIniSOl=convert(decimal(18,2),SUBSTRING(@Data,@p2+1,@p3-@p2-1))
++Set @CajaEncargado=SUBSTRING(@Data,@p3+1,@p4-@p3-1)
++Set @CajaUsuario=SUBSTRING(@Data,@p4+1,@p5-@p4-1)
++Set @CajaEstado=SUBSTRING(@Data,@p5+1,@p6-@p5-1)
++Set @CajaIngresos=convert(decimal(18,2),SUBSTRING(@Data,@p6+1,@p7-@p6-1))
++Set @CajaDeposito=convert(decimal(18,2),SUBSTRING(@Data,@p7+1,@p8-@p7-1))
++Set @CajaSalidas=convert(decimal(18,2),SUBSTRING(@Data,@p8+1,@p9-@p8-1))
++Set @CajaTotal=convert(decimal(18,2),SUBSTRING(@Data,@p9+1,@p10-@p9-1))
++Set @UsuarioId=convert(int,SUBSTRING(@Data,@p10+1,@p11-@p10-1))
++Set @Observacion=SUBSTRING(@Data,@p11+1,@p12-@p11-1)
++Declare @FechaAyer date
++Declare @Dia varchar(20)
++Declare @Arqueo int
++--Declare @Aviso numeric(38),@Vitrina nvarchar(1)
++set @FechaAyer=(SELECT DATEADD(DAY,-1,convert(date,GETDATE())))
++set @Dia=(select dbo.diaNombre(@FechaAyer))
++if(@Dia='DOMINGO')
++begin
++set @FechaAyer=(SELECT DATEADD(DAY,-2,convert(date,GETDATE())))
++end
++set @Arqueo=(select top 1 Count(FechaConteo) from ConteoMonedas
++where FechaConteo=@FechaAyer)
++if(@Arqueo=0)
++begin
++set @Arqueo=(select top 1 Count(Fecha) from Feriados
++where Fecha=@FechaAyer)
++end
++if(@Arqueo=0)
++begin
++Select 'NO ARQUEO'
++end
++else
++begin
++if(@CajaId=0)
++begin
++Declare @DataAsis varchar(80)
++Declare @Tardanza nvarchar(1),
++        @OBS varchar(max),
++        @NroTardanza int
++Declare @pos1 int,@pos2 int,
++        @pos3 int,@pos4 int       
++set @DataAsis=isnull((select top 1 convert(varchar,COUNT(a.PersonalId))+'|'+
++a.Estado+'|'+a.Observaciones+'|'+convert(varchar,a.NroTardanza)
++from Asistencia a
++inner join Usuarios u
++on u.PersonalId=a.PersonalId
++inner join Personal p
++on p.PersonalId=u.PersonalId
++where u.UsuarioID=@UsuarioId and a.Fecha=convert(date,GETDATE())
++group by a.HoraIngreso,a.Estado,a.Observaciones,a.NroTardanza),'0|||0')
++Set @DataAsis= LTRIM(RTrim(@DataAsis))
++Set @pos1 = CharIndex('|',@DataAsis,0)
++Set @pos2 = CharIndex('|',@DataAsis,@pos1+1)
++Set @pos3 = CharIndex('|',@DataAsis,@pos2+1)
++Set @pos4= Len(@DataAsis)+1
++Set @Asistencia=convert(int,SUBSTRING(@DataAsis,1,@pos1-1))
++Set @Tardanza=SUBSTRING(@DataAsis,@pos1+1,@pos2-@pos1-1)
++Set @OBS=SUBSTRING(@DataAsis,@pos2+1,@pos3-@pos2-1)
++Set @NroTardanza=convert(int,SUBSTRING(@DataAsis,@pos3+1,@pos4-@pos3-1))
++if(@Asistencia=0)
++begin
++Select 'NO ASISTIO'
++end
++else
++begin
++if(@Tardanza='T' and @OBS='')
++begin
++select '['+convert(varchar,@NroTardanza)+']'
++end
++else
++begin
++IF EXISTS(select top 1 CajaId from Caja where CajaEstado='ACTIVO' and UsuarioId=@UsuarioId order by 1 desc)
++begin
++select 'existe'
++end
++else
++begin
++set @CantCajas=(select convert(varchar,count(u.UsuarioID))from Caja c
++inner join Usuarios u
++on u.UsuarioID=c.UsuarioId
++where CajaEstado='ACTIVO')
++if(@CantCajas>=2)
++begin
++select 'NO CERRO'
++end
++else
++begin
++insert into Caja values(GETDATE(),@CajaCierre,@MontoIniSOl,
++@CajaEncargado,@CajaUsuario,@CajaEstado,@CajaIngresos,@CajaDeposito,
++@CajaSalidas,@CajaTotal,@UsuarioId,@Observacion)
++set @CajaId=@@identity
++----
++--set @Aviso=(select top 1 count(c.CajaId) from CajaDetalle d
++--inner join Caja c
++--on c.CajaId=d.CajaId
++--where convert(date,d.DetalleFecha)=CONVERT(date,GETDATE()) and 
++--d.DetalleConcepto='VITRINA' AND D.Estado='D' and c.CajaEstado='ACTIVO')
++--if(@Aviso=0)set @Vitrina='D'
++--else set @Vitrina='T'
++insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO','TOTAL EFECTIVO',0,0,0,'','T','V',0,'','','','')
++insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO','VITRINA',0,0,0,'','D','V',0,'','','','')
++insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO','SENCILLO',0,0,0,'','T','V',0,'','','','')
++insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO','IOC',0,0,0,'','T','V',0,'','','','')
++insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO','REVISTAS',0,0,0,'','D','V',0,'','','','')
++insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO','COPIAS Y OTROS',0,0,0,'','D','V',0,'','','','')
++insert into Monedas values(0,0,'200.00',0,'B',@CajaId)
++insert into Monedas values(0,0,'100.00',0,'B',@CajaId)
++insert into Monedas values(0,0,'50.00',0,'B',@CajaId)
++insert into Monedas values(0,0,'20.00',0,'B',@CajaId)
++insert into Monedas values(0,0,'10.00',0,'B',@CajaId)
++insert into Monedas values(0,0,'5.00',0,'M',@CajaId)
++insert into Monedas values(0,0,'2.00',0,'M',@CajaId)
++insert into Monedas values(0,0,'1.00',0,'M',@CajaId)
++insert into Monedas values(0,0,'0.50',0,'M',@CajaId)
++insert into Monedas values(0,0,'0.20',0,'M',@CajaId)
++insert into Monedas values(0,0,'0.10',0,'M',@CajaId)
++Select 'true'
++end
++end
++end
++end
++end
++else
++begin
++if(@CajaEstado='CERRADA')
++begin
++Declare @Descripcion varchar(max)
++set @Descripcion=isnull((select top 1 d.DetalleConcepto + ' TOTAL S/ '+CONVERT(varChar(max),cast(d.DetalleMonto as money ), 1)
++from CajaDetalle d
++where d.RutaImagen like '%file.png%' and(d.CajaId=@CajaId and d.NotaId=0 and d.DetalleMonto>=200)
++order by d.DetalleId asc),'0')
++if(@Descripcion='0')
++begin
++update Caja
++set CajaCierre=@CajaCierre,MontoIniSOl=@MontoIniSOl,
++CajaEncargado=@CajaEncargado,CajaUsuario=@CajaUsuario,
++CajaEstado=@CajaEstado,CajaIngresos=@CajaIngresos,CajaDeposito=@CajaDeposito,
++CajaSalidas=@CajaSalidas,CajaTotal=@CajaTotal,UsuarioId=@UsuarioId,
++observacion=@Observacion
++where CajaId=@CajaId
++Select 'true'
++end
++else
++begin
++select 'Falta Adjuntar el Archivo de: '+@Descripcion
++end
++end
++else
++begin
++update Caja
++set CajaCierre=@CajaCierre,MontoIniSOl=@MontoIniSOl,
++CajaEncargado=@CajaEncargado,CajaUsuario=@CajaUsuario,
++CajaEstado=@CajaEstado,CajaIngresos=@CajaIngresos,CajaDeposito=@CajaDeposito,
++CajaSalidas=@CajaSalidas,CajaTotal=@CajaTotal,UsuarioId=@UsuarioId,
++observacion=@Observacion
++where CajaId=@CajaId
++Select 'true'
++end
++end
++end
++end--- DXNCOMAS/dbo.uspCruzeOBS
++++ DXN_ICA15102026/dbo.uspCruzeOBS
+@@ -1,69 +1,67 @@
+-
+-CREATE procedure [dbo].[uspCruzeOBS]  
+-@Fecha date  
+-as  
+-begin  
+-Declare @Cantidad int  
+-set @Cantidad=(select COUNT(t.ID)  
+-from TABLAOBS t  
+-where t.FechaTransaccion=@Fecha)  
+-if(@Cantidad=0)  
+-begin  
+-select '0['+  
+-'Descripcion|CierreAyer|AperturaHoy|Validacion|Observacion¬100|100|100|100|100¬String|String|String|String|String¬'+  
+-isnull((select STUFF ((select '¬'+p.ProductoNombre+' '+p.ProductoMarca+'|'+  
+-CONVERT(VarChar(50),cast(d.total-(d.Validacion)as money),1)+'|'+  
+-CONVERT(VarChar(50),cast(d.total as money ), 1)+'|'+  
+-CONVERT(VarChar(50),cast(d.Validacion as money ), 1)+'|'+  
+-case when (d.validacion >0)then  
+-'Sobra Producto'else 'Falta Producto'end  
+-from DetalleApertura d  
+-inner join Producto p  
+-on p.IdProducto=d.IdProducto  
+-inner join APERTURA_ALMACEN a  
+-on a.IdApertura=d.IdApertura  
+-where convert(date,FechaApertura)=@Fecha and Validacion<>0  
+-for xml path('')),1,1,'')),'~')+'['+  
+- isnull((select STUFF((select top 1 '¬'+   
+- CONVERT(VarChar(50), cast(a.ValorInventario-((a.BalanceApertura+a.Recepcion)-(a.CashBill+a.IOC))as money ), 1)--cuadre  
+- from AperturaOBS a  
+- where Month(a.Fecha)=Month(@Fecha) and YEAR(a.Fecha)=YEAR(@fecha)  
+- order by a.Fecha desc  
+- FOR XML PATH('')), 1, 1, '')),'0')  
+-end  
+-else  
+-begin  
+-select  
+-'Transaccion|Codigo|Cliente|Importe¬80|110|200|110¬String|String|String|String¬'+  
+-isnull((select STUFF ((select '¬'+  
+-t.NotaTransaccion+'|'+  
+-t.CodigoMiembro+'|'+t.NombreMiembro+'|'+  
+-convert(VarChar,cast(t.Importe as money ), 1)  
+-from TABLAOBS t  
+-left join NotaPedido n  
+-on n.NotaTransaccion=t.NotaTransaccion  
+-where (Convert(char(10),t.FechaTransaccion,101) BETWEEN @Fecha AND @Fecha) AND n.CajaId IS NULL  
+-for xml path('')),1,1,'')),'~')+'['+  
+-'Descripcion|CierreAyer|AperturaHoy|Validacion|Observacion¬100|100|100|100|100¬String|String|String|String|String¬'+  
+-isnull((select STUFF ((select '¬'+p.ProductoNombre+' '+p.ProductoMarca+'|'+  
+-CONVERT(VarChar(50),cast(d.total-(d.Validacion)as money),1)+'|'+  
+-CONVERT(VarChar(50),cast(d.total as money ), 1)+'|'+  
+-CONVERT(VarChar(50),cast(d.Validacion as money ), 1)+'|'+  
+-case when (d.validacion >0)then  
+-'Sobra Producto'else 'Falta Producto'end  
+-from DetalleApertura d  
+-inner join Producto p  
+-on p.IdProducto=d.IdProducto  
+-inner join APERTURA_ALMACEN a  
+-on a.IdApertura=d.IdApertura  
+-where convert(date,FechaApertura)=@Fecha and Validacion<>0  
+-for xml path('')),1,1,'')),'~')+'['+  
+- isnull((select STUFF((select top 1'¬'+  
+- CONVERT(VarChar(50), cast(a.ValorInventario-((a.BalanceApertura+a.Recepcion)-(a.CashBill+a.IOC))as money ), 1)--cuadre  
+- from AperturaOBS a  
+- where Month(a.Fecha)=Month(@Fecha) and YEAR(a.Fecha)=YEAR(@fecha)  
+- order by a.Fecha desc  
+- FOR XML PATH('')), 1, 1, '')),'0')  
+-end  
+-end  
+-
++CREATE procedure [dbo].[uspCruzeOBS]
++@Fecha date
++as
++begin
++Declare @Cantidad int
++set @Cantidad=(select COUNT(t.ID)
++from TABLAOBS t
++where t.FechaTransaccion=@Fecha)
++if(@Cantidad=0)
++begin
++select '0['+
++'Descripcion|CierreAyer|AperturaHoy|Validacion|Observacion¬100|100|100|100|100¬String|String|String|String|String¬'+
++isnull((select STUFF ((select '¬'+p.ProductoNombre+' '+p.ProductoMarca+'|'+
++CONVERT(VarChar(50),cast(d.total-(d.Validacion)as money),1)+'|'+
++CONVERT(VarChar(50),cast(d.total as money ), 1)+'|'+
++CONVERT(VarChar(50),cast(d.Validacion as money ), 1)+'|'+
++case when (d.validacion >0)then
++'Sobra Producto'else 'Falta Producto'end
++from DetalleApertura d
++inner join Producto p
++on p.IdProducto=d.IdProducto
++inner join APERTURA_ALMACEN a
++on a.IdApertura=d.IdApertura
++where convert(date,FechaApertura)=@Fecha and Validacion<>0
++for xml path('')),1,1,'')),'~')+'['+
++ isnull((select STUFF((select top 1 '¬'+ 
++ CONVERT(VarChar(50), cast(a.ValorInventario-((a.BalanceApertura+a.Recepcion)-(a.CashBill+a.IOC))as money ), 1)--cuadre
++ from AperturaOBS a
++ where Month(a.Fecha)=Month(@Fecha) and YEAR(a.Fecha)=YEAR(@fecha)
++ order by a.Fecha desc
++ FOR XML PATH('')), 1, 1, '')),'0')
++end
++else
++begin
++select
++'Transaccion|Codigo|Cliente|Importe¬80|110|200|110¬String|String|String|String¬'+
++isnull((select STUFF ((select '¬'+
++t.NotaTransaccion+'|'+
++t.CodigoMiembro+'|'+t.NombreMiembro+'|'+
++convert(VarChar,cast(t.Importe as money ), 1)
++from TABLAOBS t
++left join NotaPedido n
++on n.NotaTransaccion=t.NotaTransaccion
++where t.FechaTransaccion=@Fecha AND n.CajaId IS NULL
++for xml path('')),1,1,'')),'~')+'['+
++'Descripcion|CierreAyer|AperturaHoy|Validacion|Observacion¬100|100|100|100|100¬String|String|String|String|String¬'+
++isnull((select STUFF ((select '¬'+p.ProductoNombre+' '+p.ProductoMarca+'|'+
++CONVERT(VarChar(50),cast(d.total-(d.Validacion)as money),1)+'|'+
++CONVERT(VarChar(50),cast(d.total as money ), 1)+'|'+
++CONVERT(VarChar(50),cast(d.Validacion as money ), 1)+'|'+
++case when (d.validacion >0)then
++'Sobra Producto'else 'Falta Producto'end
++from DetalleApertura d
++inner join Producto p
++on p.IdProducto=d.IdProducto
++inner join APERTURA_ALMACEN a
++on a.IdApertura=d.IdApertura
++where convert(date,FechaApertura)=@Fecha and Validacion<>0
++for xml path('')),1,1,'')),'~')+'['+
++ isnull((select STUFF((select top 1'¬'+
++ CONVERT(VarChar(50), cast(a.ValorInventario-((a.BalanceApertura+a.Recepcion)-(a.CashBill+a.IOC))as money ), 1)--cuadre
++ from AperturaOBS a
++ where Month(a.Fecha)=Month(@Fecha) and YEAR(a.Fecha)=YEAR(@fecha)
++ order by a.Fecha desc
++ FOR XML PATH('')), 1, 1, '')),'0')
++end
++end
+--- DXNCOMAS/dbo.uspDetaAperturaB
++++ DXN_ICA15102026/dbo.uspDetaAperturaB
+@@ -1,65 +1,66 @@
+-CREATE proc [dbo].[uspDetaAperturaB]
+-@UsuarioID int
+-as
+-begin
+-Declare @IdApertura numeric(38)
+-declare @IdAperturaC numeric(38)
+-set @IdApertura=isnull((select top 1 a.IdApertura from APERTURA_ALMACEN a 
+-where a.UsuarioID=@UsuarioID and a.AperturaEstado='0' order by a.IdApertura desc),'0')
+-set @IdAperturaC=isnull((select top 1 a.IdApertura from APERTURA_ALMACEN a 
+-order by a.IdApertura desc),0)
+-if(@IdApertura=0)
+-begin
+-select
+-'0['+ 
+-'ID|Codigo|Descripcion|xMayor|UNIxCaja|TotalxMayor|UM|Despacho|Vitrina|AlmacenTotal|Validacion¬90|100|350|100|110|110|80|100|100|110|90¬String|String|String|String|String|String|String|String|String|String|String¬'+
+-isnull((select STUFF ((select '¬'+convert(varchar,p.IdProducto)+'|'+p.ProductoCodigo+'|'+
+-p.ProductoNombre+' '+p.ProductoMarca+'|'+''+'|'+convert(varchar,p.productoxCaja)+'|'+''+'|'+
+-p.ProductoUM+'|'+''+'|'+''+'|'+''+'|'+''
+-from Producto p
+-inner join Sublinea s
+-on s.IdSubLinea=p.IdSubLinea
+-where p.ProductoEstado='BUENO' and s.Vista='V'
+-order by p.ProductoCodigo asc
+-for xml path('')),1,1,'')),'~')+'['+
+-'IdProducto|total¬90|100¬String|String¬'+
+-isnull((select STUFF ((select '¬'+convert(varchar,d.IdProducto)+'|'+
+-CONVERT(VarChar(50),cast(d.total as money ), 1)
+-from DetalleCierre d
+-where d.IdApertura=@IdAperturaC
+-order by d.DetalleId asc
+-for xml path('')),1,1,'')),'~')
+-end
+-else
+-begin
+-select
+-isnull((select STUFF ((select '¬'+CONVERT(varchar,a.IdApertura)+'|'+
+-(IsNull(convert(varchar,a.FechaApertura,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,a.FechaApertura,114),1,8),''))+'|'+
+-a.FechaCierre+'|'+CONVERT(varchar,a.UsuarioId)+'|'+a.Usuario+'|'+a.Observacion+'|'+a.AperturaEstado
+-from APERTURA_ALMACEN a
+-where a.IdApertura=@IdApertura
+-for xml path('')),1,1,'')),'~')+'['+
+-'ID|Codigo|Descripcion|xMayor|UNIxCaja|TotalxMayor|UM|Despacho|Vitrina|AlmacenTotal|Validacion¬90|100|350|100|110|110|80|100|100|110|90¬String|String|String|String|String|String|String|String|String|String|String¬'+
+-isnull((select STUFF ((select '¬'+convert(varchar,p.IdProducto)+'|'+p.ProductoCodigo+'|'+
+-p.ProductoNombre+' '+p.ProductoMarca+'|'+convert(varchar,d.CantMayor)+'|'+convert(varchar,d.xCaja)+'|'+
+-convert(varchar(50), CAST(d.CantMayor*d.xCaja as money),1)+'|'+
+-p.ProductoUM+'|'+CONVERT(varchar,d.CantDespacho)+'|'+CONVERT(varchar,d.CantVitrina)+'|'+
+-convert(varchar(50), CAST(d.total as money),1)+'|'+convert(varchar,d.Validacion)
+-from DetalleApertura d
+-inner join Producto p
+-on p.IdProducto=d.IdProducto
+-where d.IdApertura=@IdApertura
+-order by p.ProductoCodigo asc
+-for xml path('')),1,1,'')),'~')+'['+
+-'ID|Codigo|Descripcion|xMayor|UNIxCaja|TotalxMayor|UM|Despacho|Vitrina|AlmacenTotal¬90|100|350|100|110|110|80|100|100|110¬String|String|String|String|String|String|String|String|String|String¬'+
+-isnull((select STUFF ((select '¬'+convert(varchar,p.IdProducto)+'|'+p.ProductoCodigo+'|'+
+-p.ProductoNombre+' '+p.ProductoMarca+'|'+''+'|'+convert(varchar,p.productoxCaja)+'|'+''+'|'+
+-p.ProductoUM+'|'+''+'|'+''+'|'+''
+-from Producto p
+-inner join Sublinea s
+-on s.IdSubLinea=p.IdSubLinea
+-where p.ProductoEstado='BUENO' and s.Vista='V'
+-order by p.ProductoCodigo asc
+-for xml path('')),1,1,'')),'~')
+-end
+-end
++create proc [dbo].[uspDetaAperturaB]      
++@UsuarioID int      
++as      
++begin      
++Declare @IdApertura numeric(38)      
++declare @IdAperturaC numeric(38)      
++set @IdApertura=isnull((select top 1 a.IdApertura from APERTURA_ALMACEN a       
++where a.UsuarioID=@UsuarioID and a.AperturaEstado='0' order by a.IdApertura desc),'0')      
++set @IdAperturaC=isnull((select top 1 a.IdApertura from APERTURA_ALMACEN a       
++order by a.IdApertura desc),0)      
++if(@IdApertura=0)      
++begin      
++select      
++'0['+       
++'ID|Codigo|Descripcion|xMayor|UNIxCaja|TotalxMayor|UM|Despacho|Vitrina|AlmacenTotal|Validacion¬90|100|350|100|110|110|80|100|100|110|90¬String|String|String|String|String|String|String|String|String|String|String¬'+      
++isnull((select STUFF ((select '¬'+convert(varchar,p.IdProducto)+'|'+p.ProductoCodigo+'|'+      
++p.ProductoNombre+' '+p.ProductoMarca+'|'+''+'|'+convert(varchar,p.productoxCaja)+'|'+''+'|'+      
++p.ProductoUM+'|'+''+'|'+''+'|'+''+'|'+''      
++from Producto p      
++--inner join Sublinea s      
++--on s.IdSubLinea=p.IdSubLinea      
++where p.ProductoEstado='BUENO' and p.ProductoINV='S' --and s.Vista='V'      
++order by p.ProductoCodigo asc      
++for xml path('')),1,1,'')),'~')+'['+      
++'IdProducto|total¬90|100¬String|String¬'+      
++isnull((select STUFF ((select '¬'+convert(varchar,d.IdProducto)+'|'+      
++CONVERT(VarChar(50),cast(d.total as money ), 1)      
++from DetalleCierre d      
++where d.IdApertura=@IdAperturaC      
++order by d.DetalleId asc      
++for xml path('')),1,1,'')),'~')      
++end      
++else      
++begin      
++select      
++isnull((select STUFF ((select '¬'+CONVERT(varchar,a.IdApertura)+'|'+      
++(IsNull(convert(varchar,a.FechaApertura,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,a.FechaApertura,114),1,8),''))+'|'+      
++(IsNull(convert(varchar,a.FechaCierre,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,a.FechaCierre,114),1,8),''))+'|'+    
++CONVERT(varchar,a.UsuarioId)+'|'+a.Usuario+'|'+a.Observacion+'|'+a.AperturaEstado      
++from APERTURA_ALMACEN a      
++where a.IdApertura=@IdApertura      
++for xml path('')),1,1,'')),'~')+'['+      
++'ID|Codigo|Descripcion|xMayor|UNIxCaja|TotalxMayor|UM|Despacho|Vitrina|AlmacenTotal|Validacion¬90|100|350|100|110|110|80|100|100|110|90¬String|String|String|String|String|String|String|String|String|String|String¬'+      
++isnull((select STUFF ((select '¬'+convert(varchar,p.IdProducto)+'|'+p.ProductoCodigo+'|'+      
++p.ProductoNombre+' '+p.ProductoMarca+'|'+convert(varchar,d.CantMayor)+'|'+convert(varchar,d.xCaja)+'|'+      
++convert(varchar(50), CAST(d.CantMayor*d.xCaja as money),1)+'|'+      
++p.ProductoUM+'|'+CONVERT(varchar,d.CantDespacho)+'|'+CONVERT(varchar,d.CantVitrina)+'|'+      
++convert(varchar(50), CAST(d.total as money),1)+'|'+convert(varchar,d.Validacion)      
++from DetalleApertura d      
++inner join Producto p      
++on p.IdProducto=d.IdProducto      
++where d.IdApertura=@IdApertura      
++order by p.ProductoCodigo asc      
++for xml path('')),1,1,'')),'~')+'['+      
++'ID|Codigo|Descripcion|xMayor|UNIxCaja|TotalxMayor|UM|Despacho|Vitrina|AlmacenTotal¬90|100|350|100|110|110|80|100|100|110¬String|String|String|String|String|String|String|String|String|String¬'+      
++isnull((select STUFF ((select '¬'+convert(varchar,p.IdProducto)+'|'+p.ProductoCodigo+'|'+      
++p.ProductoNombre+' '+p.ProductoMarca+'|'+''+'|'+convert(varchar,p.productoxCaja)+'|'+''+'|'+      
++p.ProductoUM+'|'+''+'|'+''+'|'+''      
++from Producto p      
++--inner join Sublinea s      
++--on s.IdSubLinea=p.IdSubLinea      
++where p.ProductoEstado='BUENO' and p.ProductoINV='S'      
++order by p.ProductoCodigo asc      
++for xml path('')),1,1,'')),'~')      
++end      
++end --- DXNCOMAS/dbo.uspInsertarConteoCaja
++++ DXN_ICA15102026/dbo.uspInsertarConteoCaja
+@@ -1,102 +1,102 @@
+-create procedure [dbo].[uspInsertarConteoCaja]
+-@ListaOrden varchar(Max)
+-as
+-Declare @pos1 int,@pos2 int,@pos3 int
+-Declare @orden varchar(max),
+-        @detalle varchar(max),
+-        @Monedas varchar(max)
+-Set @pos1 = CharIndex('[',@ListaOrden,0)
+-Set @pos2 = CharIndex('[',@ListaOrden,@pos1+1)
+-Set @pos3=Len(@ListaOrden)+1
+-Set @orden = SUBSTRING(@ListaOrden,1,@pos1-1)
+-Set @detalle =SUBSTRING(@ListaOrden,@pos1+1,@pos2-@pos1-1)
+-Set @Monedas=SUBSTRING(@ListaOrden,@pos2+1,@pos3-@pos2-1)
+-Declare @c1 int,@c2 int,@c3 int,@c4 int,
+-        @c5 int,@c6 int,@c7 int,@c8 int,
+-        @c9 int,@c10 int,@c11 int,@C12 int
+-Declare @ConteoId numeric(38),@FechaConteo date,
+-        @UsuarioId int,@Usuario varchar(80),
+-        @Cajeros varchar(300),@TotalOBS decimal(18,2),
+-        @Gastos decimal(18,2),@Diferencial decimal(18,2),
+-        @Total decimal(18,2),@Aviso varchar(140),
+-        @Observaciones varchar(max),@CajaId numeric(38)
+-Set @c1 = CharIndex('|',@orden,0)
+-Set @c2 = CharIndex('|',@orden,@c1+1)
+-Set @c3 = CharIndex('|',@orden,@c2+1)
+-Set @c4 = CharIndex('|',@orden,@c3+1)
+-Set @c5 = CharIndex('|',@orden,@c4+1)
+-Set @c6= CharIndex('|',@orden,@c5+1)
+-Set @c7 = CharIndex('|',@orden,@c6+1)
+-Set @c8 = CharIndex('|',@orden,@c7+1)
+-Set @c9 = CharIndex('|',@orden,@c8+1)
+-Set @c10= CharIndex('|',@orden,@c9+1)
+-Set @c11= CharIndex('|',@orden,@c10+1)
+-Set @C12= Len(@orden)+1
+-Set @ConteoId=convert(numeric(38),SUBSTRING(@orden,1,@c1-1))
+-Set @FechaConteo=convert(date,SUBSTRING(@orden,@c1+1,@c2-@c1-1))
+-Set @UsuarioId=convert(int,SUBSTRING(@orden,@c2+1,@c3-@c2-1))
+-Set @Usuario=SUBSTRING(@orden,@c3+1,@c4-@c3-1)
+-Set @Cajeros=SUBSTRING(@orden,@c4+1,@c5-@c4-1)
+-Set @TotalOBS=convert(decimal(18,2),SUBSTRING(@orden,@c5+1,@c6-@c5-1))
+-Set @Gastos=convert(decimal(18,2),SUBSTRING(@orden,@c6+1,@c7-@c6-1))
+-Set @Diferencial=convert(decimal(18,2),SUBSTRING(@orden,@c7+1,@c8-@c7-1))
+-Set @Total=convert(decimal(18,2),SUBSTRING(@orden,@c8+1,@c9-@c8-1))
+-Set @Aviso=SUBSTRING(@orden,@c9+1,@c10-@c9-1)
+-Set @Observaciones=SUBSTRING(@orden,@c10+1,@c11-@c10-1)
+-Set @CajaId=convert(numeric(38),SUBSTRING(@orden,@c11+1,@C12-@c11-1))
+-Begin Transaction
+-insert into ConteoMonedas values(
+-@FechaConteo,Getdate(),@UsuarioId,@Usuario,@Cajeros,@TotalOBS,
+-@Gastos,@Diferencial,@Total,@Aviso,@Observaciones,@CajaId,'N')
+-Set @ConteoId= @@identity
+-Declare Tabla Cursor For Select * From fnSplitString(@detalle,';')	
+-Open Tabla
+-        Declare @Columna varchar(max)
+-        Declare @Descripcion varchar(max),@Importe decimal(18,2),
+-        @Estado char(1),@Concepto char(1)
+-		Declare @d1 int,@d2 int,@d3 int,@d4 int
+-Fetch Next From Tabla INTO @Columna
+-While @@FETCH_STATUS = 0
+-Begin
+-	    Set @d1 = CharIndex('|',@Columna,0)
+-	    Set @d2 = CharIndex('|',@Columna,@d1+1)
+-        Set @d3 = CharIndex('|',@Columna,@d2+1)
+-		Set @d4=Len(@Columna)+1
+-        Set @Descripcion=SUBSTRING(@Columna,1,@d1-1)
+-		Set @Importe=convert(decimal(18,2),SUBSTRING(@Columna,@d1+1,@d2-(@d1+1)))
+-		set @Estado=SUBSTRING(@Columna,@d2+1,@d3-(@d2+1))
+-		set @Concepto=SUBSTRING(@Columna,@d3+1,@d4-(@d3+1))
+-insert into DetalleConteo values(@ConteoId,upper(@Descripcion),@Importe,@Estado,@Concepto,@CajaId)
+-Fetch Next From Tabla INTO @Columna
+-End
+-    Close Tabla;
+-	Deallocate Tabla;
+-	begin
+-	Declare TablaB Cursor For Select * From fnSplitString(@Monedas,';')	
+-Open TablaB
+-        Declare @ARQUEO varchar(max)
+-Declare  @Efectivo int,@Billete varchar(80),
+-         @Monto decimal(18,2),@ConceptoB char(1)
+-		Declare @m1 int,@m2 int,@m3 int,@m4 int
+-Fetch Next From TablaB INTO @ARQUEO
+-While @@FETCH_STATUS = 0
+-Begin
+-	    Set @m1 = CharIndex('|',@ARQUEO,0)
+-	    Set @m2 = CharIndex('|',@ARQUEO,@m1+1)
+-        Set @m3 = CharIndex('|',@ARQUEO,@m2+1)
+-		Set @m4=Len(@ARQUEO)+1
+-        Set @Efectivo=convert(int,SUBSTRING(@ARQUEO,1,@m1-1))
+-		Set @Billete=SUBSTRING(@ARQUEO,@m1+1,@m2-(@m1+1))
+-		set @Monto=convert(decimal(18,2),SUBSTRING(@ARQUEO,@m2+1,@m3-(@m2+1)))
+-		set @ConceptoB=SUBSTRING(@ARQUEO,@m3+1,@m4-(@m3+1))
+-insert into Monedas values(@ConteoId,@Efectivo,@Billete,@Monto,@ConceptoB,@CajaId)
+-Fetch Next From TablaB INTO @ARQUEO
+-END
+-	Close TablaB;
+-	Deallocate TablaB;
+-END
+-	Commit Transaction;
+-	update TemporalMoneda 
+-	set Efectivo=null,Monto=null 
+-	where UsuarioID=@UsuarioId and CajaId=0
+-	Select convert(varchar,@ConteoId);+create procedure [dbo].[uspInsertarConteoCaja]  
++@ListaOrden varchar(Max)  
++as  
++Declare @pos1 int,@pos2 int,@pos3 int  
++Declare @orden varchar(max),  
++        @detalle varchar(max),  
++        @Monedas varchar(max)  
++Set @pos1 = CharIndex('[',@ListaOrden,0)  
++Set @pos2 = CharIndex('[',@ListaOrden,@pos1+1)  
++Set @pos3=Len(@ListaOrden)+1  
++Set @orden = SUBSTRING(@ListaOrden,1,@pos1-1)  
++Set @detalle =SUBSTRING(@ListaOrden,@pos1+1,@pos2-@pos1-1)  
++Set @Monedas=SUBSTRING(@ListaOrden,@pos2+1,@pos3-@pos2-1)  
++Declare @c1 int,@c2 int,@c3 int,@c4 int,  
++        @c5 int,@c6 int,@c7 int,@c8 int,  
++        @c9 int,@c10 int,@c11 int,@C12 int  
++Declare @ConteoId numeric(38),@FechaConteo date,  
++        @UsuarioId int,@Usuario varchar(80),  
++        @Cajeros varchar(300),@TotalOBS decimal(18,2),  
++        @Gastos decimal(18,2),@Diferencial decimal(18,2),  
++        @Total decimal(18,2),@Aviso varchar(140),  
++        @Observaciones varchar(max),@CajaId numeric(38)  
++Set @c1 = CharIndex('|',@orden,0)  
++Set @c2 = CharIndex('|',@orden,@c1+1)  
++Set @c3 = CharIndex('|',@orden,@c2+1)  
++Set @c4 = CharIndex('|',@orden,@c3+1)  
++Set @c5 = CharIndex('|',@orden,@c4+1)  
++Set @c6= CharIndex('|',@orden,@c5+1)  
++Set @c7 = CharIndex('|',@orden,@c6+1)  
++Set @c8 = CharIndex('|',@orden,@c7+1)  
++Set @c9 = CharIndex('|',@orden,@c8+1)  
++Set @c10= CharIndex('|',@orden,@c9+1)  
++Set @c11= CharIndex('|',@orden,@c10+1)  
++Set @C12= Len(@orden)+1  
++Set @ConteoId=convert(numeric(38),SUBSTRING(@orden,1,@c1-1))  
++Set @FechaConteo=convert(date,SUBSTRING(@orden,@c1+1,@c2-@c1-1))  
++Set @UsuarioId=convert(int,SUBSTRING(@orden,@c2+1,@c3-@c2-1))  
++Set @Usuario=SUBSTRING(@orden,@c3+1,@c4-@c3-1)  
++Set @Cajeros=SUBSTRING(@orden,@c4+1,@c5-@c4-1)  
++Set @TotalOBS=convert(decimal(18,2),SUBSTRING(@orden,@c5+1,@c6-@c5-1))  
++Set @Gastos=convert(decimal(18,2),SUBSTRING(@orden,@c6+1,@c7-@c6-1))  
++Set @Diferencial=convert(decimal(18,2),SUBSTRING(@orden,@c7+1,@c8-@c7-1))  
++Set @Total=convert(decimal(18,2),SUBSTRING(@orden,@c8+1,@c9-@c8-1))  
++Set @Aviso=SUBSTRING(@orden,@c9+1,@c10-@c9-1)  
++Set @Observaciones=SUBSTRING(@orden,@c10+1,@c11-@c10-1)  
++Set @CajaId=convert(numeric(38),SUBSTRING(@orden,@c11+1,@C12-@c11-1))  
++Begin Transaction  
++insert into ConteoMonedas values(  
++@FechaConteo,Getdate(),@UsuarioId,@Usuario,@Cajeros,@TotalOBS,  
++@Gastos,@Diferencial,@Total,@Aviso,@Observaciones,@CajaId,'E')  
++Set @ConteoId= @@identity  
++Declare Tabla Cursor For Select * From fnSplitString(@detalle,';')   
++Open Tabla  
++        Declare @Columna varchar(max)  
++        Declare @Descripcion varchar(max),@Importe decimal(18,2),  
++        @Estado char(1),@Concepto char(1)  
++  Declare @d1 int,@d2 int,@d3 int,@d4 int  
++Fetch Next From Tabla INTO @Columna  
++While @@FETCH_STATUS = 0  
++Begin  
++     Set @d1 = CharIndex('|',@Columna,0)  
++     Set @d2 = CharIndex('|',@Columna,@d1+1)  
++        Set @d3 = CharIndex('|',@Columna,@d2+1)  
++  Set @d4=Len(@Columna)+1  
++        Set @Descripcion=SUBSTRING(@Columna,1,@d1-1)  
++  Set @Importe=convert(decimal(18,2),SUBSTRING(@Columna,@d1+1,@d2-(@d1+1)))  
++  set @Estado=SUBSTRING(@Columna,@d2+1,@d3-(@d2+1))  
++  set @Concepto=SUBSTRING(@Columna,@d3+1,@d4-(@d3+1))  
++insert into DetalleConteo values(@ConteoId,upper(@Descripcion),@Importe,@Estado,@Concepto,@CajaId)  
++Fetch Next From Tabla INTO @Columna  
++End  
++    Close Tabla;  
++ Deallocate Tabla;  
++ begin  
++ Declare TablaB Cursor For Select * From fnSplitString(@Monedas,';')   
++Open TablaB  
++        Declare @ARQUEO varchar(max)  
++Declare  @Efectivo int,@Billete varchar(80),  
++         @Monto decimal(18,2),@ConceptoB char(1)  
++  Declare @m1 int,@m2 int,@m3 int,@m4 int  
++Fetch Next From TablaB INTO @ARQUEO  
++While @@FETCH_STATUS = 0  
++Begin  
++     Set @m1 = CharIndex('|',@ARQUEO,0)  
++     Set @m2 = CharIndex('|',@ARQUEO,@m1+1)  
++        Set @m3 = CharIndex('|',@ARQUEO,@m2+1)  
++  Set @m4=Len(@ARQUEO)+1  
++        Set @Efectivo=convert(int,SUBSTRING(@ARQUEO,1,@m1-1))  
++  Set @Billete=SUBSTRING(@ARQUEO,@m1+1,@m2-(@m1+1))  
++  set @Monto=convert(decimal(18,2),SUBSTRING(@ARQUEO,@m2+1,@m3-(@m2+1)))  
++  set @ConceptoB=SUBSTRING(@ARQUEO,@m3+1,@m4-(@m3+1))  
++insert into Monedas values(@ConteoId,@Efectivo,@Billete,@Monto,@ConceptoB,@CajaId)  
++Fetch Next From TablaB INTO @ARQUEO  
++END  
++ Close TablaB;  
++ Deallocate TablaB;  
++END  
++ Commit Transaction;  
++ update TemporalMoneda   
++ set Efectivo=null,Monto=null   
++ where UsuarioID=@UsuarioId and CajaId=0  
++ Select convert(varchar,@ConteoId);  --- DXNCOMAS/dbo.uspinsertarNotaB
++++ DXN_ICA15102026/dbo.uspinsertarNotaB
+@@ -1,474 +1,474 @@
+-create procedure [dbo].[uspinsertarNotaB]  
+-@ListaOrden varchar(Max)  
+-as  
+-begin
+-
+-Declare @pos1 int,@pos2 int  
+-Declare @orden varchar(max),  
+-        @detalle varchar(max)  
+-Set @pos1 = CharIndex('[',@ListaOrden,0)  
+-Set @pos2 =Len(@ListaOrden)+1  
+-Set @orden = SUBSTRING(@ListaOrden,1,@pos1-1)  
+-Set @detalle = SUBSTRING(@ListaOrden,@pos1+1,@pos2-@pos1-1)  
+-Declare @c1 int,@c2 int,@c3 int,@c4 int,  
+-        @c5 int,@c6 int,@c7 int,@c8 int,  
+-        @c9 int,@c10 int,@c11 int,@c12 int,  
+-        @c13 int,@c14 int,@c15 int,@c16 int,  
+-        @c17 int,@c18 int,@c19 int,@c20 int,  
+-        @c21 int,@c22 int,@c23 int,@c24 int,  
+-        @c25 int,@c26 int,@c27 int,@c28 int,  
+-        @c29 int,@c30 int,@c31 int,@c32 int,  
+-        @c33 int,@c34 int,@c35 int,@c36 int,  
+-        @c37 int,@c38 int,@c39 int,@c40 int,  
+-        @c41 int,@c42 int,@c43 int,@c44 int  
+-Declare   
+-  @NotaDocu varchar(60),@ClienteId numeric(20),  
+-  @NotaUsuario varchar(60),@NotaFormaPago varchar(60),  
+-  @NotaCondicion varchar(60),@NotaDireccion varchar(max),  
+-  @NotaSubtotal decimal (18,2),@NotaMovilidad decimal(18,2),  
+-  @NotaDescuento decimal (18, 2),@NotaTotal decimal (18,2),  
+-  @NotaAcuenta decimal(18,2),@NotaSaldo decimal(18,2),  
+-  @NotaAdicional decimal(18,2),@NotaTarjeta decimal(18,2),  
+-  @NotaPagar decimal(18,2),  
+-  @NotaEstado varchar(60),@CompaniaId int,  
+-  @NotaEntrega varchar(40),@NotaConcepto varchar(60),  
+-  @Serie char(4),@Numero varchar(60),  
+-  @NotaGanancia decimal(18,2),@Letra varchar(max),  
+-  @DocuAdicional decimal(18,2),@DocuHash varchar(250),  
+-  @EstadoSunat varchar(80),@DocuSubtotal decimal(18,2),  
+-  @DocuIGV decimal(18,2),@UsuarioId int,@CajaId numeric(38),  
+-  --@Movimiento varchar(40),  
+-  @NotaTransaccion varchar(250),@KARDEX VARCHAR(1),  
+-  @Miembro varchar(300),@CodigoCliente varchar(80),  
+-  @ICBPER DECIMAL(18,2),@Asistencia int,@DocuGRAVADA decimal(18,2),  
+-  @ConceptoOBS varchar(80),@EstadoOBS varchar(20),  
+-  @PV varchar(40),@Image varchar(max),@TEXTO varchar(300),  
+-  @CodigoRes varchar(80),@Responsable varchar(300),  
+-  @EntidadBancaria varchar(80),  
+-  @Efectivo decimal(18,2),@Deposito decimal(18,2),  
+-  @NroOperacion varchar(80)  
+-Set @c1 = CharIndex('|',@orden,0)  
+-Set @c2 = CharIndex('|',@orden,@c1+1)  
+-Set @c3 = CharIndex('|',@orden,@c2+1)  
+-Set @c4 = CharIndex('|',@orden,@c3+1)  
+-Set @c5 = CharIndex('|',@orden,@c4+1)  
+-Set @c6= CharIndex('|',@orden,@c5+1)  
+-Set @c7 = CharIndex('|',@orden,@c6+1)  
+-Set @c8 = CharIndex('|',@orden,@c7+1)  
+-Set @c9 = CharIndex('|',@orden,@c8+1)  
+-Set @c10= CharIndex('|',@orden,@c9+1)  
+-Set @c11= CharIndex('|',@orden,@c10+1)  
+-Set @c12= CharIndex('|',@orden,@c11+1)  
+-Set @c13= CharIndex('|',@orden,@c12+1)  
+-Set @c14= CharIndex('|',@orden,@c13+1)  
+-Set @c15= CharIndex('|',@orden,@c14+1)  
+-Set @c16= CharIndex('|',@orden,@c15+1)  
+-Set @c17= CharIndex('|',@orden,@c16+1)  
+-Set @c18 = CharIndex('|',@orden,@c17+1)  
+-Set @c19 = CharIndex('|',@orden,@c18+1)  
+-Set @c20= CharIndex('|',@orden,@c19+1)  
+-Set @c21= CharIndex('|',@orden,@c20+1)  
+-Set @c22= CharIndex('|',@orden,@c21+1)  
+-Set @c23= CharIndex('|',@orden,@c22+1)  
+-Set @c24= CharIndex('|',@orden,@c23+1)  
+-Set @c25= CharIndex('|',@orden,@c24+1)  
+-Set @c26= CharIndex('|',@orden,@c25+1)  
+-Set @c27= CharIndex('|',@orden,@c26+1)  
+-Set @c28= CharIndex('|',@orden,@c27+1)  
+-Set @c29= CharIndex('|',@orden,@c28+1)  
+-Set @c30= CharIndex('|',@orden,@c29+1)  
+-Set @c31= CharIndex('|',@orden,@c30+1)  
+-Set @c32= CharIndex('|',@orden,@c31+1)  
+-Set @c33= CharIndex('|',@orden,@c32+1)  
+-Set @c34= CharIndex('|',@orden,@c33+1)  
+-Set @c35= CharIndex('|',@orden,@c34+1)  
+-Set @c36= CharIndex('|',@orden,@c35+1)  
+-Set @c37= CharIndex('|',@orden,@c36+1)  
+-Set @c38= CharIndex('|',@orden,@c37+1)  
+-Set @c39= CharIndex('|',@orden,@c38+1)  
+-Set @c40= CharIndex('|',@orden,@c39+1)  
+-Set @c41= CharIndex('|',@orden,@c40+1)  
+-Set @c42= CharIndex('|',@orden,@c41+1)  
+-Set @c43= CharIndex('|',@orden,@c42+1)  
+-Set @c44= Len(@orden)+1  
+-set @NotaDocu=SUBSTRING(@orden,1,@c1-1)  
+-set @ClienteId=convert(numeric(20),SUBSTRING(@orden,@c1+1,@c2-@c1-1))  
+-set @NotaUsuario=SUBSTRING(@orden,@c2+1,@c3-@c2-1)  
+-set @NotaFormaPago=SUBSTRING(@orden,@c3+1,@c4-@c3-1)  
+-set @NotaCondicion=SUBSTRING(@orden,@c4+1,@c5-@c4-1)  
+-set @NotaDireccion=SUBSTRING(@orden,@c5+1,@c6-@c5-1)  
+-set @NotaSubtotal=convert(decimal(18,2),SUBSTRING(@orden,@c6+1,@c7-@c6-1))  
+-set @NotaMovilidad=convert(decimal(18,2),SUBSTRING(@orden,@c7+1,@c8-@c7-1))  
+-set @NotaDescuento=convert(decimal(18,2),SUBSTRING(@orden,@c8+1,@c9-@c8-1))  
+-set @NotaTotal=convert(decimal(18,2),SUBSTRING(@orden,@c9+1,@c10-@c9-1))  
+-set @NotaAcuenta=convert(decimal(18,2),SUBSTRING(@orden,@c10+1,@c11-@c10-1))  
+-set @NotaSaldo=convert(decimal(18,2),SUBSTRING(@orden,@c11+1,@c12-@c11-1))  
+-set @NotaAdicional=convert(decimal(18,2),SUBSTRING(@orden,@c12+1,@c13-@c12-1))  
+-set @NotaTarjeta=convert(decimal(18,2),SUBSTRING(@orden,@c13+1,@c14-@c13-1))  
+-set @NotaPagar=convert(decimal(18,2),SUBSTRING(@orden,@c14+1,@c15-@c14-1))  
+-set @NotaEstado=SUBSTRING(@orden,@c15+1,@c16-@c15-1)  
+-set @CompaniaId=convert(int,SUBSTRING(@orden,@c16+1,@c17-@c16-1))  
+-set @NotaEntrega=SUBSTRING(@orden,@c17+1,@c18-@c17-1)  
+-set @NotaConcepto=SUBSTRING(@orden,@c18+1,@c19-@c18-1)  
+-set @Serie=convert(char(4),SUBSTRING(@orden,@c19+1,@c20-@c19-1))  
+-set @Numero=SUBSTRING(@orden,@c20+1,@c21-@c20-1)  
+-set @NotaGanancia=convert(decimal(18,2),SUBSTRING(@orden,@c21+1,@c22-@c21-1))  
+-set @Letra=SUBSTRING(@orden,@c22+1,@c23-@c22-1)  
+-set @DocuAdicional=convert(decimal(18,2),SUBSTRING(@orden,@c23+1,@c24-@c23-1))  
+-set @DocuHash=SUBSTRING(@orden,@c24+1,@c25-@c24-1)  
+-set @EstadoSunat=SUBSTRING(@orden,@c25+1,@c26-@c25-1)  
+-set @DocuSubtotal=convert(decimal(18,2),SUBSTRING(@orden,@c26+1,@c27-@c26-1))  
+-set @DocuIGV=convert(decimal(18,2),SUBSTRING(@orden,@c27+1,@c28-@c27-1))  
+-set @UsuarioId=convert(int,SUBSTRING(@orden,@c28+1,@c29-@c28-1))  
+-  
+-set @NotaTransaccion=SUBSTRING(@orden,@c29+1,@c30-@c29-1)  
+-set @Miembro=SUBSTRING(@orden,@c30+1,@c31-@c30-1)  
+-set @CodigoCliente=SUBSTRING(@orden,@c31+1,@c32-@c31-1)  
+-set @ICBPER=convert(decimal(18,2),SUBSTRING(@orden,@c32+1,@c33-@c32-1))  
+-set @DocuGRAVADA=convert(decimal(18,2),SUBSTRING(@orden,@c33+1,@c34-@c33-1))  
+-set @ConceptoOBS=SUBSTRING(@orden,@c34+1,@c35-@c34-1)  
+-set @EstadoOBS=SUBSTRING(@orden,@c35+1,@c36-@c35-1)  
+-set @PV=SUBSTRING(@orden,@c36+1,@c37-@c36-1)  
+-set @Image=SUBSTRING(@orden,@c37+1,@c38-@c37-1)  
+-set @CodigoRes=SUBSTRING(@orden,@c38+1,@c39-@c38-1)  
+-set @Responsable=SUBSTRING(@orden,@c39+1,@c40-@c39-1)  
+-set @EntidadBancaria=SUBSTRING(@orden,@c40+1,@C41-@c40-1)  
+-  
+-set @Efectivo=convert(decimal(18,2),SUBSTRING(@orden,@c41+1,@c42-@c41-1))  
+-set @Deposito=convert(decimal(18,2),SUBSTRING(@orden,@c42+1,@c43-@c42-1))  
+-set @NroOperacion=SUBSTRING(@orden,@c43+1,@c44-@c43-1)  
+-  
+-declare @cod varchar(13)  
+-SET @cod=isnull((select TOP 1 dbo.genenerarNroFactura(@Serie,@CompaniaId,@NotaDocu) AS ID   
+-FROM DocumentoVenta),'00000001')  
+-  
+-if(@ConceptoOBS='PUNTOS A ICA' or @ConceptoOBS='PUNTOS A COMAS')  
++CREATE procedure [dbo].[uspinsertarNotaB]    
++@ListaOrden varchar(Max)    
++as    
+ begin  
+-set @TEXTO='SE MANDO A PASAR '+@ConceptoOBS+' CODIGO: '+@CodigoCliente+' ('+@Miembro+')'  
++  
++Declare @pos1 int,@pos2 int    
++Declare @orden varchar(max),    
++        @detalle varchar(max)    
++Set @pos1 = CharIndex('[',@ListaOrden,0)    
++Set @pos2 =Len(@ListaOrden)+1    
++Set @orden = SUBSTRING(@ListaOrden,1,@pos1-1)    
++Set @detalle = SUBSTRING(@ListaOrden,@pos1+1,@pos2-@pos1-1)    
++Declare @c1 int,@c2 int,@c3 int,@c4 int,    
++        @c5 int,@c6 int,@c7 int,@c8 int,    
++        @c9 int,@c10 int,@c11 int,@c12 int,    
++        @c13 int,@c14 int,@c15 int,@c16 int,    
++        @c17 int,@c18 int,@c19 int,@c20 int,    
++        @c21 int,@c22 int,@c23 int,@c24 int,    
++        @c25 int,@c26 int,@c27 int,@c28 int,    
++        @c29 int,@c30 int,@c31 int,@c32 int,    
++        @c33 int,@c34 int,@c35 int,@c36 int,    
++        @c37 int,@c38 int,@c39 int,@c40 int,    
++        @c41 int,@c42 int,@c43 int,@c44 int    
++Declare     
++  @NotaDocu varchar(60),@ClienteId numeric(20),    
++  @NotaUsuario varchar(60),@NotaFormaPago varchar(60),    
++  @NotaCondicion varchar(60),@NotaDireccion varchar(max),    
++  @NotaSubtotal decimal (18,2),@NotaMovilidad decimal(18,2),    
++  @NotaDescuento decimal (18, 2),@NotaTotal decimal (18,2),    
++  @NotaAcuenta decimal(18,2),@NotaSaldo decimal(18,2),    
++  @NotaAdicional decimal(18,2),@NotaTarjeta decimal(18,2),    
++  @NotaPagar decimal(18,2),    
++  @NotaEstado varchar(60),@CompaniaId int,    
++  @NotaEntrega varchar(40),@NotaConcepto varchar(60),    
++  @Serie char(4),@Numero varchar(60),    
++  @NotaGanancia decimal(18,2),@Letra varchar(max),    
++  @DocuAdicional decimal(18,2),@DocuHash varchar(250),    
++  @EstadoSunat varchar(80),@DocuSubtotal decimal(18,2),    
++  @DocuIGV decimal(18,2),@UsuarioId int,@CajaId numeric(38),    
++  --@Movimiento varchar(40),    
++  @NotaTransaccion varchar(250),@KARDEX VARCHAR(1),    
++  @Miembro varchar(300),@CodigoCliente varchar(80),    
++  @ICBPER DECIMAL(18,2),@Asistencia int,@DocuGRAVADA decimal(18,2),    
++  @ConceptoOBS varchar(80),@EstadoOBS varchar(20),    
++  @PV varchar(40),@Image varchar(max),@TEXTO varchar(300),    
++  @CodigoRes varchar(80),@Responsable varchar(300),    
++  @EntidadBancaria varchar(80),    
++  @Efectivo decimal(18,2),@Deposito decimal(18,2),    
++  @NroOperacion varchar(80)    
++Set @c1 = CharIndex('|',@orden,0)    
++Set @c2 = CharIndex('|',@orden,@c1+1)    
++Set @c3 = CharIndex('|',@orden,@c2+1)    
++Set @c4 = CharIndex('|',@orden,@c3+1)    
++Set @c5 = CharIndex('|',@orden,@c4+1)    
++Set @c6= CharIndex('|',@orden,@c5+1)    
++Set @c7 = CharIndex('|',@orden,@c6+1)    
++Set @c8 = CharIndex('|',@orden,@c7+1)    
++Set @c9 = CharIndex('|',@orden,@c8+1)    
++Set @c10= CharIndex('|',@orden,@c9+1)    
++Set @c11= CharIndex('|',@orden,@c10+1)    
++Set @c12= CharIndex('|',@orden,@c11+1)    
++Set @c13= CharIndex('|',@orden,@c12+1)    
++Set @c14= CharIndex('|',@orden,@c13+1)    
++Set @c15= CharIndex('|',@orden,@c14+1)    
++Set @c16= CharIndex('|',@orden,@c15+1)    
++Set @c17= CharIndex('|',@orden,@c16+1)    
++Set @c18 = CharIndex('|',@orden,@c17+1)    
++Set @c19 = CharIndex('|',@orden,@c18+1)    
++Set @c20= CharIndex('|',@orden,@c19+1)    
++Set @c21= CharIndex('|',@orden,@c20+1)    
++Set @c22= CharIndex('|',@orden,@c21+1)    
++Set @c23= CharIndex('|',@orden,@c22+1)    
++Set @c24= CharIndex('|',@orden,@c23+1)    
++Set @c25= CharIndex('|',@orden,@c24+1)    
++Set @c26= CharIndex('|',@orden,@c25+1)    
++Set @c27= CharIndex('|',@orden,@c26+1)    
++Set @c28= CharIndex('|',@orden,@c27+1)    
++Set @c29= CharIndex('|',@orden,@c28+1)    
++Set @c30= CharIndex('|',@orden,@c29+1)    
++Set @c31= CharIndex('|',@orden,@c30+1)    
++Set @c32= CharIndex('|',@orden,@c31+1)    
++Set @c33= CharIndex('|',@orden,@c32+1)    
++Set @c34= CharIndex('|',@orden,@c33+1)    
++Set @c35= CharIndex('|',@orden,@c34+1)    
++Set @c36= CharIndex('|',@orden,@c35+1)    
++Set @c37= CharIndex('|',@orden,@c36+1)    
++Set @c38= CharIndex('|',@orden,@c37+1)    
++Set @c39= CharIndex('|',@orden,@c38+1)    
++Set @c40= CharIndex('|',@orden,@c39+1)    
++Set @c41= CharIndex('|',@orden,@c40+1)    
++Set @c42= CharIndex('|',@orden,@c41+1)    
++Set @c43= CharIndex('|',@orden,@c42+1)    
++Set @c44= Len(@orden)+1    
++set @NotaDocu=SUBSTRING(@orden,1,@c1-1)    
++set @ClienteId=convert(numeric(20),SUBSTRING(@orden,@c1+1,@c2-@c1-1))    
++set @NotaUsuario=SUBSTRING(@orden,@c2+1,@c3-@c2-1)    
++set @NotaFormaPago=SUBSTRING(@orden,@c3+1,@c4-@c3-1)    
++set @NotaCondicion=SUBSTRING(@orden,@c4+1,@c5-@c4-1)    
++set @NotaDireccion=SUBSTRING(@orden,@c5+1,@c6-@c5-1)    
++set @NotaSubtotal=convert(decimal(18,2),SUBSTRING(@orden,@c6+1,@c7-@c6-1))    
++set @NotaMovilidad=convert(decimal(18,2),SUBSTRING(@orden,@c7+1,@c8-@c7-1))    
++set @NotaDescuento=convert(decimal(18,2),SUBSTRING(@orden,@c8+1,@c9-@c8-1))    
++set @NotaTotal=convert(decimal(18,2),SUBSTRING(@orden,@c9+1,@c10-@c9-1))    
++set @NotaAcuenta=convert(decimal(18,2),SUBSTRING(@orden,@c10+1,@c11-@c10-1))    
++set @NotaSaldo=convert(decimal(18,2),SUBSTRING(@orden,@c11+1,@c12-@c11-1))    
++set @NotaAdicional=convert(decimal(18,2),SUBSTRING(@orden,@c12+1,@c13-@c12-1))    
++set @NotaTarjeta=convert(decimal(18,2),SUBSTRING(@orden,@c13+1,@c14-@c13-1))    
++set @NotaPagar=convert(decimal(18,2),SUBSTRING(@orden,@c14+1,@c15-@c14-1))    
++set @NotaEstado=SUBSTRING(@orden,@c15+1,@c16-@c15-1)    
++set @CompaniaId=convert(int,SUBSTRING(@orden,@c16+1,@c17-@c16-1))    
++set @NotaEntrega=SUBSTRING(@orden,@c17+1,@c18-@c17-1)    
++set @NotaConcepto=SUBSTRING(@orden,@c18+1,@c19-@c18-1)    
++set @Serie=convert(char(4),SUBSTRING(@orden,@c19+1,@c20-@c19-1))    
++set @Numero=SUBSTRING(@orden,@c20+1,@c21-@c20-1)    
++set @NotaGanancia=convert(decimal(18,2),SUBSTRING(@orden,@c21+1,@c22-@c21-1))    
++set @Letra=SUBSTRING(@orden,@c22+1,@c23-@c22-1)    
++set @DocuAdicional=convert(decimal(18,2),SUBSTRING(@orden,@c23+1,@c24-@c23-1))    
++set @DocuHash=SUBSTRING(@orden,@c24+1,@c25-@c24-1)    
++set @EstadoSunat=SUBSTRING(@orden,@c25+1,@c26-@c25-1)    
++set @DocuSubtotal=convert(decimal(18,2),SUBSTRING(@orden,@c26+1,@c27-@c26-1))    
++set @DocuIGV=convert(decimal(18,2),SUBSTRING(@orden,@c27+1,@c28-@c27-1))    
++set @UsuarioId=convert(int,SUBSTRING(@orden,@c28+1,@c29-@c28-1))    
++    
++set @NotaTransaccion=SUBSTRING(@orden,@c29+1,@c30-@c29-1)    
++set @Miembro=SUBSTRING(@orden,@c30+1,@c31-@c30-1)    
++set @CodigoCliente=SUBSTRING(@orden,@c31+1,@c32-@c31-1)    
++set @ICBPER=convert(decimal(18,2),SUBSTRING(@orden,@c32+1,@c33-@c32-1))    
++set @DocuGRAVADA=convert(decimal(18,2),SUBSTRING(@orden,@c33+1,@c34-@c33-1))    
++set @ConceptoOBS=SUBSTRING(@orden,@c34+1,@c35-@c34-1)    
++set @EstadoOBS=SUBSTRING(@orden,@c35+1,@c36-@c35-1)    
++set @PV=SUBSTRING(@orden,@c36+1,@c37-@c36-1)    
++set @Image=SUBSTRING(@orden,@c37+1,@c38-@c37-1)    
++set @CodigoRes=SUBSTRING(@orden,@c38+1,@c39-@c38-1)    
++set @Responsable=SUBSTRING(@orden,@c39+1,@c40-@c39-1)    
++set @EntidadBancaria=SUBSTRING(@orden,@c40+1,@C41-@c40-1)    
++    
++set @Efectivo=convert(decimal(18,2),SUBSTRING(@orden,@c41+1,@c42-@c41-1))    
++set @Deposito=convert(decimal(18,2),SUBSTRING(@orden,@c42+1,@c43-@c42-1))    
++set @NroOperacion=SUBSTRING(@orden,@c43+1,@c44-@c43-1)    
++    
++declare @cod varchar(13)    
++SET @cod=isnull((select TOP 1 dbo.genenerarNroFactura(@Serie,@CompaniaId,@NotaDocu) AS ID     
++FROM DocumentoVenta),'00000001')    
++    
++if(@ConceptoOBS='PUNTOS A ICA' or @ConceptoOBS='PUNTOS A COMAS')    
++begin    
++set @TEXTO='SE MANDO A PASAR '+@ConceptoOBS+' CODIGO: '+@CodigoCliente+' ('+@Miembro+')'    
++end    
++else if(@ConceptoOBS='POR PASAR AL OBS')    
++begin    
++set @TEXTO='CANCELARON PRODUCTOS POR PASAR AL OBS '+@PV +' CODIGO: '+@CodigoCliente+' ('+@Miembro+')'    
++end    
++else if(@ConceptoOBS='VENTA LIBRE')    
++begin    
++set @TEXTO='VENTA LIBRE. SE VENDIO SIN CODIGO ('+@Miembro+')'    
++end    
++else if(@ConceptoOBS='FACTURA MANUAL')    
++begin    
++set @TEXTO='FACTURA MANUAL. SUMA TOTAL DE PRODUCTOS Y CODIGOS. RESPONSABLE ('+@Miembro+')'    
++end    
++else if(@ConceptoOBS='LIQUIDACION DE PAGO')    
++begin    
++set @TEXTO='CANCELARON DEUDA PENDIENTE PORQUE SE LE PASO SOLO PUNTOS AL OBS '+@PV +' CODIGO: '+@CodigoCliente+' ('+@Miembro+')'    
++end    
++else    
++begin    
++set @TEXTO='VENTA DEL OBS DOCUMENTO '+@Serie+'-'+@cod+' CODIGO: '+@CodigoCliente+' ('+@Miembro+')'    
++end    
++if(@Deposito>0)    
++begin    
++set @TEXTO=@TEXTO+' FORMA DE PAGO: '+@NotaFormaPago+' ENTIDAD BANCARIA: '+@EntidadBancaria+' NRO OPERACION: '+@NroOperacion    
++end    
++    
++set @Asistencia=(select COUNT(a.PersonalId)from Asistencia a    
++inner join Usuarios u    
++on u.PersonalId=a.PersonalId    
++where u.UsuarioID=@UsuarioId and (Day(a.Fecha)=Day(GETDATE()) and Month(a.Fecha)=MONTH(GETDATE()) and year(a.Fecha)=year(GETDATE())))    
++if(@Asistencia=0)    
++begin    
++Select 'NO ASISTIO'    
++end    
++else    
++begin  
++  
++BEGIN TRY  
++  
++IF EXISTS(select top 1 NotaTransaccion     
++from NotaPedido     
++where NotaTransaccion=@NotaTransaccion and NotaTransaccion<>'' and NotaEstado<>'ANULADO')    
++begin    
++select 'existe'    
++end    
++ELSE IF EXISTS(select top 1 NroOperacion    
++from NotaPedido     
++where EntidadBancaria=@EntidadBancaria and EntidadBancaria<>'-' and NroOperacion=@NroOperacion and NroOperacion<>'' and NotaEstado<>'ANULADO')    
++begin    
++select 'OPERACION'    
++end    
++else    
++begin    
++set @CajaId=isnull((select top 1 CajaId from Caja where CajaEstado='ACTIVO'     
++and UsuarioId=@UsuarioId order by 1 desc),'0')    
++if(@CajaId=0)    
++begin    
++select 'false'    
++end    
++else    
++begin    
++if(@NotaDocu='FACTURA')    
++begin    
++set @NotaEstado='PENDIENTE'    
++ if(@NotaCondicion='CREDITO' or @NotaCondicion='PAGO/VARIOS')    
++ begin    
++ set @NotaSaldo=@NotaPagar    
++ set @NotaAcuenta=0    
++ end    
++ else    
++ begin    
++ set @NotaSaldo=0    
++ set @NotaAcuenta=@NotaPagar    
++ end    
++end    
++else    
++begin    
++   if(@NotaCondicion='CREDITO' or @NotaCondicion='PAGO/VARIOS')    
++   begin    
++   set @NotaEstado='PENDIENTE'    
++   set @NotaSaldo=@NotaPagar    
++   set @NotaAcuenta=0    
++   end    
++   else    
++   begin    
++   set @NotaEstado='CANCELADO'    
++   set @NotaSaldo=0    
++   set @NotaAcuenta=@NotaPagar    
++   end    
++end    
++    
++declare @NotaId numeric(38),    
++        @DocuId numeric(38)=0    
++Begin Transaction    
++    
++update Cliente    
++set ClienteDireccion=@NotaDireccion,ClienteDocu=@NotaDocu    
++where ClienteId=@ClienteId    
++delete from TemporalVenta     
++where UsuarioID=@UsuarioId    
++    
++insert into NotaPedido values(@NotaDocu,@ClienteId,GETDATE(),@NotaUsuario,    
++@NotaFormaPago,@NotaCondicion,GETDATE(),@NotaDireccion,    
++@NotaSubtotal,@NotaMovilidad,@NotaDescuento,@NotaTotal,@NotaAcuenta,@NotaSaldo,    
++@NotaAdicional,@NotaTarjeta,@NotaPagar,@NotaEstado,@CompaniaId,    
++@NotaEntrega,'','',@NotaConcepto,@Serie,@cod,@NotaGanancia,@CajaId,    
++@NotaTransaccion,@ICBPER,@ConceptoOBS,@EstadoOBS,@CodigoRes,@Responsable,    
++@EntidadBancaria,@NroOperacion,@Efectivo,@Deposito,null,null,null)    
++set @NotaId=(select @@IDENTITY)    
++Declare @TipoCodigo nvarchar(3)    
++    
++DECLARE @VFechaPago datetime    
++set @VFechaPago=GETDATE()    
++if(@NotaCondicion='CREDITO')set @VFechaPago=DATEADD(DAY,15,@VFechaPago)    
++    
++if @NotaDocu='PROFORMA V'    
++begin    
++set @TipoCodigo='00'    
++insert into DocumentoVenta values    
++(@CompaniaId,@NotaId,@NotaDocu,@cod,@ClienteId,@VFechaPago,    
++GETDATE(),@NotaCondicion,@Letra,@DocuSubtotal,    
++@DocuIGV,@NotaPagar,@DocuGRAVADA,@NotaUsuario,'EMITIDO',@Serie,@TipoCodigo,@DocuAdicional,    
++'','VENTA','',@DocuHash,'ENVIADO',@NotaConcepto,@NotaTransaccion,@ICBPER,'','',    
++@NotaFormaPago,@EntidadBancaria,@NroOperacion,@Efectivo,@Deposito)    
++set @DocuId=(select @@IDENTITY)    
++    
++if(@ConceptoOBS='VENTA' and @NotaCondicion='ALCONTADO')    
++begin    
++ if(@Deposito>0)    
++ begin    
++    insert into CajaDetalle values(@CajaId,GETDATE(),0,'SALIDA',    
++ @TEXTO,@Deposito,@Deposito,0,@Image,'D','',@NotaId,'',@NotaFormaPago,    
++ @EntidadBancaria,@NroOperacion)    
++ end        
++end    
++Else    
++begin    
++if(@ConceptoOBS<>'VENTA' and @NotaCondicion='ALCONTADO')    
++begin    
++if(@ConceptoOBS<>'FACTURA MANUAL')    
++begin    
++insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO',    
++@TEXTO,@NotaTotal,@NotaTotal,0,@Image,'D','',@NotaId,'',    
++@NotaFormaPago,@EntidadBancaria,@NroOperacion)    
++if(@Deposito>0)    
++begin    
++ insert into CajaDetalle values(@CajaId,GETDATE(),0,'SALIDA',    
++ @TEXTO,@Deposito,@Deposito,0,@Image,'D','',@NotaId,'',@NotaFormaPago,    
++ @EntidadBancaria,@NroOperacion)    
++end          
++end    
++    
++end    
++else    
++begin    
++insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,'INGRESO',    
++'Transacción con '+@NotaFormaPago,@NotaTotal,@NotaTotal,0,'','T','',0,'',@NotaFormaPago,'','')    
++end    
++end    
++    
++SET @KARDEX='S'    
++end    
++    
++else if @NotaDocu='BOLETA'    
++begin    
++  
++set @TipoCodigo='03'  
++  
++insert into ControlDocumentoVenta values (@Serie+'-'+@cod,getdate(),@NotaUsuario)  
++  
++insert into DocumentoVenta values    
++(@CompaniaId,@NotaId,'BOLETA',@cod,@ClienteId,@VFechaPago,    
++GETDATE(),@NotaCondicion,@Letra,@DocuSubtotal,    
++@DocuIGV,@NotaPagar,@DocuGRAVADA,@NotaUsuario,'EMITIDO',@Serie,@TipoCodigo,@DocuAdicional,    
++'','VENTA','',@DocuHash,@EstadoSunat,@NotaConcepto,@NotaTransaccion,@ICBPER,'','',    
++@NotaFormaPago,@EntidadBancaria,@NroOperacion,@Efectivo,@Deposito)    
++set @DocuId=(select @@IDENTITY)    
++    
++if(@ConceptoOBS='VENTA' and @NotaCondicion='ALCONTADO')    
++begin    
++if(@Deposito>0)    
++ begin    
++    insert into CajaDetalle values(@CajaId,GETDATE(),0,'SALIDA',    
++ @TEXTO,@Deposito,@Deposito,0,@Image,'D','',@NotaId,'',@NotaFormaPago,    
++ @EntidadBancaria,@NroOperacion)    
++ end        
++end    
++Else    
++begin    
++if(@ConceptoOBS<>'VENTA' and @NotaCondicion='ALCONTADO')    
++begin    
++if(@ConceptoOBS<>'FACTURA MANUAL')    
++begin    
++insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO',    
++@TEXTO,@NotaTotal,@NotaTotal,0,@Image,'D','',@NotaId,'',    
++@NotaFormaPago,@EntidadBancaria,@NroOperacion)    
++    
++ if(@Deposito>0)    
++ begin    
++ insert into CajaDetalle values(@CajaId,GETDATE(),0,'SALIDA',    
++ @TEXTO,@Deposito,@Deposito,0,@Image,'D','',@NotaId,'',@NotaFormaPago,    
++ @EntidadBancaria,@NroOperacion)    
++ end        
++end    
++end    
++else    
++begin    
++insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,'INGRESO',    
++'Transacción con '+@NotaFormaPago,@NotaTotal,@NotaTotal,0,'','T','',0,'',@NotaFormaPago,'','')    
++end    
++end    
++    
++SET @KARDEX='S'    
++end    
++Declare Tabla Cursor For Select * From fnSplitString(@detalle,';')     
++Open Tabla    
++Declare @Columna varchar(max),    
++  @IdProducto numeric(20),    
++  @DetalleCantidad decimal(18,2),    
++  @DetalleUm varchar(40),    
++  @Descripcion varchar(max),    
++  @DetalleCosto decimal(18,2),     
++  @DetallePrecio decimal(18,2),    
++  @DetallePV decimal(18,2),    
++  @DetalleSV decimal(18,2),    
++  @DetalleImporte decimal(18,2),    
++  @DetalleEstado varchar(60),    
++  @ValorUM decimal(18,4),@CantidadSaldo decimal(18,2),    
++        @IniciaStock decimal(18,2),@StockFinal decimal(18,2)--,    
++        --@CodigoPro varchar(80)    
++Declare @p1 int,@p2 int,@p3 int,@p4 int,    
++        @p5 int,@p6 int,@p7 int,@p8 int,    
++        @p9 int,@p10 int,@p11 int    
++Fetch Next From Tabla INTO @Columna    
++ While @@FETCH_STATUS = 0    
++ Begin    
++Set @p1 = CharIndex('|',@Columna,0)    
++Set @p2 = CharIndex('|',@Columna,@p1+1)    
++Set @p3 = CharIndex('|',@Columna,@p2+1)    
++Set @p4 = CharIndex('|',@Columna,@p3+1)    
++Set @p5 = CharIndex('|',@Columna,@p4+1)    
++Set @p6= CharIndex('|',@Columna,@p5+1)    
++Set @p7= CharIndex('|',@Columna,@p6+1)    
++Set @p8 = CharIndex('|',@Columna,@p7+1)    
++Set @p9= CharIndex('|',@Columna,@p8+1)    
++Set @p10 = CharIndex('|',@Columna,@p9+1)    
++Set @p11=Len(@Columna)+1    
++set @IdProducto=Convert(numeric(20),SUBSTRING(@Columna,1,@p1-1))    
++Set @DetalleCantidad=convert(decimal(18,2),SUBSTRING(@Columna,@p1+1,@p2-(@p1+1)))    
++Set @DetalleUm=SUBSTRING(@Columna,@p2+1,@p3-(@p2+1))    
++Set @Descripcion=SUBSTRING(@Columna,@p3+1,@p4-(@p3+1))    
++Set @DetalleCosto=convert(decimal(18,2),SUBSTRING(@Columna,@p4+1,@p5-(@p4+1)))    
++Set @DetallePrecio=convert(decimal(18,2),SUBSTRING(@Columna,@p5+1,@p6-(@p5+1)))    
++Set @DetallePV=convert(decimal(18,2),SUBSTRING(@Columna,@p6+1,@p7-(@p6+1)))    
++Set @DetalleSV=convert(decimal(18,2),SUBSTRING(@Columna,@p7+1,@p8-(@p7+1)))    
++Set @DetalleImporte=convert(decimal(18,2),SUBSTRING(@Columna,@p8+1,@p9-(@p8+1)))    
++Set @DetalleEstado=SUBSTRING(@Columna,@p9+1,@p10-(@p9+1))    
++set @ValorUM=convert(decimal(18,4),SUBSTRING(@Columna,@p10+1,@p11-(@p10+1)))    
++if(@NotaEntrega='INMEDIATA')Set @CantidadSaldo=0    
++else Set @CantidadSaldo=@DetalleCantidad    
++insert into DetallePedido values(@NotaId,@IdProducto,@DetalleCantidad,    
++@DetalleUm,@Descripcion,@DetalleCosto, @DetallePrecio,    
++@DetalleImporte,@DetalleEstado,@CantidadSaldo,@ValorUM,@DetallePV,@DetalleSV)    
++if(@DocuId<>0)    
++begin    
++insert into DetalleDocumento values    
++(@DocuId,@IdProducto,@DetalleCantidad,@DetallePrecio,@DetalleImporte,    
++@NotaId,@DetalleUm,@ValorUM)    
++end    
++if(@NotaDocu <>'FACTURA')    
++BEGIN    
++if(@NotaEntrega='INMEDIATA')    
++begin    
++    --set @CodigoPro=isnull((select top 1 ProductoCodigo from Producto    
++    --where IdProducto=@IdProducto),'0')    
++ --   if(@CodigoPro='PEKIT-3')    
++ --   begin    
++ --   set @IniciaStock=(select top 1 ProductoCantidad from Producto     
++ --   where IdProducto=7)   --set @StockFinal=@IniciaStock-@DetalleCantidad    
++ --   insert into Kardex values(7,GETDATE(),'Salida por Venta',@Numero,@IniciaStock,    
++ --0,@DetalleCantidad,57,@StockFinal,'SALIDA',@NotaUsuario,@Miembro,    
++ --@CodigoCliente,@NotaTransaccion,@TipoCodigo,@Serie,'01','S',convert(varchar,@DocuId),'','E')    
++ --update producto     
++ --set  ProductoCantidad =ProductoCantidad - @DetalleCantidad    
++ --where IDProducto=7    
++ --   end    
++    set @IniciaStock=(select top 1 ProductoCantidad from Producto     
++    where IdProducto=@IdProducto)    
++ set @StockFinal=@IniciaStock-@DetalleCantidad    
++    insert into Kardex values(@IdProducto,GETDATE(),'Salida por Venta',@Numero,@IniciaStock,    
++ 0,@DetalleCantidad,@DetalleCosto,@StockFinal,'SALIDA',@NotaUsuario,@Miembro,    
++ @CodigoCliente,@NotaTransaccion,@TipoCodigo,@Serie,'01','S',convert(varchar,@DocuId),'','E')    
++ update producto     
++ set  ProductoCantidad =ProductoCantidad - @DetalleCantidad    
++ where IDProducto=@IdProducto    
++     
++end    
++else    
++begin    
++    set @IniciaStock=(select top 1 ProductoCantidad from Producto where IdProducto=@IdProducto)    
++ set @StockFinal=@IniciaStock-@DetalleCantidad    
++    insert into Kardex values(@IdProducto,GETDATE(),'Salida por Venta',@Numero,@IniciaStock,    
++ 0,@DetalleCantidad,@DetalleCosto,@StockFinal,'SALIDA',@NotaUsuario,@Miembro,    
++ @CodigoCliente,@NotaTransaccion,@TipoCodigo,@Serie,'01','N',convert(varchar,@DocuId),'','E')    
++end    
++END    
++Fetch Next From Tabla INTO @Columna    
++end    
++ Close Tabla;    
++ Deallocate Tabla;    
++ Commit Transaction;    
++ select convert(varchar,@NotaId)+'¬'+@cod;  
++end   
+ end  
+-else if(@ConceptoOBS='POR PASAR AL OBS')  
+-begin  
+-set @TEXTO='CANCELARON PRODUCTOS POR PASAR AL OBS '+@PV +' CODIGO: '+@CodigoCliente+' ('+@Miembro+')'  
++END TRY  
++  BEGIN CATCH  
++  DECLARE @Message varchar(MAX) = ERROR_MESSAGE(),  
++  @Severity int = ERROR_SEVERITY(),  
++  @State smallint = ERROR_STATE()  
++    
++  rollback  
++    
++  select @Message  
++  
++  END CATCH  
+ end  
+-else if(@ConceptoOBS='VENTA LIBRE')  
+-begin  
+-set @TEXTO='VENTA LIBRE. SE VENDIO SIN CODIGO ('+@Miembro+')'  
+-end  
+-else if(@ConceptoOBS='FACTURA MANUAL')  
+-begin  
+-set @TEXTO='FACTURA MANUAL. SUMA TOTAL DE PRODUCTOS Y CODIGOS. RESPONSABLE ('+@Miembro+')'  
+-end  
+-else if(@ConceptoOBS='LIQUIDACION DE PAGO')  
+-begin  
+-set @TEXTO='CANCELARON DEUDA PENDIENTE PORQUE SE LE PASO SOLO PUNTOS AL OBS '+@PV +' CODIGO: '+@CodigoCliente+' ('+@Miembro+')'  
+-end  
+-else  
+-begin  
+-set @TEXTO='VENTA DEL OBS DOCUMENTO '+@Serie+'-'+@cod+' CODIGO: '+@CodigoCliente+' ('+@Miembro+')'  
+-end  
+-if(@Deposito>0)  
+-begin  
+-set @TEXTO=@TEXTO+' FORMA DE PAGO: '+@NotaFormaPago+' ENTIDAD BANCARIA: '+@EntidadBancaria+' NRO OPERACION: '+@NroOperacion  
+-end  
+-  
+-set @Asistencia=(select COUNT(a.PersonalId)from Asistencia a  
+-inner join Usuarios u  
+-on u.PersonalId=a.PersonalId  
+-where u.UsuarioID=@UsuarioId and (Day(a.Fecha)=Day(GETDATE()) and Month(a.Fecha)=MONTH(GETDATE()) and year(a.Fecha)=year(GETDATE())))  
+-if(@Asistencia=0)  
+-begin  
+-Select 'NO ASISTIO'  
+-end  
+-else  
+-begin
+-
+-BEGIN TRY
+-
+-IF EXISTS(select top 1 NotaTransaccion   
+-from NotaPedido   
+-where NotaTransaccion=@NotaTransaccion and NotaTransaccion<>'' and NotaEstado<>'ANULADO')  
+-begin  
+-select 'existe'  
+-end  
+-ELSE IF EXISTS(select top 1 NroOperacion  
+-from NotaPedido   
+-where EntidadBancaria=@EntidadBancaria and EntidadBancaria<>'-' and NroOperacion=@NroOperacion and NroOperacion<>'' and NotaEstado<>'ANULADO')  
+-begin  
+-select 'OPERACION'  
+-end  
+-else  
+-begin  
+-set @CajaId=isnull((select top 1 CajaId from Caja where CajaEstado='ACTIVO'   
+-and UsuarioId=@UsuarioId order by 1 desc),'0')  
+-if(@CajaId=0)  
+-begin  
+-select 'false'  
+-end  
+-else  
+-begin  
+-if(@NotaDocu='FACTURA')  
+-begin  
+-set @NotaEstado='PENDIENTE'  
+- if(@NotaCondicion='CREDITO' or @NotaCondicion='PAGO/VARIOS')  
+- begin  
+- set @NotaSaldo=@NotaPagar  
+- set @NotaAcuenta=0  
+- end  
+- else  
+- begin  
+- set @NotaSaldo=0  
+- set @NotaAcuenta=@NotaPagar  
+- end  
+-end  
+-else  
+-begin  
+-   if(@NotaCondicion='CREDITO' or @NotaCondicion='PAGO/VARIOS')  
+-   begin  
+-   set @NotaEstado='PENDIENTE'  
+-   set @NotaSaldo=@NotaPagar  
+-   set @NotaAcuenta=0  
+-   end  
+-   else  
+-   begin  
+-   set @NotaEstado='CANCELADO'  
+-   set @NotaSaldo=0  
+-   set @NotaAcuenta=@NotaPagar  
+-   end  
+-end  
+-  
+-declare @NotaId numeric(38),  
+-        @DocuId numeric(38)=0  
+-Begin Transaction  
+-  
+-update Cliente  
+-set ClienteDireccion=@NotaDireccion,ClienteDocu=@NotaDocu  
+-where ClienteId=@ClienteId  
+-delete from TemporalVenta   
+-where UsuarioID=@UsuarioId  
+-  
+-insert into NotaPedido values(@NotaDocu,@ClienteId,GETDATE(),@NotaUsuario,  
+-@NotaFormaPago,@NotaCondicion,GETDATE(),@NotaDireccion,  
+-@NotaSubtotal,@NotaMovilidad,@NotaDescuento,@NotaTotal,@NotaAcuenta,@NotaSaldo,  
+-@NotaAdicional,@NotaTarjeta,@NotaPagar,@NotaEstado,@CompaniaId,  
+-@NotaEntrega,'','',@NotaConcepto,@Serie,@cod,@NotaGanancia,@CajaId,  
+-@NotaTransaccion,@ICBPER,@ConceptoOBS,@EstadoOBS,@CodigoRes,@Responsable,  
+-@EntidadBancaria,@NroOperacion,@Efectivo,@Deposito)  
+-set @NotaId=(select @@IDENTITY)  
+-Declare @TipoCodigo nvarchar(3)  
+-  
+-DECLARE @VFechaPago datetime  
+-set @VFechaPago=GETDATE()  
+-if(@NotaCondicion='CREDITO')set @VFechaPago=DATEADD(DAY,15,@VFechaPago)  
+-  
+-if @NotaDocu='PROFORMA V'  
+-begin  
+-set @TipoCodigo='00'  
+-insert into DocumentoVenta values  
+-(@CompaniaId,@NotaId,@NotaDocu,@cod,@ClienteId,@VFechaPago,  
+-GETDATE(),@NotaCondicion,@Letra,@DocuSubtotal,  
+-@DocuIGV,@NotaPagar,@DocuGRAVADA,@NotaUsuario,'EMITIDO',@Serie,@TipoCodigo,@DocuAdicional,  
+-'','VENTA','',@DocuHash,'ENVIADO',@NotaConcepto,@NotaTransaccion,@ICBPER,'','',  
+-@NotaFormaPago,@EntidadBancaria,@NroOperacion,@Efectivo,@Deposito)  
+-set @DocuId=(select @@IDENTITY)  
+-  
+-if(@ConceptoOBS='VENTA' and @NotaCondicion='ALCONTADO')  
+-begin  
+- if(@Deposito>0)  
+- begin  
+-    insert into CajaDetalle values(@CajaId,GETDATE(),0,'SALIDA',  
+- @TEXTO,@Deposito,@Deposito,0,@Image,'D','',@NotaId,'',@NotaFormaPago,  
+- @EntidadBancaria,@NroOperacion)  
+- end      
+-end  
+-Else  
+-begin  
+-if(@ConceptoOBS<>'VENTA' and @NotaCondicion='ALCONTADO')  
+-begin  
+-if(@ConceptoOBS<>'FACTURA MANUAL')  
+-begin  
+-insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO',  
+-@TEXTO,@NotaTotal,@NotaTotal,0,@Image,'D','',@NotaId,'',  
+-@NotaFormaPago,@EntidadBancaria,@NroOperacion)  
+-if(@Deposito>0)  
+-begin  
+- insert into CajaDetalle values(@CajaId,GETDATE(),0,'SALIDA',  
+- @TEXTO,@Deposito,@Deposito,0,@Image,'D','',@NotaId,'',@NotaFormaPago,  
+- @EntidadBancaria,@NroOperacion)  
+-end        
+-end  
+-  
+-end  
+-else  
+-begin  
+-insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,'INGRESO',  
+-'Transacción con '+@NotaFormaPago,@NotaTotal,@NotaTotal,0,'','T','',0,'',@NotaFormaPago,'','')  
+-end  
+-end  
+-  
+-SET @KARDEX='S'  
+-end  
+-  
+-else if @NotaDocu='BOLETA'  
+-begin  
+-
+-set @TipoCodigo='03'
+-
+-insert into ControlDocumentoVenta values (@Serie+'-'+@cod,getdate(),@NotaUsuario)
+-
+-insert into DocumentoVenta values  
+-(@CompaniaId,@NotaId,'BOLETA',@cod,@ClienteId,@VFechaPago,  
+-GETDATE(),@NotaCondicion,@Letra,@DocuSubtotal,  
+-@DocuIGV,@NotaPagar,@DocuGRAVADA,@NotaUsuario,'EMITIDO',@Serie,@TipoCodigo,@DocuAdicional,  
+-'','VENTA','',@DocuHash,@EstadoSunat,@NotaConcepto,@NotaTransaccion,@ICBPER,'','',  
+-@NotaFormaPago,@EntidadBancaria,@NroOperacion,@Efectivo,@Deposito)  
+-set @DocuId=(select @@IDENTITY)  
+-  
+-if(@ConceptoOBS='VENTA' and @NotaCondicion='ALCONTADO')  
+-begin  
+-if(@Deposito>0)  
+- begin  
+-    insert into CajaDetalle values(@CajaId,GETDATE(),0,'SALIDA',  
+-	@TEXTO,@Deposito,@Deposito,0,@Image,'D','',@NotaId,'',@NotaFormaPago,  
+-	@EntidadBancaria,@NroOperacion)  
+- end      
+-end  
+-Else  
+-begin  
+-if(@ConceptoOBS<>'VENTA' and @NotaCondicion='ALCONTADO')  
+-begin  
+-if(@ConceptoOBS<>'FACTURA MANUAL')  
+-begin  
+-insert into CajaDetalle values(@CajaId,GETDATE(),0,'INGRESO',  
+-@TEXTO,@NotaTotal,@NotaTotal,0,@Image,'D','',@NotaId,'',  
+-@NotaFormaPago,@EntidadBancaria,@NroOperacion)  
+-  
+- if(@Deposito>0)  
+- begin  
+- insert into CajaDetalle values(@CajaId,GETDATE(),0,'SALIDA',  
+- @TEXTO,@Deposito,@Deposito,0,@Image,'D','',@NotaId,'',@NotaFormaPago,  
+- @EntidadBancaria,@NroOperacion)  
+- end      
+-end  
+-end  
+-else  
+-begin  
+-insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,'INGRESO',  
+-'Transacción con '+@NotaFormaPago,@NotaTotal,@NotaTotal,0,'','T','',0,'',@NotaFormaPago,'','')  
+-end  
+-end  
+-  
+-SET @KARDEX='S'  
+-end  
+-Declare Tabla Cursor For Select * From fnSplitString(@detalle,';')   
+-Open Tabla  
+-Declare @Columna varchar(max),  
+-  @IdProducto numeric(20),  
+-  @DetalleCantidad decimal(18,2),  
+-  @DetalleUm varchar(40),  
+-  @Descripcion varchar(max),  
+-  @DetalleCosto decimal(18,2),   
+-  @DetallePrecio decimal(18,2),  
+-  @DetallePV decimal(18,2),  
+-  @DetalleSV decimal(18,2),  
+-  @DetalleImporte decimal(18,2),  
+-  @DetalleEstado varchar(60),  
+-  @ValorUM decimal(18,4),@CantidadSaldo decimal(18,2),  
+-        @IniciaStock decimal(18,2),@StockFinal decimal(18,2)--,  
+-        --@CodigoPro varchar(80)  
+-Declare @p1 int,@p2 int,@p3 int,@p4 int,  
+-        @p5 int,@p6 int,@p7 int,@p8 int,  
+-        @p9 int,@p10 int,@p11 int  
+-Fetch Next From Tabla INTO @Columna  
+- While @@FETCH_STATUS = 0  
+- Begin  
+-Set @p1 = CharIndex('|',@Columna,0)  
+-Set @p2 = CharIndex('|',@Columna,@p1+1)  
+-Set @p3 = CharIndex('|',@Columna,@p2+1)  
+-Set @p4 = CharIndex('|',@Columna,@p3+1)  
+-Set @p5 = CharIndex('|',@Columna,@p4+1)  
+-Set @p6= CharIndex('|',@Columna,@p5+1)  
+-Set @p7= CharIndex('|',@Columna,@p6+1)  
+-Set @p8 = CharIndex('|',@Columna,@p7+1)  
+-Set @p9= CharIndex('|',@Columna,@p8+1)  
+-Set @p10 = CharIndex('|',@Columna,@p9+1)  
+-Set @p11=Len(@Columna)+1  
+-set @IdProducto=Convert(numeric(20),SUBSTRING(@Columna,1,@p1-1))  
+-Set @DetalleCantidad=convert(decimal(18,2),SUBSTRING(@Columna,@p1+1,@p2-(@p1+1)))  
+-Set @DetalleUm=SUBSTRING(@Columna,@p2+1,@p3-(@p2+1))  
+-Set @Descripcion=SUBSTRING(@Columna,@p3+1,@p4-(@p3+1))  
+-Set @DetalleCosto=convert(decimal(18,2),SUBSTRING(@Columna,@p4+1,@p5-(@p4+1)))  
+-Set @DetallePrecio=convert(decimal(18,2),SUBSTRING(@Columna,@p5+1,@p6-(@p5+1)))  
+-Set @DetallePV=convert(decimal(18,2),SUBSTRING(@Columna,@p6+1,@p7-(@p6+1)))  
+-Set @DetalleSV=convert(decimal(18,2),SUBSTRING(@Columna,@p7+1,@p8-(@p7+1)))  
+-Set @DetalleImporte=convert(decimal(18,2),SUBSTRING(@Columna,@p8+1,@p9-(@p8+1)))  
+-Set @DetalleEstado=SUBSTRING(@Columna,@p9+1,@p10-(@p9+1))  
+-set @ValorUM=convert(decimal(18,4),SUBSTRING(@Columna,@p10+1,@p11-(@p10+1)))  
+-if(@NotaEntrega='INMEDIATA')Set @CantidadSaldo=0  
+-else Set @CantidadSaldo=@DetalleCantidad  
+-insert into DetallePedido values(@NotaId,@IdProducto,@DetalleCantidad,  
+-@DetalleUm,@Descripcion,@DetalleCosto, @DetallePrecio,  
+-@DetalleImporte,@DetalleEstado,@CantidadSaldo,@ValorUM,@DetallePV,@DetalleSV)  
+-if(@DocuId<>0)  
+-begin  
+-insert into DetalleDocumento values  
+-(@DocuId,@IdProducto,@DetalleCantidad,@DetallePrecio,@DetalleImporte,  
+-@NotaId,@DetalleUm,@ValorUM)  
+-end  
+-if(@NotaDocu <>'FACTURA')  
+-BEGIN  
+-if(@NotaEntrega='INMEDIATA')  
+-begin  
+-    --set @CodigoPro=isnull((select top 1 ProductoCodigo from Producto  
+-    --where IdProducto=@IdProducto),'0')  
+- --   if(@CodigoPro='PEKIT-3')  
+- --   begin  
+- --   set @IniciaStock=(select top 1 ProductoCantidad from Producto   
+- --   where IdProducto=7)   --set @StockFinal=@IniciaStock-@DetalleCantidad  
+- --   insert into Kardex values(7,GETDATE(),'Salida por Venta',@Numero,@IniciaStock,  
+- --0,@DetalleCantidad,57,@StockFinal,'SALIDA',@NotaUsuario,@Miembro,  
+- --@CodigoCliente,@NotaTransaccion,@TipoCodigo,@Serie,'01','S',convert(varchar,@DocuId),'','E')  
+- --update producto   
+- --set  ProductoCantidad =ProductoCantidad - @DetalleCantidad  
+- --where IDProducto=7  
+- --   end  
+-    set @IniciaStock=(select top 1 ProductoCantidad from Producto   
+-    where IdProducto=@IdProducto)  
+- set @StockFinal=@IniciaStock-@DetalleCantidad  
+-    insert into Kardex values(@IdProducto,GETDATE(),'Salida por Venta',@Numero,@IniciaStock,  
+- 0,@DetalleCantidad,@DetalleCosto,@StockFinal,'SALIDA',@NotaUsuario,@Miembro,  
+- @CodigoCliente,@NotaTransaccion,@TipoCodigo,@Serie,'01','S',convert(varchar,@DocuId),'','E')  
+- update producto   
+- set  ProductoCantidad =ProductoCantidad - @DetalleCantidad  
+- where IDProducto=@IdProducto  
+-   
+-end  
+-else  
+-begin  
+-    set @IniciaStock=(select top 1 ProductoCantidad from Producto where IdProducto=@IdProducto)  
+- set @StockFinal=@IniciaStock-@DetalleCantidad  
+-    insert into Kardex values(@IdProducto,GETDATE(),'Salida por Venta',@Numero,@IniciaStock,  
+- 0,@DetalleCantidad,@DetalleCosto,@StockFinal,'SALIDA',@NotaUsuario,@Miembro,  
+- @CodigoCliente,@NotaTransaccion,@TipoCodigo,@Serie,'01','N',convert(varchar,@DocuId),'','E')  
+-end  
+-END  
+-Fetch Next From Tabla INTO @Columna  
+-end  
+- Close Tabla;  
+- Deallocate Tabla;  
+- Commit Transaction;  
+- select convert(varchar,@NotaId)+'¬'+@cod;
+-end 
+-end
+-END TRY
+-  BEGIN CATCH
+-  DECLARE @Message varchar(MAX) = ERROR_MESSAGE(),
+-  @Severity int = ERROR_SEVERITY(),
+-  @State smallint = ERROR_STATE()
+-  
+-  rollback
+-  
+-  select @Message
+-
+-  END CATCH
+-end
+-end  +end --- DXNCOMAS/dbo.uspinsertarRB
++++ DXN_ICA15102026/dbo.uspinsertarRB
+@@ -1,114 +1,114 @@
+-create procedure [dbo].[uspinsertarRB]
+-@ListaOrden varchar(Max)
+-as
+-begin
+-Declare @pos int
+-Declare @orden varchar(max)
+-Declare @detalle varchar(max)
+-Set @pos = CharIndex('[',@ListaOrden,0)
+-Set @orden = SUBSTRING(@ListaOrden,1,@pos-1)
+-Set @detalle = SUBSTRING(@ListaOrden,@pos+1,len(@ListaOrden)-@pos)
+-Declare @c1 int,@c2 int,@c3 int,@c4 int,
+-        @c5 int,@c6 int,@c7 int,@c8 int,
+-        @c9 int,@c10 int,@c11 int,@c12 int,
+-        @c13 int,@c14 INT
+-Declare @CompaniaId int,@ResumenSerie varchar(250),
+-@Secuencia numeric(38),@FechaReferencia date,
+-@SubTotal decimal(18,2),@IGV decimal(18,2),
+-@Total decimal(18,2),@ResumenTiket varchar(250),
+-@CodigoSunat  varchar(80),@HASHCDR   varchar(max),
+-@Usuario varchar(80),@Status int,@Estado char(1),
+-@RangoNumero varchar(80),@ICBPER decimal(18,2)
+-Set @c1 = CharIndex('|',@orden,0)
+-Set @c2 = CharIndex('|',@orden,@c1+1)
+-Set @c3 = CharIndex('|',@orden,@c2+1)
+-Set @c4 = CharIndex('|',@orden,@c3+1)
+-Set @c5 = CharIndex('|',@orden,@c4+1)
+-Set @c6= CharIndex('|',@orden,@c5+1)
+-Set @c7 = CharIndex('|',@orden,@c6+1)
+-Set @c8 = CharIndex('|',@orden,@c7+1)
+-Set @c9 = CharIndex('|',@orden,@c8+1)
+-Set @c10= CharIndex('|',@orden,@c9+1)
+-Set @c11= CharIndex('|',@orden,@c10+1)
+-Set @c12= CharIndex('|',@orden,@c11+1)
+-Set @c13= CharIndex('|',@orden,@c12+1)
+-Set @c14= Len(@orden)+1
+-Set @CompaniaId=convert(int,SUBSTRING(@orden,1,@c1-1))
+-Set @ResumenSerie=SUBSTRING(@orden,@c1+1,@c2-@c1-1)
+-Set @Secuencia=convert(int,SUBSTRING(@orden,@c2+1,@c3-@c2-1))
+-set @FechaReferencia=convert(date,SUBSTRING(@orden,@c3+1,@c4-@c3-1))
+-set @SubTotal=convert(decimal(18,2),SUBSTRING(@orden,@c4+1,@c5-@c4-1))
+-set @IGV=convert(decimal(18,2),SUBSTRING(@orden,@c5+1,@c6-@c5-1))
+-set @Total=convert(decimal(18,2),SUBSTRING(@orden,@c6+1,@c7-@c6-1))
+-set @ResumenTiket=SUBSTRING(@orden,@c7+1,@c8-@c7-1)
+-set @CodigoSunat=SUBSTRING(@orden,@c8+1,@c9-@c8-1)
+-set @HASHCDR=SUBSTRING(@orden,@c9+1,@c10-@c9-1)
+-set @Usuario=SUBSTRING(@orden,@c10+1,@c11-@c10-1)
+-set @Status=SUBSTRING(@orden,@c11+1,@c12-@c11-1)
+-set @RangoNumero=SUBSTRING(@orden,@c12+1,@c13-@c12-1)
+-set @ICBPER=SUBSTRING(@orden,@c13+1,@c14-@c13-1)
+-if(@Status=3)
+-begin
+-set @SubTotal=0-@SubTotal
+-set @IGV=0-@IGV
+-set @ICBPER=0-@ICBPER
+-set @Total=0-@Total
+-set @Estado='B'--BAJA
+-end
+-else
+-begin
+-set @Estado='E'--ENVIADO
+-end
+-Begin Transaction
+-insert into ResumenBoletas values
+-(@CompaniaId,@ResumenSerie,@Secuencia,@FechaReferencia,Getdate(),
+-@SubTotal,@IGV,@Total,@ResumenTiket,@CodigoSunat,@HASHCDR,'',@Usuario,
+-@Estado,@RangoNumero,@ICBPER)
+-Declare Tabla Cursor For Select * From fnSplitString(@detalle,';')	
+-Open Tabla
+-Declare @Columna varchar(max),
+-        @DocuId numeric(38)
+-Declare @p1 int
+-Fetch Next From Tabla INTO @Columna
+-	While @@FETCH_STATUS = 0
+-	Begin
+-Set @p1 = Len(@Columna)+1
+-Set @DocuId=Convert(numeric(38),SUBSTRING(@Columna,1,@p1-1))
+-if(@Status=1)--Declarar 3 Anular
+-begin
+-update DocumentoVenta
+-set DocuHash=@HASHCDR,EstadoSunat='ENVIADO'
+-where DocuId=@DocuId
+-end
+-else
+-begin
+-update DocumentoVenta
+-set DocuHash=@HASHCDR,DocuEstado='BAJA',EstadoSunat='ENVIADO',
+-DocuSubTotal=0,DocuIgv=0,DocuTotal=0,ICBPER=0
+-where DocuId=@DocuId
+-end
+-Fetch Next From Tabla INTO @Columna
+-end
+-	Close Tabla;
+-	Deallocate Tabla;
+-	Commit Transaction;
+-SELECT
+-isnull((select STUFF ((select '¬'+convert(varchar,r.ResumenId)+'|'+convert(varchar,r.CompaniaId)+'|'+
+-(IsNull(convert(varchar,r.FechaReferencia,103),''))+'|'+
+-(IsNull(convert(varchar,r.FechaEnvio,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,r.FechaEnvio,114),1,8),''))+'|'+
+-r.ResumenSerie+'-'+convert(varchar,r.Secuencia)+'|'+r.RangoNumero+'|'+
+-CONVERT(VarChar(50),cast(r.SubTotal as money ), 1)+'|'+
+-CONVERT(VarChar(50),cast( r.IGV as money ), 1)+'|'+
+-CONVERT(VarChar(50),cast( r.ICBPER as money ), 1)+'|'+
+-CONVERT(VarChar(50),cast(r.Total as money ), 1)+'|'+
+-r.ResumenTiket+'|'+r.CodigoSunat+'|'+r.HASHCDR+'|'+r.MensajeSunat+'|'+
+-r.Usuario+'|'+c.CompaniaRUC+'|'+
+-c.CompaniaUserSecun+'|'+c.ComapaniaPWD+'|'+r.Estado+'||'+c.TokenApi+'|'+ClienIdToken
+-FROM ResumenBoletas r
+-inner join Compania c
+-on c.CompaniaId=r.CompaniaId
+-where Month(r.FechaReferencia)=MONTH(Getdate()) and YEAR(r.FechaReferencia)=year(Getdate())
+-order by r.CompaniaId,r.FechaEnvio asc
+-for xml path('')),1,1,'')),'~')
+-end
+------------------------------------------
++CREATE procedure [dbo].[uspinsertarRB]  
++@ListaOrden varchar(Max)  
++as  
++begin  
++Declare @pos int  
++Declare @orden varchar(max)  
++Declare @detalle varchar(max)  
++Set @pos = CharIndex('[',@ListaOrden,0)  
++Set @orden = SUBSTRING(@ListaOrden,1,@pos-1)  
++Set @detalle = SUBSTRING(@ListaOrden,@pos+1,len(@ListaOrden)-@pos)  
++Declare @c1 int,@c2 int,@c3 int,@c4 int,  
++        @c5 int,@c6 int,@c7 int,@c8 int,  
++        @c9 int,@c10 int,@c11 int,@c12 int,  
++        @c13 int,@c14 INT  
++Declare @CompaniaId int,@ResumenSerie varchar(250),  
++@Secuencia numeric(38),@FechaReferencia date,  
++@SubTotal decimal(18,2),@IGV decimal(18,2),  
++@Total decimal(18,2),@ResumenTiket varchar(250),  
++@CodigoSunat  varchar(80),@HASHCDR   varchar(max),  
++@Usuario varchar(80),@Status int,@Estado char(1),  
++@RangoNumero varchar(80),@ICBPER decimal(18,2)  
++Set @c1 = CharIndex('|',@orden,0)  
++Set @c2 = CharIndex('|',@orden,@c1+1)  
++Set @c3 = CharIndex('|',@orden,@c2+1)  
++Set @c4 = CharIndex('|',@orden,@c3+1)  
++Set @c5 = CharIndex('|',@orden,@c4+1)  
++Set @c6= CharIndex('|',@orden,@c5+1)  
++Set @c7 = CharIndex('|',@orden,@c6+1)  
++Set @c8 = CharIndex('|',@orden,@c7+1)  
++Set @c9 = CharIndex('|',@orden,@c8+1)  
++Set @c10= CharIndex('|',@orden,@c9+1)  
++Set @c11= CharIndex('|',@orden,@c10+1)  
++Set @c12= CharIndex('|',@orden,@c11+1)  
++Set @c13= CharIndex('|',@orden,@c12+1)  
++Set @c14= Len(@orden)+1  
++Set @CompaniaId=convert(int,SUBSTRING(@orden,1,@c1-1))  
++Set @ResumenSerie=SUBSTRING(@orden,@c1+1,@c2-@c1-1)  
++Set @Secuencia=convert(int,SUBSTRING(@orden,@c2+1,@c3-@c2-1))  
++set @FechaReferencia=convert(date,SUBSTRING(@orden,@c3+1,@c4-@c3-1))  
++set @SubTotal=convert(decimal(18,2),SUBSTRING(@orden,@c4+1,@c5-@c4-1))  
++set @IGV=convert(decimal(18,2),SUBSTRING(@orden,@c5+1,@c6-@c5-1))  
++set @Total=convert(decimal(18,2),SUBSTRING(@orden,@c6+1,@c7-@c6-1))  
++set @ResumenTiket=SUBSTRING(@orden,@c7+1,@c8-@c7-1)  
++set @CodigoSunat=SUBSTRING(@orden,@c8+1,@c9-@c8-1)  
++set @HASHCDR=SUBSTRING(@orden,@c9+1,@c10-@c9-1)  
++set @Usuario=SUBSTRING(@orden,@c10+1,@c11-@c10-1)  
++set @Status=SUBSTRING(@orden,@c11+1,@c12-@c11-1)  
++set @RangoNumero=SUBSTRING(@orden,@c12+1,@c13-@c12-1)  
++set @ICBPER=SUBSTRING(@orden,@c13+1,@c14-@c13-1)  
++if(@Status=3)  
++begin  
++set @SubTotal=0-@SubTotal  
++set @IGV=0-@IGV  
++set @ICBPER=0-@ICBPER  
++set @Total=0-@Total  
++set @Estado='B'--BAJA  
++end  
++else  
++begin  
++set @Estado='E'--ENVIADO  
++end  
++Begin Transaction  
++insert into ResumenBoletas values  
++(@CompaniaId,@ResumenSerie,@Secuencia,@FechaReferencia,Getdate(),  
++@SubTotal,@IGV,@Total,@ResumenTiket,@CodigoSunat,@HASHCDR,'',@Usuario,  
++@Estado,@RangoNumero,@ICBPER,null)  
++Declare Tabla Cursor For Select * From fnSplitString(@detalle,';')   
++Open Tabla  
++Declare @Columna varchar(max),  
++        @DocuId numeric(38)  
++Declare @p1 int  
++Fetch Next From Tabla INTO @Columna  
++ While @@FETCH_STATUS = 0  
++ Begin  
++Set @p1 = Len(@Columna)+1  
++Set @DocuId=Convert(numeric(38),SUBSTRING(@Columna,1,@p1-1))  
++if(@Status=1)--Declarar 3 Anular  
++begin  
++update DocumentoVenta  
++set DocuHash=@HASHCDR,EstadoSunat='ENVIADO'  
++where DocuId=@DocuId  
++end  
++else  
++begin  
++update DocumentoVenta  
++set DocuHash=@HASHCDR,DocuEstado='BAJA',EstadoSunat='ENVIADO',  
++DocuSubTotal=0,DocuIgv=0,DocuTotal=0,ICBPER=0  
++where DocuId=@DocuId  
++end  
++Fetch Next From Tabla INTO @Columna  
++end  
++ Close Tabla;  
++ Deallocate Tabla;  
++ Commit Transaction;  
++SELECT  
++isnull((select STUFF ((select '¬'+convert(varchar,r.ResumenId)+'|'+convert(varchar,r.CompaniaId)+'|'+  
++(IsNull(convert(varchar,r.FechaReferencia,103),''))+'|'+  
++(IsNull(convert(varchar,r.FechaEnvio,103),'')+' '+ IsNull(SUBSTRING(convert(varchar,r.FechaEnvio,114),1,8),''))+'|'+  
++r.ResumenSerie+'-'+convert(varchar,r.Secuencia)+'|'+r.RangoNumero+'|'+  
++CONVERT(VarChar(50),cast(r.SubTotal as money ), 1)+'|'+  
++CONVERT(VarChar(50),cast( r.IGV as money ), 1)+'|'+  
++CONVERT(VarChar(50),cast( r.ICBPER as money ), 1)+'|'+  
++CONVERT(VarChar(50),cast(r.Total as money ), 1)+'|'+  
++r.ResumenTiket+'|'+r.CodigoSunat+'|'+r.HASHCDR+'|'+r.MensajeSunat+'|'+  
++r.Usuario+'|'+c.CompaniaRUC+'|'+  
++c.CompaniaUserSecun+'|'+c.ComapaniaPWD+'|'+r.Estado+'||'+c.TokenApi+'|'+ClienIdToken  
++FROM ResumenBoletas r  
++inner join Compania c  
++on c.CompaniaId=r.CompaniaId  
++where Month(r.FechaReferencia)=MONTH(Getdate()) and YEAR(r.FechaReferencia)=year(Getdate())  
++order by r.CompaniaId,r.FechaEnvio asc  
++for xml path('')),1,1,'')),'~')  
++end  
++-----------------------------------------  --- DXNCOMAS/dbo.uspListaDocumentos
++++ DXN_ICA15102026/dbo.uspListaDocumentos
+@@ -1,30 +1,30 @@
+-create procedure [dbo].[uspListaDocumentos]  
+-@Data varchar(max)  
+-as  
+-begin  
+-Declare @p1 int  
+-Declare @CompaniaId int  
+-declare @fechaReferencia date  
+-Set @Data = LTRIM(RTrim(@Data))  
+-set @CompaniaId=@Data  
+-set @fechaReferencia=(select top 1 DocuEmision from DocumentoVenta  
+-where TipoCodigo='03'and((CompaniaId=@CompaniaId and EstadoSunat='PENDIENTE') and DocuEmision<convert(date,GETDATE()))  
+-group by DocuEmision  
+-order by DocuEmision asc)  
+-select  
+-'DocuId|Compania|NotaId|FechaEmision|Documento|Numero|RazonSocial|DNI|SubTotal|IGV|ICBPER|Total|Usuario|Estado¬100|80|100|115|95|130|350|90|115|115|100|115|160|125¬String|String|String|String|String|String|String|String|String|String|String|String|String|String|String¬'+  
+-isnull((select STUFF((select top 450 '¬'+convert(varchar,d.DocuId)+'|'+convert(varchar,d.CompaniaId)+'|'+convert(varchar,d.NotaId)+'|'+  
+-(Convert(char(10),d.DocuEmision,103))+'|'+d.DocuDocumento+'|'+d.docuSerie+'-'+d.DocuNumero+'|'+  
+-c.ClienteRazon+'|'+c.ClienteDni+'|'+  
+-(convert(varchar(50), CAST(d.DocuSubTotal as money), -1))+'|'+  
+-(convert(varchar(50), CAST(d.DocuIgv as money), -1))+'|'+  
+-(convert(varchar(50), CAST(d.ICBPER as money), -1))+'|'+  
+-(convert(varchar(50), CAST(d.DocuTotal as money), -1))+'|'+  
+-d.DocuUsuario+'|'+d.EstadoSunat  
+-from DocumentoVenta d  
+-inner join Cliente c  
+-on c.ClienteId=d.ClienteId  
+-where d.TipoCodigo='03'and((d.CompaniaId=@CompaniaId and EstadoSunat='PENDIENTE') and d.DocuEmision=@fechaReferencia)  
+-order by d.DocuSerie,d.DocuNumero asc  
+-FOR XML path ('')),1,1,'')),'~')  
+-end  +create procedure [dbo].[uspListaDocumentos]
++@Data varchar(max)
++as
++begin
++Declare @p1 int
++Declare @CompaniaId int
++declare @fechaReferencia date
++Set @Data = LTRIM(RTrim(@Data))
++set @CompaniaId=@Data
++set @fechaReferencia=(select top 1 DocuEmision from DocumentoVenta
++where TipoCodigo='03'and((CompaniaId=@CompaniaId and EstadoSunat='PENDIENTE') and DocuEmision<convert(date,GETDATE()))
++group by DocuEmision
++order by DocuEmision asc)
++select
++'DocuId|Compania|NotaId|FechaEmision|Documento|Numero|RazonSocial|DNI|SubTotal|IGV|ICBPER|Total|Usuario|Estado¬100|80|100|115|95|130|350|90|115|115|100|115|160|125¬String|String|String|String|String|String|String|String|String|String|String|String|String|String|String¬'+
++isnull((select STUFF((select '¬'+convert(varchar,d.DocuId)+'|'+convert(varchar,d.CompaniaId)+'|'+convert(varchar,d.NotaId)+'|'+
++(Convert(char(10),d.DocuEmision,103))+'|'+d.DocuDocumento+'|'+d.docuSerie+'-'+d.DocuNumero+'|'+
++c.ClienteRazon+'|'+c.ClienteDni+'|'+
++(convert(varchar(50), CAST(d.DocuSubTotal as money), -1))+'|'+
++(convert(varchar(50), CAST(d.DocuIgv as money), -1))+'|'+
++(convert(varchar(50), CAST(d.ICBPER as money), -1))+'|'+
++(convert(varchar(50), CAST(d.DocuTotal as money), -1))+'|'+
++d.DocuUsuario+'|'+d.EstadoSunat
++from DocumentoVenta d
++inner join Cliente c
++on c.ClienteId=d.ClienteId
++where d.TipoCodigo='03'and((d.CompaniaId=@CompaniaId and EstadoSunat='PENDIENTE') and d.DocuEmision=@fechaReferencia)
++order by d.DocuSerie,d.DocuNumero asc
++FOR XML path ('')),1,1,'')),'~')
++end
+--- DXNCOMAS/dbo.uspListaFacturaPendiente
++++ DXN_ICA15102026/dbo.uspListaFacturaPendiente
+@@ -1,28 +1,27 @@
+-CREATE proc [dbo].[uspListaFacturaPendiente]    
+-as    
+-begin    
+-select     
+-'DocuID|NotaId|FechaEmision|Documento|Numero|Cliente|RUC|Descuento|SubTotal|IGV|ICBPER|Total|Usuario|Compania|Movilidad|Adicional|TipoCodigo|Serie|Nro|ClienteId¬90|100|100|100|130|350|100|100|110|110|90|110|150|90|90|90|90|90|90|90¬String|String|String|String|String|String|String|String|String|String|String|String|String|String|String|String|String|String|String|String¬'+    
+-isnull((select STUFF ((select '¬'+convert(varchar,d.DocuId)+'|'+convert(varchar,d.NotaId)+'|'+    
+-Convert(char(10),d.DocuEmision,103)+'|'+d.DocuDocumento+'|'+    
+-d.DocuSerie+'-'+d.DocuNumero+'|'+cl.ClienteRazon+'|'+cl.ClienteRuc+'|'+    
+-CONVERT(VarChar(50), cast(n.NotaDescuento as money ), 1)+'|'+    
+-CONVERT(VarChar(50), cast(d.DocuSubTotal as money ), 1)+'|'+    
+-CONVERT(VarChar(50), cast(d.DocuIgv as money ), 1)+'|'+    
+-CONVERT(VarChar(50), cast(d.ICBPER as money ), 1)+'|'+    
+-CONVERT(VarChar(50), cast(d.DocuTotal as money ), 1)+'|'+DocuUsuario+'|'+c.CompaniaRazonSocial+'|'+    
+-CONVERT(VarChar(50), cast(n.NotaMovilidad as money ), 1)+'|'+    
+-CONVERT(VarChar(50), cast(n.NotaAdicional as money ), 1)+'|'+    
+-LTRIM(RTrim(d.TipoCodigo))+'|'+d.DocuSerie+'|'+d.DocuNumero+'|'+convert(varchar,cl.ClienteId)   
+-from DocumentoVenta d    
+-inner join NotaPedido n    
+-on n.NotaId=d.NotaId    
+-inner join Cliente cl    
+-on cl.ClienteId=d.ClienteId    
+-inner join Compania c    
+-on c.CompaniaId=d.CompaniaId    
+-where d.EstadoSunat='PENDIENTE' and (d.TipoCodigo='01' or d.TipoCodigo='07')    
+-order by d.CompaniaId,d.DocuEmision asc    
+-for xml path('')),1,1,'')),'~')    
+-end 
+-
++create proc [dbo].[uspListaFacturaPendiente]
++as
++begin
++select 
++'DocuID|NotaId|FechaEmision|Documento|Numero|Cliente|RUC|Descuento|SubTotal|IGV|ICBPER|Total|Usuario|Compania|Movilidad|Adicional|TipoCodigo|Serie|Nro¬90|100|100|100|130|350|100|100|110|110|90|110|150|90|90|90|90|90|90¬String|String|String|String|String|String|String|String|String|String|String|String|String|String|String|String|String|String|String¬'+
++isnull((select STUFF ((select '¬'+convert(varchar,d.DocuId)+'|'+convert(varchar,d.NotaId)+'|'+
++Convert(char(10),d.DocuEmision,103)+'|'+d.DocuDocumento+'|'+
++d.DocuSerie+'-'+d.DocuNumero+'|'+cl.ClienteRazon+'|'+cl.ClienteRuc+'|'+
++CONVERT(VarChar(50), cast(n.NotaDescuento as money ), 1)+'|'+
++CONVERT(VarChar(50), cast(d.DocuSubTotal as money ), 1)+'|'+
++CONVERT(VarChar(50), cast(d.DocuIgv as money ), 1)+'|'+
++CONVERT(VarChar(50), cast(d.ICBPER as money ), 1)+'|'+
++CONVERT(VarChar(50), cast(d.DocuTotal as money ), 1)+'|'+DocuUsuario+'|'+c.CompaniaRazonSocial+'|'+
++CONVERT(VarChar(50), cast(n.NotaMovilidad as money ), 1)+'|'+
++CONVERT(VarChar(50), cast(n.NotaAdicional as money ), 1)+'|'+
++LTRIM(RTrim(d.TipoCodigo))+'|'+d.DocuSerie+'|'+d.DocuNumero
++from DocumentoVenta d
++inner join NotaPedido n
++on n.NotaId=d.NotaId
++inner join Cliente cl
++on cl.ClienteId=d.ClienteId
++inner join Compania c
++on c.CompaniaId=d.CompaniaId
++where d.EstadoSunat='PENDIENTE' and (d.TipoCodigo='01' or d.TipoCodigo='07')
++order by d.CompaniaId,d.DocuEmision asc
++for xml path('')),1,1,'')),'~')
++end
+--- DXNCOMAS/dbo.uspTraerGastos
++++ DXN_ICA15102026/dbo.uspTraerGastos
+@@ -1,94 +1,70 @@
+-CREATE proc [dbo].[uspTraerGastos]    
+-@Fecha date    
+-as    
+-begin    
+-Declare @Aviso int    
+-set @Aviso=(select COUNT(c.ConteoId)from ConteoMonedas c    
+-where FechaConteo=@Fecha)    
+-if(@Aviso=0)    
+-begin   
+-  
+---dECLARE @Fecha date   
+---SET @Fecha='05-07-2025'  
+-  
+---IF OBJECT_ID('#tmpOBS') IS NOT NULL DROP TABLE #tmpOBS  
+-CREATE TABLE #tmpOBS (FechaTransaccion date,NotaTransaccion varchar(80),TipoVenta nvarchar(3))  
+-  
+---IF OBJECT_ID('#tmpNota') IS NOT NULL DROP TABLE #tmpNota  
+-CREATE TABLE #tmpNota (NotaTransaccion varchar(80),CajaId numeric(38))  
+-  
+-insert into #tmpOBS (FechaTransaccion,NotaTransaccion,TipoVenta)  
+-select t.FechaTransaccion,T.NotaTransaccion,t.TipoVenta  
+-from TABLAOBS T    
+-where T.FechaTransaccion between @Fecha and @Fecha  
+-  
+-  
+-insert into #tmpNota (NotaTransaccion,CajaId)  
+-select n.NotaTransaccion,n.CajaId  
+-from NotaPedido n    
+-where n.NotaFechaPago between @Fecha and @Fecha  
+-  
+---SELECT * FROM #tmpNota  
+---SELECT * FROM #tmpOBS   
+-  
+-Select    
+-isnull((select STUFF((select '¬'+ c.DetalleConcepto+'|'+    
+-CONVERT(VarChar(50),cast(c.DetalleMonto as money ), 1)+'|T|0|S'    
+-from CajaDetalle c    
+-where (convert(date,c.DetalleFecha) between @Fecha and @Fecha) and c.NotaId=0 and c.DetalleMovimiento='SALIDA' and c.Vista=''  
+-order by c.DetalleId asc    
+-FOR XML path ('')),1,1,'')),'~')+'['+    
+-isnull((select STUFF((select '¬'+ c.DetalleConcepto+'|'+    
+-CONVERT(VarChar(50),cast(c.DetalleMonto as money ), 1)+'|T|0|I'    
+-from CajaDetalle c    
+-where (convert(date,c.DetalleFecha) between @Fecha and @Fecha) and c.NotaId=0 and c.DetalleMovimiento='INGRESO' and c.Vista=''   
+-order by c.DetalleId asc    
+-FOR XML path ('')),1,1,'')),'~')+'['+    
+-isnull((select STUFF((select '¬'+     
+-isnull(CONVERT(VarChar(50), cast(sum(c.MontoIniSOl) as money ), 1),'0.00') from Caja c    
+-where c.CajaEstado='ACTIVO'    
+-FOR XML path ('')),1,1,'')),'~')+'['+    
+-isnull((select STUFF((select '¬'+    
+-isnull(CONVERT(VarChar(50), cast(sum(T.Importe) as money ), 1),'0.00')     
+-from TABLAOBS T    
+-where T.FechaTransaccion between @Fecha and @Fecha and T.TipoVenta='OBS'    
+-FOR XML path ('')),1,1,'')),'~')+'['+    
+-isnull((select STUFF((select '¬'+    
+-convert(varchar,COUNT(t.ID))+'|'+    
+-isnull(CONVERT(VarChar(50), cast(sum(T.Importe) as money ), 1),'0.00')    
+-from TABLAOBS T    
+-where T.FechaTransaccion between @Fecha and @Fecha and T.tipoVenta='IOC'    
+-FOR XML path ('')),1,1,'')),'~')+'['+    
+-isnull((select STUFF((select '¬'+    
+-isnull(CONVERT(VarChar(50), cast(sum(d.DetalleMonto) as money ), 1),'0.00')    
+-from CajaDetalle d    
+-where (convert(date,d.DetalleFecha) between @Fecha and @Fecha) and d.DetalleConcepto='REVISTAS'    
+-FOR XML path ('')),1,1,'')),'~')+'['+    
+-isnull((select STUFF((select '¬'+    
+-isnull(CONVERT(VarChar(50), cast(sum(d.DetalleMonto) as money ), 1),'0.00')    
+-from CajaDetalle d    
+-where (convert(date,d.DetalleFecha) between @Fecha and @Fecha) and d.DetalleConcepto='COPIAS Y OTROS'    
+-FOR XML path ('')),1,1,'')),'~')+'['+    
+-isnull((select STUFF((select '¬'+    
+-isnull(CONVERT(VarChar(50), cast(sum(d.DetalleMonto) as money ), 1),'0.00')    
+-from CajaDetalle d    
+-where (convert(date,d.DetalleFecha) between @Fecha and @Fecha) and d.DetalleConcepto='VITRINA'    
+-FOR XML path ('')),1,1,'')),'')+'['+    
+-isnull((select STUFF((select  top 1'¬'+ convert(varchar,count(isnull(n.CajaId,0)))--isnull(convert(varchar,n.CajaId),0)  
+-from #tmpOBS T    
+-left join #tmpNota n    
+-on n.NotaTransaccion=t.NotaTransaccion  
+-where  (T.FechaTransaccion between @Fecha and @Fecha) and T.TipoVenta='OBS' and  n.CajaId is null    
+-FOR XML path ('')),1,1,'')),'~')+'['+    
+-isnull((select STUFF((select  top 1'¬'+ convert(varchar,count(isnull(n.CajaId,0)))    
+-from #tmpOBS T    
+-left join #tmpNota n    
+-on n.NotaTransaccion=t.NotaTransaccion    
+-where (T.FechaTransaccion between @Fecha and @Fecha) and T.TipoVenta='IOC' and  n.CajaId is null    
+-FOR XML path ('')),1,1,'')),'~')    
+-end    
+-else    
+-begin    
+-select '~[~[[[0|[[[0[0[0'    
+-end    
+-end 
++create proc [dbo].[uspTraerGastos]
++@Fecha date
++as
++begin
++Declare @Aviso int
++set @Aviso=(select COUNT(c.ConteoId)from ConteoMonedas c
++where FechaConteo=@Fecha)
++if(@Aviso=0)
++begin
++Select
++isnull((select STUFF((select '¬'+ c.DetalleConcepto+'|'+
++CONVERT(VarChar(50),cast(c.DetalleMonto as money ), 1)+'|T|0|S'
++from CajaDetalle c
++where (convert(date,DetalleFecha)=@Fecha and NotaId=0) and c.DetalleMovimiento='SALIDA' and c.Vista=''
++order by c.DetalleId asc
++FOR XML path ('')),1,1,'')),'~')+'['+
++isnull((select STUFF((select '¬'+ c.DetalleConcepto+'|'+
++CONVERT(VarChar(50),cast(c.DetalleMonto as money ), 1)+'|T|0|I'
++from CajaDetalle c
++where (convert(date,DetalleFecha)=@Fecha and NotaId=0) and c.DetalleMovimiento='INGRESO' and c.Vista=''
++order by c.DetalleId asc
++FOR XML path ('')),1,1,'')),'~')+'['+
++isnull((select STUFF((select '¬'+ 
++isnull(CONVERT(VarChar(50), cast(sum(c.MontoIniSOl) as money ), 1),'0.00') from Caja c
++where c.CajaEstado='ACTIVO'
++FOR XML path ('')),1,1,'')),'~')+'['+
++isnull((select STUFF((select '¬'+
++isnull(CONVERT(VarChar(50), cast(sum(T.Importe) as money ), 1),'0.00') 
++from TABLAOBS T
++where FechaTransaccion=@Fecha and TipoVenta='OBS'
++FOR XML path ('')),1,1,'')),'~')+'['+
++isnull((select STUFF((select '¬'+
++convert(varchar,COUNT(t.ID))+'|'+
++isnull(CONVERT(VarChar(50), cast(sum(T.Importe) as money ), 1),'0.00')
++from TABLAOBS T
++where FechaTransaccion=@Fecha and TipoVenta='IOC'
++FOR XML path ('')),1,1,'')),'~')+'['+
++isnull((select STUFF((select '¬'+
++isnull(CONVERT(VarChar(50), cast(sum(d.DetalleMonto) as money ), 1),'0.00')
++from CajaDetalle d
++where convert(date,d.DetalleFecha)=@Fecha and d.DetalleConcepto='REVISTAS'
++FOR XML path ('')),1,1,'')),'~')+'['+
++isnull((select STUFF((select '¬'+
++isnull(CONVERT(VarChar(50), cast(sum(d.DetalleMonto) as money ), 1),'0.00')
++from CajaDetalle d
++where convert(date,d.DetalleFecha)=@Fecha and d.DetalleConcepto='COPIAS Y OTROS'
++FOR XML path ('')),1,1,'')),'~')+'['+
++isnull((select STUFF((select '¬'+
++isnull(CONVERT(VarChar(50), cast(sum(d.DetalleMonto) as money ), 1),'0.00')
++from CajaDetalle d
++where convert(date,d.DetalleFecha)=@Fecha and d.DetalleConcepto='VITRINA'
++FOR XML path ('')),1,1,'')),'')+'['+
++isnull((select STUFF((select '¬'+convert(varchar,count(isnull(n.CajaId,0)))
++from TABLAOBS T
++left join NotaPedido n
++on n.NotaTransaccion=t.NotaTransaccion
++where  T.TipoVenta='OBS' AND t.FechaTransaccion=@Fecha and  n.CajaId is null
++FOR XML path ('')),1,1,'')),'~')+'['+
++isnull((select STUFF((select '¬'+convert(varchar,count(isnull(n.CajaId,0)))
++from TABLAOBS T
++left join NotaPedido n
++on n.NotaTransaccion=t.NotaTransaccion
++where  T.TipoVenta='IOC' AND t.FechaTransaccion=@Fecha and  n.CajaId is null
++FOR XML path ('')),1,1,'')),'~')
++end
++else
++begin
++select '~[~[[[0|[[[0[0[0'
++end
++end
+--- DXNCOMAS/dbo.uspValidarApertura
++++ DXN_ICA15102026/dbo.uspValidarApertura
+@@ -2,30 +2,30 @@
+ @Fecha date  
+ as  
+ begin  
+-Declare @IdApertura numeric(38)  
+-set @IdApertura=isnull((  
+-select top 1 IdApertura from APERTURA_ALMACEN a  
+-where convert(date,FechaApertura)=@Fecha),'0')  
+-if(@IdApertura=0)  
+-begin  
+-select 'NO EXISTE'  
+-end  
+-else  
+-begin  
+-Declare @data varchar(40)  
+-set @data=(select top 1 FechaCierre from APERTURA_ALMACEN  
+-where IdApertura=@IdApertura)  
+-if(len(@data)=0)  
+-begin  
+-select 'NO CERRO'  
+-end  
+-else  
+-begin  
+-IF NOT EXISTS(select top 1 a.Fecha from AperturaOBS a where a.Fecha=@Fecha)  
+-begin  
+-select 'NO APERTURO OBS'  
+-end  
+-else  
++--Declare @IdApertura numeric(38)  
++--set @IdApertura=isnull((  
++--select top 1 IdApertura from APERTURA_ALMACEN a  
++--where convert(date,FechaApertura)=@Fecha),'0')  
++--if(@IdApertura=0)  
++--begin  
++--select 'NO EXISTE'  
++--end  
++--else  
++--begin  
++--Declare @data varchar(40)  
++--set @data=(select top 1 FechaCierre from APERTURA_ALMACEN  
++--where IdApertura=@IdApertura)  
++--if(len(@data)=0)  
++--begin  
++--select 'NO CERRO'  
++--end  
++--else  
++--begin  
++--IF NOT EXISTS(select top 1 a.Fecha from AperturaOBS a where a.Fecha=@Fecha)  
++--begin  
++--select 'NO APERTURO OBS'  
++--end  
++--else  
+ begin  
+ Declare @BoletaPen int  
+ Declare @ConsultaPen int   
+@@ -59,26 +59,24 @@
+ else  
+ begin  
+   
+-Declare @PagoVarios int  
+-set @PagoVarios=(select convert(varchar, COUNT(*)) from DocumentoVenta d   
+-inner join NotaPedido n   
+-on n.NotaId = d.NotaId   
+-where n.NotaCondicion = 'PAGO/VARIOS' and (n.NotaEstado <> 'CANCELADO' and n.NotaEstado <> 'ANULADO'))  
++--Declare @PagoVarios int  
++--set @PagoVarios=(select convert(varchar, COUNT(*)) from DocumentoVenta d   
++--inner join NotaPedido n   
++--on n.NotaId = d.NotaId   
++--where n.NotaCondicion = 'PAGO/VARIOS' and (n.NotaEstado <> 'CANCELADO' and n.NotaEstado <> 'ANULADO'))  
+   
+-if(@PagoVarios>0)  
+-begin  
+-select 'PAGO/VARIOS'  
+-end  
+-else  
+-begin  
++--if(@PagoVarios>0)  
++--begin  
++--select 'PAGO/VARIOS'  
++--end  
++--else  
++--begin  
+ select 'true'  
+ end  
+   
++--end  
+ end  
+ end  
+-end  
+-end  
+-  
++--end  
+ --select 'true'  
+-  
+-end+--end--- DXNCOMAS/dbo.uspValidaUsuario
++++ DXN_ICA15102026/dbo.uspValidaUsuario
+@@ -1,64 +1,67 @@
+-create procedure [dbo].[uspValidaUsuario]    
+-@Data varchar(max)    
+-as    
+-begin    
+-Declare @p1 int,@p2 int,    
+-        @p3 int     
+-Declare @Usuario varchar(150),    
+-        @Clave varchar(150),    
+-        @CPUNAME VARCHAR(140)      
+-Set @Data = LTRIM(RTrim(@Data))    
+-Set @p1 = CharIndex('|',@Data,0)    
+-Set @p2 = CharIndex('|',@Data,@p1+1)    
+-Set @p3 = Len(@Data)+1    
+-Set @Usuario=SUBSTRING(@Data,1,@p1-1)    
+-Set @Clave=SUBSTRING(@Data,@p1+1,@p2-@p1-1)    
+-Set @CPUNAME=SUBSTRING(@Data,@p2+1,@p3-@p2-1)    
+-SELECT     
+-isnull((select STUFF ((select top 1 '¬'+convert(varchar,U.UsuarioID)+'|'+convert(varchar,p.PersonalId)+'|'+a.AreaNombre+'|'+    
+-(((SUBSTRING(p.PersonalNombres+' ',1,CHARINDEX(' ',p.PersonalNombres+' ')-1)))+' '+ ((SUBSTRING(p.PersonalApellidos+' ',1,CHARINDEX(' ',p.PersonalApellidos+' ')-1))))+'|'+    
+-convert(varchar,p.CompaniaId)+'|'+c.CompaniaRazonSocial+'|'+c.CompaniaRUC+'|'+    
+-u.UsuarioSerie+'|'+convert(varchar(1),u.EnviaBoleta)+'|'+    
+-convert(varchar(1),u.EnviarFactura)+'|'+c.CompaniaComercial+'|'+u.UserRuta+'|'+    
+-CONVERT(varchar,c.ICBPER)+'|'+u.UserRutaOBS+'|'+convert(varchar(1),u.Administrador)+'|'+    
+-c.HoraInicio+'|'+c.HoraFin+'|'+c.HoraIniAlm+'|'+c.HoraFinOBS+'|'+    
+-case when (CONVERT(date,GETDATE())>=(c.RenovacionOSE)) then    
+-'VENCIDO'    
+-else    
+-case when ((dateadd(DAY,-6,c.RenovacionOSE))<= CONVERT(date,GETDATE())) then    
+-'POR VENCER'    
+-else    
+-'PREMIUM' end end+'|'+(Convert(char(10),c.RenovacionOSE,103))+'|'+  
+-  
+-case when (CONVERT(date,GETDATE())>=(c.RenovacionFirma)) then    
+-'VENCIDO'    
+-else    
+-case when ((dateadd(DAY,-6,c.RenovacionFirma))<= CONVERT(date,GETDATE())) then    
+-'POR VENCER'    
+-else    
+-'PREMIUM' end end+'|'+(Convert(char(10),c.RenovacionFirma,103)) +'|'+   
++CREATE procedure [dbo].[uspValidaUsuario]      
++@Data varchar(max)      
++as      
++begin      
++Declare @p1 int,@p2 int,      
++        @p3 int       
++Declare @Usuario varchar(150),      
++        @Clave varchar(150),      
++        @CPUNAME VARCHAR(140)        
++Set @Data = LTRIM(RTrim(@Data))      
++Set @p1 = CharIndex('|',@Data,0)      
++Set @p2 = CharIndex('|',@Data,@p1+1)      
++Set @p3 = Len(@Data)+1      
++Set @Usuario=SUBSTRING(@Data,1,@p1-1)      
++Set @Clave=SUBSTRING(@Data,@p1+1,@p2-@p1-1)      
++Set @CPUNAME=SUBSTRING(@Data,@p2+1,@p3-@p2-1)      
++SELECT       
++isnull((select STUFF ((select top 1 '¬'+convert(varchar,U.UsuarioID)+'|'+convert(varchar,p.PersonalId)+'|'+a.AreaNombre+'|'+      
++(((SUBSTRING(p.PersonalNombres+' ',1,CHARINDEX(' ',p.PersonalNombres+' ')-1)))+' '+ ((SUBSTRING(p.PersonalApellidos+' ',1,CHARINDEX(' ',p.PersonalApellidos+' ')-1))))+'|'+      
++convert(varchar,p.CompaniaId)+'|'+c.CompaniaRazonSocial+'|'+c.CompaniaRUC+'|'+      
++u.UsuarioSerie+'|'+convert(varchar(1),u.EnviaBoleta)+'|'+      
++convert(varchar(1),u.EnviarFactura)+'|'+c.CompaniaComercial+'|'+u.UserRuta+'|'+      
++CONVERT(varchar,c.ICBPER)+'|'+u.UserRutaOBS+'|'+convert(varchar(1),u.Administrador)+'|'+      
++c.HoraInicio+'|'+c.HoraFin+'|'+c.HoraIniAlm+'|'+c.HoraFinOBS+'|'+      
++
++--case when (CONVERT(date,GETDATE())>=(c.RenovacionOSE)) then      
++--'VENCIDO'      
++--else      
++--case when ((dateadd(DAY,-6,c.RenovacionOSE))<= CONVERT(date,GETDATE())) then      
++--'POR VENCER'      
++--else      
++--'PREMIUM' end end+'|'+(Convert(char(10),c.RenovacionOSE,103))+'|'+    
+     
++--case when (CONVERT(date,GETDATE())>=(c.RenovacionFirma)) then      
++--'VENCIDO'      
++--else      
++--case when ((dateadd(DAY,-6,c.RenovacionFirma))<= CONVERT(date,GETDATE())) then      
++--'POR VENCER'      
++--else      
++--'PREMIUM' end end+'|'+(Convert(char(10),c.RenovacionFirma,103)) +'|'+     
++      
++      
++--case when (CONVERT(date,GETDATE())>=(c.RenovacionSome)) then      
++--'VENCIDO'      
++--else      
++--case when ((dateadd(DAY,-6,c.RenovacionSome))<= CONVERT(date,GETDATE())) then      
++--'POR VENCER'      
++--else      
++--'PREMIUM' end end+'|'+(Convert(char(10),c.RenovacionSome,103))+'|'+
++
++convert(varchar,DiasMaxDep)   
+     
+-case when (CONVERT(date,GETDATE())>=(c.RenovacionSome)) then    
+-'VENCIDO'    
+-else    
+-case when ((dateadd(DAY,-6,c.RenovacionSome))<= CONVERT(date,GETDATE())) then    
+-'POR VENCER'    
+-else    
+-'PREMIUM' end end+'|'+(Convert(char(10),c.RenovacionSome,103))+'|'+convert(varchar,DiasMaxDep) 
+-  
+-FROM Usuarios U    
+-inner join Personal p    
+-on p.PersonalId=U.PersonalId    
+-inner join Area a    
+-on a.AreaId=p.AreaId    
+-inner join Compania c    
+-on c.CompaniaId=p.CompaniaId    
+-where U.UsuarioAlias=@Usuario AND dbo.desincrectar(U.UsuarioClave)=@Clave and u.Usuarioestado ='ACTIVO'and p.PersonalEstado='ACTIVO'    
+-for xml path('')),1,1,'')),'~')+'['+    
+-isnull((select STUFF ((select top 1 '¬'+ m.SerieFactura+'|'+    
+-m.SerieNC+'|'+m.BLOQUEO    
+-FROM MAQUINAS m    
+-WHERE m.Maquina=@CPUNAME    
+-for xml path('')),1,1,'')),'~')    
+-end
++FROM Usuarios U      
++inner join Personal p      
++on p.PersonalId=U.PersonalId      
++inner join Area a      
++on a.AreaId=p.AreaId      
++inner join Compania c      
++on c.CompaniaId=p.CompaniaId      
++where U.UsuarioAlias=@Usuario AND dbo.desincrectar(U.UsuarioClave)=@Clave and u.Usuarioestado ='ACTIVO'and p.PersonalEstado='ACTIVO'      
++for xml path('')),1,1,'')),'~')+'['+      
++isnull((select STUFF ((select top 1 '¬'+ m.SerieFactura+'|'+      
++m.SerieNC+'|'+m.BLOQUEO      
++FROM MAQUINAS m      
++WHERE m.Maquina=@CPUNAME      
++for xml path('')),1,1,'')),'~')      
++end  

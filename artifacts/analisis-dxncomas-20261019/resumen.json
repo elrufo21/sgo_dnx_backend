@@ -1,0 +1,61 @@
+{
+  "referencia": "DXN_ICA15102026",
+  "destino": "DXNCOMAS",
+  "captura": "2026-10-19T20:05:34.7897650-05:00",
+  "inventario": {
+    "DXN_ICA15102026": {
+      "tables": 82,
+      "columns": 927,
+      "modules": 430,
+      "indexes": 87,
+      "foreign_keys": 59
+    },
+    "DXNCOMAS": {
+      "tables": 78,
+      "columns": 890,
+      "modules": 370,
+      "indexes": 83,
+      "foreign_keys": 51
+    }
+  },
+  "modulos_por_tipo": {
+    "DXN_ICA15102026": {
+      "SQL_STORED_PROCEDURE": 417,
+      "SQL_SCALAR_FUNCTION": 12,
+      "SQL_TABLE_VALUED_FUNCTION": 1
+    },
+    "DXNCOMAS": {
+      "SQL_STORED_PROCEDURE": 357,
+      "SQL_SCALAR_FUNCTION": 12,
+      "SQL_TABLE_VALUED_FUNCTION": 1
+    }
+  },
+  "modulos_estados": {
+    "Igual": 359,
+    "Faltante": 60,
+    "Diferente": 11
+  },
+  "faltantes_por_alcance": {
+    "Backend directo": 45,
+    "Sin uso web identificado": 14,
+    "Dependencia SQL": 1
+  },
+  "tablas_estados": {
+    "En ambas": 76,
+    "Faltante": 6,
+    "Solo destino": 2
+  },
+  "columnas_estados": {
+    "Tabla faltante": 51,
+    "Solo destino": 28,
+    "Diferente": 3,
+    "Columna faltante": 14
+  },
+  "estructura": {
+    "indexes Faltante o diferente": 11,
+    "indexes Solo destino o diferente": 7,
+    "foreign_keys Faltante o diferente": 10,
+    "foreign_keys Solo destino o diferente": 2,
+    "checks Faltante o diferente": 1
+  }
+}

@@ -145,6 +145,9 @@ public sealed class DepurarTextoEntradaFilter : IAsyncActionFilter
             case JsonValueKind.String:
                 writer.WriteStringValue(skip ? element.GetString() : DbDepurarTexto(element.GetString() ?? ""));
                 break;
+            case JsonValueKind.Undefined:
+                writer.WriteNullValue();
+                break;
             default:
                 element.WriteTo(writer);
                 break;

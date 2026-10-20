@@ -1,0 +1,10 @@
+﻿procedimiento,fuente,estado
+dbo.uspeliminarcategoria,scripts/sql/bdactual.sql:10495,Definicion en archivo; ausente en ambas bases. Revisar antes de instalar.
+dbo.uspeliminarproducto,scripts/sql/bdactual.sql:10665,Definicion en archivo; ausente en ambas bases. Revisar antes de instalar.
+dbo.uspeliminarproveedor,scripts/sql/bdactual.sql:10692,Definicion en archivo; ausente en ambas bases. Revisar antes de instalar.
+dbo.uspguardarunidadmedidaproducto,sgo_dnx_frontend/docs/uspGuardarUnidadMedidaProducto.sql,Definicion en archivo; ausente en ambas bases. Revisar antes de instalar.
+dbo.uspinsertarcategoria,scripts/sql/bdactual.sql:12357,Definicion en archivo; ausente en ambas bases. Revisar antes de instalar.
+dbo.uspinsertarcuentaproveedor,scripts/sql/bdactual.sql:12618,Definicion en archivo; ausente en ambas bases. Revisar antes de instalar.
+dbo.uspinsertarproveedor,scripts/sql/bdactual.sql:13935,Definicion en archivo; ausente en ambas bases. Revisar antes de instalar.
+dbo.uspinsertarusuario,scripts/sql/bdactual.sql:14323,Definicion en archivo; ausente en ambas bases. Revisar antes de instalar.
+dbo.usplistarcomprasweb,sgo_dnx_backend/scripts/sql/20260825_uspListarComprasweb.sql,Definicion en archivo; ausente en ambas bases. Revisar antes de instalar.

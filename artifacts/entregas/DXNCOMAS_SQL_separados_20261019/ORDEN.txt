@@ -1,0 +1,13 @@
+DXNCOMAS - SQL necesarios, compatibles con SQL Server 2008
+
+Ejecutar cada archivo por separado, en este orden, sobre la base DXNCOMAS:
+1. 01_compatibilidad_procedimientos_existentes.sql
+2. 02_tablas.sql
+3. 03_columnas.sql
+4. 04_procedimientos_web.sql
+5. 05_configuracion_inicial.sql
+
+El paso 1 protege seis procedimientos existentes que insertan sin lista de columnas; debe ir antes de añadir tablas/columnas.
+El paso 5 inserta indicadores iniciales ausentes de cada compañía. Revisar los valores iniciales antes de ejecutarlo.
+No ejecutar 05_diagnostico_dxncomas.sql ni 06_indices_web_opcional.sql como parte de esta secuencia.
+Los nueve procedimientos excluidos por contrato pendiente se detallan en la documentación; esta entrega no inventa sus definiciones.

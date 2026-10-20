@@ -128,6 +128,6 @@ for(const sf of files) {
   }
   walk(sf);
 }
-const output=path.join(backend,'artifacts/analisis-dxncomas-20261018/frontend_llamadas.json');
+const output=path.join(process.argv[2] ? path.resolve(process.argv[2]) : path.join(backend,'artifacts/analisis-dxncomas-20261018'),'frontend_llamadas.json');
 fs.writeFileSync(output,JSON.stringify({entry:'src/main.tsx',reachable_files:files.map(f=>path.relative(front,f.fileName).replaceAll('\\','/')).sort(),unreachable_files:[...sources.keys()].filter(f=>!reachable.has(f)).map(f=>path.relative(front,f).replaceAll('\\','/')).sort(),calls},null,2));
 console.log(JSON.stringify({reachable:files.length,unreachable:sources.size-files.length,calls:calls.length,output}));

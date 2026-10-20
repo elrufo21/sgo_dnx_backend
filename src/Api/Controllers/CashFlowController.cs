@@ -636,8 +636,42 @@ public sealed class CashFlowController : ControllerBase
         var caja = await ObtenerCajaParaCierreAsync(con, tx, cajaId, cancellationToken);
         if (caja is null)
             return Conflict(new { ok = false, mensaje = "La caja ya no está disponible para cerrar." });
+        if (request.UsuarioId != caja.UsuarioId)
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return Conflict(new
+            {
+                ok = false,
+                codigo = "USUARIO_CAJA_NO_COINCIDE",
+                mensaje = "El usuario enviado no coincide con el encargado de esta caja. Recarga la caja antes de cerrarla."
+            });
+        }
         if (request.MontoInicial is < 0)
             return BadRequest(new { ok = false, mensaje = "El sencillo no puede ser negativo." });
+        if (!caja.CompaniaId.HasValue || caja.CompaniaId.Value <= 0)
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return Conflict(new
+            {
+                ok = false,
+                codigo = "COMPANIA_NO_IDENTIFICADA",
+                mensaje = "No se pudo identificar la compañía para validar los resúmenes de boletas."
+            });
+        }
+
+        var resumenPendiente = await ObtenerResumenBoletasPendienteAsync(
+            con, tx, caja.CompaniaId.Value, cancellationToken);
+        if (resumenPendiente is not null)
+        {
+            await tx.RollbackAsync(cancellationToken);
+            return Conflict(new
+            {
+                ok = false,
+                codigo = "RESUMEN_BOLETAS_PENDIENTE",
+                mensaje = $"No se puede cerrar la caja: hay {resumenPendiente.Cantidad} boleta(s) pendiente(s) del resumen del {resumenPendiente.Fecha:dd/MM/yyyy}. Envía el resumen de boletas antes de cerrar."
+            });
+        }
+
         if (!await ValidarArqueoDiarioAsync(con, tx, cancellationToken))
         {
             await tx.RollbackAsync(cancellationToken);
@@ -907,7 +941,7 @@ public sealed class CashFlowController : ControllerBase
         CancellationToken cancellationToken)
     {
         await using var cmd = new SqlCommand("""
-            SELECT c.MontoIniSOl, c.CajaEncargado, c.CajaUsuario, c.UsuarioId,
+            SELECT c.MontoIniSOl, c.CajaEncargado, c.CajaUsuario, c.UsuarioId, personal.CompaniaId,
                    ISNULL((SELECT SUM(ISNULL(T.Importe, 0))
                              FROM TABLAOBS T
                              LEFT JOIN NotaPedido n ON n.NotaTransaccion = T.NotaTransaccion
@@ -923,7 +957,9 @@ public sealed class CashFlowController : ControllerBase
                    ISNULL((SELECT SUM(ISNULL(d.DetalleMonto, 0))
                              FROM CajaDetalle d
                             WHERE d.CajaId = c.CajaId AND d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0), 0) AS Salidas
-              FROM Caja c WITH (UPDLOCK, HOLDLOCK)
+               FROM Caja c WITH (UPDLOCK, HOLDLOCK)
+               LEFT JOIN Usuarios usuario ON usuario.UsuarioID = c.UsuarioId
+               LEFT JOIN Personal personal ON personal.PersonalId = usuario.PersonalId
              WHERE c.CajaId = @CajaId AND c.CajaEstado = 'ACTIVO'
             """, con, tx);
         cmd.Parameters.Add("@CajaId", SqlDbType.Decimal).Value = cajaId;
@@ -937,6 +973,9 @@ public sealed class CashFlowController : ControllerBase
         var ingresosManuales = Convert.ToDecimal(reader["IngresosManuales"], CultureInfo.InvariantCulture);
         var salidas = Convert.ToDecimal(reader["Salidas"], CultureInfo.InvariantCulture);
         return new CajaCloseInfo(
+            reader["CompaniaId"] == DBNull.Value
+                ? null
+                : Convert.ToInt32(reader["CompaniaId"], CultureInfo.InvariantCulture),
             montoInicial,
             reader["CajaEncargado"]?.ToString() ?? string.Empty,
             reader["CajaUsuario"]?.ToString() ?? string.Empty,
@@ -946,6 +985,34 @@ public sealed class CashFlowController : ControllerBase
             Convert.ToDecimal(reader["Depositos"], CultureInfo.InvariantCulture),
             salidas,
             montoInicial + sistemaObs - salidas + ingresosManuales);
+    }
+
+    private static async Task<ResumenBoletasPendiente?> ObtenerResumenBoletasPendienteAsync(
+        SqlConnection con,
+        SqlTransaction tx,
+        int companiaId,
+        CancellationToken cancellationToken)
+    {
+        await using var cmd = new SqlCommand("""
+            SELECT TOP (1)
+                   CONVERT(date, DocuEmision) AS FechaReferencia,
+                   COUNT_BIG(1) AS Cantidad
+              FROM dbo.DocumentoVenta
+             WHERE CompaniaId = @CompaniaId
+               AND TipoCodigo = '03'
+               AND EstadoSunat = 'PENDIENTE'
+               AND DocuEmision < DATEADD(day, 1, CONVERT(date, GETDATE()))
+             GROUP BY CONVERT(date, DocuEmision)
+             ORDER BY CONVERT(date, DocuEmision)
+            """, con, tx);
+        cmd.Parameters.Add("@CompaniaId", SqlDbType.Int).Value = companiaId;
+
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return null;
+
+        return new ResumenBoletasPendiente(
+            Convert.ToDateTime(reader["FechaReferencia"], CultureInfo.InvariantCulture),
+            Convert.ToInt64(reader["Cantidad"], CultureInfo.InvariantCulture));
     }
 
     private static async Task<CajaUpdateInfo?> ObtenerCajaParaActualizarAsync(
@@ -1070,6 +1137,7 @@ public sealed class CashFlowController : ControllerBase
     };
 
     private sealed record CajaCloseInfo(
+        int? CompaniaId,
         decimal MontoInicial,
         string Encargado,
         string Usuario,
@@ -1079,6 +1147,8 @@ public sealed class CashFlowController : ControllerBase
         decimal Depositos,
         decimal Salidas,
         decimal EfectivoEsperado);
+
+    private sealed record ResumenBoletasPendiente(DateTime Fecha, long Cantidad);
 
     private sealed record CajaUpdateInfo(
         string FechaCierre,
@@ -1105,7 +1175,10 @@ public sealed record OpenCashFlowRequest(
     string Encargado,
     string Usuario,
     decimal MontoInicial,
-    string? Observacion);
+    string? Observacion) : IAttendanceUserRequest
+{
+    public int AttendanceUserId => UsuarioId;
+}
 
 public sealed record CashFlowResponse(
     long CajaId,
@@ -1139,7 +1212,10 @@ public sealed record ActiveCashFlowResponse(
 
 public sealed record CashCountResponse(decimal Billete, int Cantidad);
 
-public sealed record CloseCashFlowRequest(int UsuarioId, decimal? MontoInicial, string? Observacion, List<CashCountRequest>? Monedas);
+public sealed record CloseCashFlowRequest(int UsuarioId, decimal? MontoInicial, string? Observacion, List<CashCountRequest>? Monedas) : IAttendanceUserRequest
+{
+    public int AttendanceUserId => UsuarioId;
+}
 
 public sealed record UpdateCashFlowStateRequest(
     string? Estado,

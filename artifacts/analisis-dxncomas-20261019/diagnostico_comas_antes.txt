@@ -1,0 +1,131 @@
+﻿Changed database context to 'DXNCOMAS'.
+Base                                                                                                                             VersionSQL                                         Compatibilidad
+-------------------------------------------------------------------------------------------------------------------------------- -------------------------------------------------- --------------
+DXNCOMAS                                                                                                                         16.0.1210.3                                                   100
+Estado               Objeto                               Tipo
+-------------------- ------------------------------------ ----
+CONTRATO PENDIENTE   dbo.uspeliminarcategoria             P   
+CONTRATO PENDIENTE   dbo.uspeliminarproducto              P   
+CONTRATO PENDIENTE   dbo.uspeliminarproveedor             P   
+CONTRATO PENDIENTE   dbo.uspguardarunidadmedidaproducto   P   
+CONTRATO PENDIENTE   dbo.uspinsertarcategoria             P   
+CONTRATO PENDIENTE   dbo.uspinsertarcuentaproveedor       P   
+CONTRATO PENDIENTE   dbo.uspinsertarproveedor             P   
+CONTRATO PENDIENTE   dbo.uspinsertarusuario               P   
+CONTRATO PENDIENTE   dbo.usplistarcomprasweb              P   
+ESTRUCTURA PENDIENTE dbo.anulardocumentoweb               P   
+ESTRUCTURA PENDIENTE dbo.documentoventacpeweb             U   
+ESTRUCTURA PENDIENTE dbo.editarproductoweb                P   
+ESTRUCTURA PENDIENTE dbo.indicador                        U   
+ESTRUCTURA PENDIENTE dbo.ingresarproductoweb              P   
+ESTRUCTURA PENDIENTE dbo.lddocumentosweb                  P   
+ESTRUCTURA PENDIENTE dbo.listanotapedido                  P   
+ESTRUCTURA PENDIENTE dbo.listarcajafechaweb               P   
+ESTRUCTURA PENDIENTE dbo.listarcajaweb                    P   
+ESTRUCTURA PENDIENTE dbo.listardetacajaweb                P   
+ESTRUCTURA PENDIENTE dbo.usp_area                         P   
+ESTRUCTURA PENDIENTE dbo.usp_feriado                      P   
+ESTRUCTURA PENDIENTE dbo.usp_feriadoweb                   P   
+ESTRUCTURA PENDIENTE dbo.usp_maquina                      P   
+ESTRUCTURA PENDIENTE dbo.usp_permisoindicador             P   
+ESTRUCTURA PENDIENTE dbo.usp_personal                     P   
+ESTRUCTURA PENDIENTE dbo.usp_usuario                      P   
+ESTRUCTURA PENDIENTE dbo.uspasistencialistacsvbweb        P   
+ESTRUCTURA PENDIENTE dbo.uspcajainsertacsvweb             P   
+ESTRUCTURA PENDIENTE dbo.uspeditarconteocajaweb           P   
+ESTRUCTURA PENDIENTE dbo.uspeditarnotapedido              P   
+ESTRUCTURA PENDIENTE dbo.uspeditarrbweb                   P   
+ESTRUCTURA PENDIENTE dbo.uspeliminarcajadetalleweb        P   
+ESTRUCTURA PENDIENTE dbo.uspeliminarpagovweb              P   
+ESTRUCTURA PENDIENTE dbo.uspguardarcredencialessunatweb   P   
+ESTRUCTURA PENDIENTE dbo.uspguardarlistapreciospdfweb     P   
+ESTRUCTURA PENDIENTE dbo.uspinsertarconteocajaweb         P   
+ESTRUCTURA PENDIENTE dbo.uspinsertarnotabweb              P   
+ESTRUCTURA PENDIENTE dbo.uspinsertarpagovariosweb         P   
+ESTRUCTURA PENDIENTE dbo.uspinsertarrbweb                 P   
+ESTRUCTURA PENDIENTE dbo.usplistaconteoweb                P   
+ESTRUCTURA PENDIENTE dbo.usplistadetalleconteoweb         P   
+ESTRUCTURA PENDIENTE dbo.usplistadocumentosweb            P   
+ESTRUCTURA PENDIENTE dbo.usplistarpagovariosweb           P   
+ESTRUCTURA PENDIENTE dbo.uspobtenercredencialessunatweb   P   
+ESTRUCTURA PENDIENTE dbo.uspresumenfechaweb               P   
+ESTRUCTURA PENDIENTE dbo.uspretornarboletasweb            P   
+ESTRUCTURA PENDIENTE dbo.usptraercajerosweb               P   
+ESTRUCTURA PENDIENTE dbo.usptraergastosaweb               P   
+ESTRUCTURA PENDIENTE dbo.usptraergastosweb                P   
+ESTRUCTURA PENDIENTE dbo.usptraersecuenciaresumen         P   
+ESTRUCTURA PENDIENTE dbo.usptraetodasmonedasweb           P   
+ESTRUCTURA PENDIENTE dbo.uspvalidacantcajasweb            P   
+ESTRUCTURA PENDIENTE dbo.uspvalidararqueocajaweb          P   
+ESTRUCTURA PENDIENTE dbo.uspvalidarpagovarioscajafinalweb P   
+ESTRUCTURA PENDIENTE dbo.uspvalidausuarioweb              P   
+Estado                 Tabla                    Columna              
+---------------------- ------------------------ ---------------------
+COLUMNA PENDIENTE      dbo.DetallePVarios       Deposito             
+COLUMNA PENDIENTE      dbo.DetallePVarios       Efectivo             
+COLUMNA PENDIENTE      dbo.DocumentoVentaCpeWeb ClienteDni           
+COLUMNA PENDIENTE      dbo.DocumentoVentaCpeWeb ClienteRazon         
+COLUMNA PENDIENTE      dbo.DocumentoVentaCpeWeb ClienteRuc           
+COLUMNA PENDIENTE      dbo.DocumentoVentaCpeWeb DireccionFiscal      
+COLUMNA PENDIENTE      dbo.DocumentoVentaCpeWeb DocuCdrUrl           
+COLUMNA PENDIENTE      dbo.DocumentoVentaCpeWeb DocuFechaPago        
+COLUMNA PENDIENTE      dbo.DocumentoVentaCpeWeb DocuId               
+COLUMNA PENDIENTE      dbo.DocumentoVentaCpeWeb DocuPdfUrl           
+COLUMNA PENDIENTE      dbo.DocumentoVentaCpeWeb DocuXmlUrl           
+COLUMNA PENDIENTE      dbo.DocumentoVentaCpeWeb FechaRegistro        
+COLUMNA PENDIENTE      dbo.Indicador            Area                 
+COLUMNA PENDIENTE      dbo.Indicador            CompaniaId           
+COLUMNA PENDIENTE      dbo.Indicador            Descripcion          
+COLUMNA PENDIENTE      dbo.Indicador            FechaActualizacion   
+COLUMNA PENDIENTE      dbo.Indicador            Id                   
+COLUMNA PENDIENTE      dbo.Indicador            IdIndicador          
+COLUMNA PENDIENTE      dbo.Indicador            TipoIndicador        
+COLUMNA PENDIENTE      dbo.Indicador            ValorDecimal         
+COLUMNA PENDIENTE      dbo.Indicador            ValorNum             
+COLUMNA PENDIENTE      dbo.Indicador            ValorTexto1          
+COLUMNA PENDIENTE      dbo.MAQUINAS             Registro             
+COLUMNA PENDIENTE      dbo.MAQUINAS             SerieBoleta          
+COLUMNA PENDIENTE      dbo.MAQUINAS             Tiketera             
+COLUMNA COMPLEMENTARIA dbo.NotaPedido           Almacen              
+COLUMNA PENDIENTE      dbo.NotaPedido           Entrega              
+COLUMNA COMPLEMENTARIA dbo.NotaPedido           Hora                 
+COLUMNA PENDIENTE      dbo.Producto             AplicaINV            
+COLUMNA PENDIENTE      dbo.Producto             ProductoVentaB       
+COLUMNA PENDIENTE      dbo.Producto             UltimoINV            
+COLUMNA PENDIENTE      dbo.ResumenBoletas       CDRBase64            
+COLUMNA PENDIENTE      dbo.UnidadMedida         unidadImagen         
+COLUMNA PENDIENTE      dbo.Usuarios             FechaVencimientoClave
+Procedimiento             Estado                                       
+------------------------- ---------------------------------------------
+dbo.ingresarProducto      INSERT posicional pendiente de compatibilidad
+dbo.ingresarUsuario       INSERT posicional pendiente de compatibilidad
+dbo.InsertarUM            INSERT posicional pendiente de compatibilidad
+dbo.uspinsertarNotaB      INSERT posicional pendiente de compatibilidad
+dbo.uspInsertarPagoVarios INSERT posicional pendiente de compatibilidad
+dbo.uspinsertarRB         INSERT posicional pendiente de compatibilidad
+CompaniaId  CompaniaComercial                                                                                                                                                                                                                                          CompaniaRazonSocial                                                                                                                          DiasMaxDep  EstadoRuc   RenovacionOSE    RenovacionFirma  RenovacionSome  
+----------- ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- -------------------------------------------------------------------------------------------------------------------------------------------- ----------- ----------- ---------------- ---------------- ----------------
+          1 LINO ESPIRITU WILDER                                                                                                                                                                                                                                       LINO ESPIRITU WILDER                                                                                                                                   3 OK                2027-10-06       2027-02-05       2027-03-10
+Usuarios    Administradores
+----------- ---------------
+         29              10
+UsuarioID   Estado                                
+----------- --------------------------------------
+CajaEstado                               Cantidad            
+---------------------------------------- --------------------
+CERRADA                                                  3535
+ACTIVO                                                      1
+Estado                  Detalle                                 
+----------------------- ----------------------------------------
+CONFIGURACION PENDIENTE Falta dbo.Indicador y su inicialización.
+IdMaquina   Maquina                                                                                                                                      SerieFactura SerieNC Estado                               
+----------- -------------------------------------------------------------------------------------------------------------------------------------------- ------------ ------- -------------------------------------
+          7 PCNEW-A                                                                                                                                      FA01         FB01    REVISAR ESTACION Y CORRELATIVOS      
+          8 SERVER-NEW                                                                                                                                   FA02         FB01    REVISAR ESTACION Y CORRELATIVOS      
+          9 LOGISTICA                                                                                                                                                 FN01    SIN SERIE FACTURA: revisar si emitirá
+         10 SERVER-ANDRE                                                                                                                                 FA01         FB01    REVISAR ESTACION Y CORRELATIVOS      
+         13 CAJA-A-DXN                                                                                                                                   FA02         FB01    REVISAR ESTACION Y CORRELATIVOS      
+         14 MODULO-DXN                                                                                                                                   FA03         FB01    REVISAR ESTACION Y CORRELATIVOS      
+Estado       Detalle                                                                                                                                                                                                                                                 
+------------ --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+FUERA DE SQL Validar conexión API a COMAS, CORS, URL frontend/extensión, JWT, EmailSettings SMTP, media, PFX, XML/CDR/PDF y agente de impresión. Registrar PFX real, verificar entorno CPE y permisos por área. Este diagnóstico no envía correo ni documentos SUNAT.

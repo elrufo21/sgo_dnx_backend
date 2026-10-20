@@ -4,7 +4,7 @@ Módulo independiente de la apertura/cierre individual de `Caja`. Replica el cie
 
 El API está en `CierreCajaFinalController`. Lee los procedimientos existentes del escritorio y registra mediante `uspInsertarConteoCajaWEB`, un adaptador que delega a `uspInsertarConteoCaja` sin modificarlo. Los datos se conservan en `ConteoMonedas`, `DetalleConteo` y `Monedas`; no crea tablas nuevas.
 
-La lectura replica el escritorio: de `usptraerCajeros` se usa solo el primer bloque y `uspTraeTodasMonedas` se interpreta como filas de monedas (sin cabeceras).
+La preparación del informe usa `usptraerCajerosWEB`: el primer bloque proporciona los cajeros y el tercer bloque contiene el resumen general de productos vendidos de la fecha, agregado por código y descripción, sin filtrar por cajero ni por caja. Ese resumen se muestra en la pantalla de `/cash-final-report` con búsqueda, paginación y total, y también se incluye en una página del PDF. Al abrir un informe guardado, la pantalla vuelve a consultar los productos de su fecha. `uspTraeTodasMonedasWEB` se interpreta como filas de monedas (sin cabeceras). El cierre individual de caja conserva su reporte de productos filtrado por `CajaId`.
 
 `GET /api/v1/CierreCajaFinal/{id}` usa `usplistaDetalleConteo` para recuperar un informe registrado. Es solo lectura y no modifica procedimientos ni datos existentes.
 
