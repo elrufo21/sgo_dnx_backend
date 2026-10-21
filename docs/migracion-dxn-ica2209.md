@@ -4,6 +4,8 @@ El script `scripts/sql/20260922_migrar_dxn_ica2209_a_dxn_ica_completo.sql` adapt
 
 Incluye las tablas, columnas, defaults, restricciones, índices, claves foráneas y procedimientos almacenados que difieren. Es autocontenido: durante su ejecución no consulta `DXN_ICA` ni `DXN_CUSCO_D2108`. Los diez procedimientos compartidos que difieren se crean con sufijo `WEB`, preservando las versiones existentes del escritorio.
 
+El procedimiento `usp_Maquina` exige que el nombre del equipo sea único, pero permite que varias máquinas compartan series.
+
 No mueve datos de negocio. Antes de reducir un tipo de datos valida que no se vaya a truncar información; si encuentra incompatibilidades, revierte toda la ejecución y muestra el motivo.
 
 Ejecutar el archivo completo en SSMS contra la instancia que contiene `DXN_ICA2209`. El script abre una transacción y confirma únicamente si todas las validaciones y objetos se aplican correctamente.

@@ -18,7 +18,6 @@ WHERE NOT EXISTS
 (
     SELECT 1 FROM dbo.Indicador i
     WHERE i.CompaniaId = c.CompaniaId
-      AND i.Area = 'VENTAS'
       AND i.Descripcion = 'CONFIGURACION_VENTAS'
 );
 
@@ -47,7 +46,6 @@ WHERE NOT EXISTS
 (
     SELECT 1 FROM dbo.Indicador i
     WHERE i.CompaniaId = c.CompaniaId
-      AND i.Area = 'VENTAS'
       AND i.Descripcion = config.Descripcion
 );
 

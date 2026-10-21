@@ -31,7 +31,10 @@ public sealed class SunatConfigurationController : ControllerBase
         await using var command = new SqlCommand(@"
 SELECT c.CompaniaRUC, i.Descripcion, i.ValorTexto1
 FROM dbo.Compania c
-LEFT JOIN dbo.Indicador i ON i.CompaniaId = c.CompaniaId AND i.Area = 'SUNAT'
+LEFT JOIN dbo.Indicador i ON i.CompaniaId = c.CompaniaId
+                           AND i.Area = 'SUNAT'
+                           AND i.TipoIndicador = 3
+                           AND i.IdIndicador IS NULL
 WHERE c.CompaniaId = @CompaniaId
 ORDER BY i.FechaActualizacion DESC, i.Id DESC;", connection);
         command.Parameters.Add("@CompaniaId", SqlDbType.Int).Value = companyId;
@@ -90,7 +93,8 @@ ORDER BY i.FechaActualizacion DESC, i.Id DESC;", connection);
         await using (var read = new SqlCommand(@"
 SELECT Descripcion
 FROM dbo.Indicador WITH (UPDLOCK, HOLDLOCK)
-WHERE CompaniaId = @CompaniaId AND Area = 'SUNAT' AND Descripcion IN
+WHERE CompaniaId = @CompaniaId AND Area = 'SUNAT' AND TipoIndicador = 3
+  AND IdIndicador IS NULL AND Descripcion IN
 ('SUNAT_CLAVE_SOL','SUNAT_SIRE_CLIENT_SECRET','SUNAT_VALIDAR_CLIENT_SECRET')
   AND NULLIF(LTRIM(RTRIM(ValorTexto1)), '') IS NOT NULL;", connection, transaction))
         {
@@ -116,12 +120,15 @@ WHERE CompaniaId = @CompaniaId AND Area = 'SUNAT' AND Descripcion IN
         foreach (var (key, value) in values)
         {
             await using var command = new SqlCommand(@"
-IF EXISTS (SELECT 1 FROM dbo.Indicador WITH (UPDLOCK, HOLDLOCK) WHERE CompaniaId = @CompaniaId AND Descripcion = @Descripcion)
+IF EXISTS (SELECT 1 FROM dbo.Indicador WITH (UPDLOCK, HOLDLOCK)
+           WHERE CompaniaId = @CompaniaId AND Descripcion = @Descripcion
+             AND IdIndicador IS NULL)
     UPDATE dbo.Indicador
        SET Area = 'SUNAT', TipoIndicador = 3,
            ValorTexto1 = CASE WHEN @PreserveEmpty = 1 AND NULLIF(@Valor, '') IS NULL THEN ValorTexto1 ELSE @Valor END,
            FechaActualizacion = GETDATE()
-     WHERE CompaniaId = @CompaniaId AND Descripcion = @Descripcion;
+     WHERE CompaniaId = @CompaniaId AND Descripcion = @Descripcion
+       AND IdIndicador IS NULL;
 ELSE
     INSERT INTO dbo.Indicador (CompaniaId, Area, TipoIndicador, IdIndicador, Descripcion, ValorTexto1)
     VALUES (@CompaniaId, 'SUNAT', 3, NULL, @Descripcion, @Valor);", connection, transaction);

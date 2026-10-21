@@ -1,16 +1,6 @@
-﻿/*
-  SQL Server 2008: inicialización web de COMAS. Solo inserta indicadores ausentes de cada compañía.
-  Copia renovaciones, días de depósito y credenciales SOL de la propia Compania de COMAS.
-  No importa filas ni secretos de ICA, no cambia Compania ni movimientos comerciales.
-  El certificado histórico es un nombre de archivo: se debe cargar el PFX real desde la web.
-  Revisar estos valores iniciales antes del pase. SMTP se configura en EmailSettings del API.
-*/
-USE [DXNCOMAS];
-GO
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
+﻿
 
-DECLARE @TipoProcesoCpe int = 3; -- 1 producción; 2 homologación; 3 beta. Se inicia en pruebas.
+DECLARE @TipoProcesoCpe int = 3;
 DECLARE @MultiplesCajas int = 0;
 DECLARE @CapturaHtml int = 0;
 DECLARE @BoletaPorLote int = 1;

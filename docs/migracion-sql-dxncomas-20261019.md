@@ -14,9 +14,13 @@ Los originales están en `scripts/sql/dxncomas-20261019/`. Para entregarlos sepa
 4. `04_procedimientos_web.sql`: instala **44 procedimientos** requeridos por la web.
 5. `05_configuracion_inicial.sql`: crea 24 indicadores raíz por compañía, solo si no existen; toma renovaciones, días de depósito y credenciales SOL de la propia COMAS.
 
+Después de esos cinco archivos y antes de publicar la API, ejecutar `scripts/sql/20261020_normalizar_indicadores_configuracion.sql` con `DXNCOMAS` seleccionada. Este paso adapta filas preexistentes de ICA/COMAS al contrato que usa el backend y conserva sus valores. Se detiene si encuentra duplicados o falta una categoría padre; no debe resolverse escogiendo un valor automáticamente.
+
 `05_diagnostico_dxncomas.sql` es una consulta opcional de solo lectura. `06_indices_web_opcional.sql` agrega dos índices de lectura y también es opcional. No forman parte de los cinco pasos anteriores. **No necesitas ejecutar `instalar_paquete_dxncomas.sql`.**
 
-El ZIP `artifacts/entregas/DXNCOMAS_SQL_separados_SQL2008_20261019.zip` contiene únicamente estos cinco archivos y `ORDEN.txt`.
+La entrega actualizada está en `artifacts/entregas/DXNCOMAS_SQL_separados_SQL2008_20261020.zip`. Incluye los cinco pasos iniciales, los procedimientos web alineados a la clave canónica, el paso 6 de normalización y `ORDEN.txt`. El ZIP fechado 20261019 es anterior a este ajuste; usa el del 20261020.
+
+La versión del 20261020 permite reutilizar series entre máquinas en `usp_Maquina`. Si DXNCOMAS ya tiene aplicado el procedimiento anterior, ejecutar solo `scripts/sql/20261020_usp_Maquina_permitir_series_repetidas.sql`; no hace falta repetir el paquete de migración. Este script altera un procedimiento y no escribe datos.
 
 Antes de ejecutar estos SQL, respaldar COMAS y revisar los valores iniciales de `05_configuracion_inicial.sql`. Cada archivo selecciona DXNCOMAS explícitamente. Se verifican tablas/columnas/índices antes de crear. Para procedimientos se crea un cuerpo vacío únicamente si el objeto no existe y después se usa `ALTER PROCEDURE`, conservando el objeto y sus permisos. Los errores usan `RAISERROR`; las huellas de compatibilidad usan SHA1 por bloques menores de 8000 bytes. No se usa sintaxis posterior a SQL Server 2008 en los scripts entregados. El diagnóstico informa pendientes; no certifica que estén resueltos los nueve contratos excluidos.
 
@@ -38,7 +42,7 @@ Tampoco instala objetos que solo aparecen en el backend sin consumidor actual, n
 
 ## Datos y compatibilidad
 
-El paquete no transfiere datos ni configuraciones de ICA. El archivo 04 inserta configuraciones iniciales y copia únicamente valores propios de COMAS dentro de la misma base. No modifica `Compania`, usuarios, asistencia, ventas, cajas, series ni correlativos. Tampoco elimina las columnas históricas de renovación.
+El paquete no transfiere datos ni configuraciones de ICA. El archivo 04 inserta configuraciones iniciales y copia únicamente valores propios de COMAS dentro de la misma base. No modifica `Compania`, usuarios, asistencia, ventas, cajas, series ni correlativos. Tampoco elimina las columnas históricas de renovación. El paso de normalización corrige solo `Area`, `TipoIndicador` y `IdIndicador` de las claves conocidas; no cambia los valores.
 
 Valores iniciales: asistencia exigida (`1`), múltiples cajas desactivado (`0`), captura HTML desactivada (`0`), boleta por lote activada (`1`), descuento `0` y CPE en **beta (`3`)**. Deben revisarse para COMAS. Reejecutar 04 no cambia indicadores existentes; un cambio posterior se hace desde Configuración o mediante un script específico revisado.
 

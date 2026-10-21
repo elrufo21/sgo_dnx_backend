@@ -1,0 +1,10 @@
+Scripts de procedimientos preparados a partir de los cambios previos del proyecto.
+
+01 contiene la definición COMPLETA de dbo.uspinsertarNotaBweb, basada en DXN_ICA15102026 e incluye el mapeo de campos 30-44. Se instala con CREATE condicional + ALTER, sin DROP.
+02 contiene la definición completa de dbo.uspListaDocumentosWEB con manejo de ICBPER NULL.
+03 contiene la definición completa de dbo.uspAsistenciaListaCsvBWeb (reporte diario de asistencias).
+04 contiene la definición completa de dbo.uspValidarArqueoCajaWEB.
+05 contiene la definición completa de dbo.uspValidarPagoVariosCajaFinalWEB.
+06 contiene la definición completa de dbo.usp_FeriadoWEB.
+
+Sintaxis compatible con SQL Server 2008. Los archivos no se ejecutaron contra ninguna base al prepararlos.

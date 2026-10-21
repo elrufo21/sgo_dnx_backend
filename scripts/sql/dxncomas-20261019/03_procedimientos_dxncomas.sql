@@ -1,4 +1,4 @@
-﻿/*
+/*
   DXNCOMAS - esquema requerido por los flujos llamados desde el frontend web
   Destino de sintaxis: SQL Server 2008.
   Fuente de definiciones: DXN_ICA15102026, comparada con el alcance frontend confirmado.
@@ -1558,63 +1558,6 @@ BEGIN
             RETURN;
         END;
 
-        IF ISNULL(@SerieFactura, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieFactura)))
-                    = UPPER(LTRIM(RTRIM(@SerieFactura)))
-            )
-            BEGIN
-                SELECT
-                    'ERROR|La serie de factura ya está registrada en otra máquina.'
-                    AS Data;
-                RETURN;
-            END;
-
-        END;
-
-        IF ISNULL(@SerieNC, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieNC)))
-                    = UPPER(LTRIM(RTRIM(@SerieNC)))
-            )
-            BEGIN
-                SELECT
-                    'ERROR|La serie de nota de crédito ya está registrada en otra máquina.'
-                    AS Data;
-                RETURN;
-            END;
-
-        END;
-
-        IF ISNULL(@SerieBoleta, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieBoleta)))
-                    = UPPER(LTRIM(RTRIM(@SerieBoleta)))
-            )
-            BEGIN
-                SELECT
-                    'ERROR|La serie de boleta ya está registrada en otra máquina.'
-                    AS Data;
-                RETURN;
-            END;
-
-        END;
-
         BEGIN TRY
 
             INSERT INTO MAQUINAS
@@ -1790,72 +1733,6 @@ BEGIN
                 AS Data;
 
             RETURN;
-        END;
-
-        IF ISNULL(@SerieFactura, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieFactura)))
-                    = UPPER(LTRIM(RTRIM(@SerieFactura)))
-                  AND IdMaquina <> @idMaquina
-            )
-            BEGIN
-
-                SELECT
-                    'ERROR|La serie de factura pertenece a otra máquina.'
-                    AS Data;
-
-                RETURN;
-            END;
-
-        END;
-
-        IF ISNULL(@SerieNC, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieNC)))
-                    = UPPER(LTRIM(RTRIM(@SerieNC)))
-                  AND IdMaquina <> @idMaquina
-            )
-            BEGIN
-
-                SELECT
-                    'ERROR|La serie de nota de crédito pertenece a otra máquina.'
-                    AS Data;
-
-                RETURN;
-            END;
-
-        END;
-
-        IF ISNULL(@SerieBoleta, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieBoleta)))
-                    = UPPER(LTRIM(RTRIM(@SerieBoleta)))
-                  AND IdMaquina <> @idMaquina
-            )
-            BEGIN
-
-                SELECT
-                    'ERROR|La serie de boleta pertenece a otra máquina.'
-                    AS Data;
-
-                RETURN;
-            END;
-
         END;
 
         BEGIN TRY
@@ -4283,6 +4160,9 @@ BEGIN
         SELECT TOP (1) @FlagCaja = CONVERT(bit, ISNULL(i.ValorNum, 0))
           FROM dbo.Indicador i
          WHERE i.CompaniaId = @CompaniaId
+           AND i.Area = 'CAJA'
+           AND i.TipoIndicador = 1
+           AND i.IdIndicador IS NULL
            AND i.Descripcion = 'MULTIPLES_CAJAS'
          ORDER BY i.Id DESC;
 
@@ -4972,7 +4852,8 @@ BEGIN
            FechaActualizacion = GETDATE()
       FROM dbo.Indicador i
       INNER JOIN @Configuracion c ON c.Descripcion = i.Descripcion
-     WHERE i.CompaniaId = @CompaniaId;
+     WHERE i.CompaniaId = @CompaniaId
+       AND i.IdIndicador IS NULL;
 
     INSERT INTO dbo.Indicador
         (CompaniaId, Area, TipoIndicador, IdIndicador, Descripcion, ValorTexto1, ValorNum)
@@ -4981,8 +4862,9 @@ BEGIN
      WHERE NOT EXISTS
      (
          SELECT 1
-           FROM dbo.Indicador i
+           FROM dbo.Indicador i WITH (UPDLOCK, HOLDLOCK)
           WHERE i.CompaniaId = @CompaniaId
+            AND i.IdIndicador IS NULL
             AND i.Descripcion = c.Descripcion
      );
 
@@ -5298,6 +5180,9 @@ ALTER PROCEDURE dbo.[uspinsertarNotaBweb]     @ListaOrden varchar(max) AS BEGIN 
             INNER JOIN dbo.Personal AS p ON p.PersonalId = u.PersonalId
             LEFT JOIN dbo.Indicador AS i
               ON i.CompaniaId = p.CompaniaId
+             AND i.Area = 'CAJA'
+             AND i.TipoIndicador = 1
+             AND i.IdIndicador IS NULL
              AND i.Descripcion = 'ASISTENCIA'
             WHERE u.UsuarioID = @UsuarioId
         ),
@@ -5833,13 +5718,13 @@ BEGIN
     SET NOCOUNT ON;
 
     SELECT
-        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Descripcion = 'CPE_USUARIO_SOL' ORDER BY FechaActualizacion DESC, Id DESC) AS UsuarioSOL,
-        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Descripcion = 'CPE_CLAVE_SOL' ORDER BY FechaActualizacion DESC, Id DESC) AS ClaveSOL,
-        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Descripcion = 'CPE_CERTIFICADO_PFX' ORDER BY FechaActualizacion DESC, Id DESC) AS CertificadoPFX,
-        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Descripcion = 'CPE_CLAVE_CERTIFICADO' ORDER BY FechaActualizacion DESC, Id DESC) AS ClaveCertificado,
+        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Area = 'CPE' AND TipoIndicador = 3 AND IdIndicador IS NULL AND Descripcion = 'CPE_USUARIO_SOL' ORDER BY FechaActualizacion DESC, Id DESC) AS UsuarioSOL,
+        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Area = 'CPE' AND TipoIndicador = 3 AND IdIndicador IS NULL AND Descripcion = 'CPE_CLAVE_SOL' ORDER BY FechaActualizacion DESC, Id DESC) AS ClaveSOL,
+        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Area = 'CPE' AND TipoIndicador = 3 AND IdIndicador IS NULL AND Descripcion = 'CPE_CERTIFICADO_PFX' ORDER BY FechaActualizacion DESC, Id DESC) AS CertificadoPFX,
+        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Area = 'CPE' AND TipoIndicador = 3 AND IdIndicador IS NULL AND Descripcion = 'CPE_CLAVE_CERTIFICADO' ORDER BY FechaActualizacion DESC, Id DESC) AS ClaveCertificado,
         COALESCE
         (
-            (SELECT TOP 1 ValorNum FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Descripcion = 'TIPO_PROCESO_CPE' ORDER BY FechaActualizacion DESC, Id DESC),
+            (SELECT TOP 1 ValorNum FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Area = 'CPE' AND TipoIndicador = 2 AND IdIndicador IS NULL AND Descripcion = 'TIPO_PROCESO_CPE' ORDER BY FechaActualizacion DESC, Id DESC),
             3
         ) AS Entorno
     WHERE EXISTS (SELECT 1 FROM dbo.Compania WHERE CompaniaId = @CompaniaId);
@@ -6243,6 +6128,9 @@ BEGIN
     SELECT TOP (1) @FlagCaja = CONVERT(bit, ISNULL(i.ValorNum, 0))
       FROM dbo.Indicador i
      WHERE i.CompaniaId = @CompaniaId
+       AND i.Area = 'CAJA'
+       AND i.TipoIndicador = 1
+       AND i.IdIndicador IS NULL
        AND i.Descripcion = 'MULTIPLES_CAJAS'
      ORDER BY i.Id DESC;
 
@@ -6442,12 +6330,13 @@ BEGIN
                 OUTER APPLY
                 (
                     SELECT
-                        MAX(CASE WHEN i.Descripcion = 'DESCUENTO_MAXIMO' THEN i.ValorDecimal END) AS DescuentoMax,
-                        MAX(CASE WHEN i.Descripcion = 'TIPO_PROCESO_CPE' THEN i.ValorNum END) AS TipoProceso,
-                        MAX(CASE WHEN i.Descripcion = 'BOLETA_POR_LOTE' THEN i.ValorNum END) AS BoletaPorLote,
-                        MAX(CASE WHEN i.Descripcion = 'CAPTURA_HTML' THEN i.ValorNum END) AS FlagCaptura
+                        MAX(CASE WHEN i.Area = 'VENTAS' AND i.TipoIndicador = 2 AND i.Descripcion = 'DESCUENTO_MAXIMO' THEN i.ValorDecimal END) AS DescuentoMax,
+                        MAX(CASE WHEN i.Area = 'CPE' AND i.TipoIndicador = 2 AND i.Descripcion = 'TIPO_PROCESO_CPE' THEN i.ValorNum END) AS TipoProceso,
+                        MAX(CASE WHEN i.Area = 'VENTAS' AND i.TipoIndicador = 1 AND i.Descripcion = 'BOLETA_POR_LOTE' THEN i.ValorNum END) AS BoletaPorLote,
+                        MAX(CASE WHEN i.Area = 'VENTAS' AND i.TipoIndicador = 1 AND i.Descripcion = 'CAPTURA_HTML' THEN i.ValorNum END) AS FlagCaptura
                     FROM dbo.Indicador i
                     WHERE i.CompaniaId = p.CompaniaId
+                      AND i.IdIndicador IS NULL
                 ) configuracion
                 WHERE U.UsuarioAlias = @Usuario
                   AND dbo.desincrectar(U.UsuarioClave) = @Clave
@@ -6498,14 +6387,14 @@ BEGIN
     END;
 
     SET @FechaReferencia = (
-        SELECT TOP (1) DocuEmision
+        SELECT TOP (1) CONVERT(date, DocuEmision)
         FROM dbo.DocumentoVenta
         WHERE TipoCodigo = '03'
           AND CompaniaId = @CompaniaId
           AND EstadoSunat = 'PENDIENTE'
-          AND DocuEmision <= CONVERT(date, GETDATE())
-        GROUP BY DocuEmision
-        ORDER BY DocuEmision ASC
+          AND DocuEmision < CONVERT(date, GETDATE())
+        GROUP BY CONVERT(date, DocuEmision)
+        ORDER BY CONVERT(date, DocuEmision) ASC
     );
 
     SELECT
@@ -6532,7 +6421,8 @@ BEGIN
                 WHERE d.TipoCodigo = '03'
                   AND d.CompaniaId = @CompaniaId
                   AND d.EstadoSunat = 'PENDIENTE'
-                  AND d.DocuEmision = @FechaReferencia
+                  AND d.DocuEmision >= @FechaReferencia
+                  AND d.DocuEmision < DATEADD(day, 1, @FechaReferencia)
                 ORDER BY d.DocuSerie, d.DocuNumero ASC
                 FOR XML PATH('')
             ), 1, 1, '')

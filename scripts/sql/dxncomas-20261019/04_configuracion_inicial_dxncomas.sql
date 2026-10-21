@@ -84,9 +84,6 @@ BEGIN TRY
     (
         SELECT 1 FROM dbo.Indicador i WITH (UPDLOCK, HOLDLOCK)
         WHERE i.CompaniaId = c.CompaniaId
-          AND i.Area = v.Area
-          AND i.TipoIndicador = v.TipoIndicador
-          AND i.IdIndicador IS NULL
           AND i.Descripcion = v.Descripcion
     );
 

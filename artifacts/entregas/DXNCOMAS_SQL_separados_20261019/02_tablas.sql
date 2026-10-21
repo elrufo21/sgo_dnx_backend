@@ -1,13 +1,4 @@
-﻿/*
-  DXNCOMAS - esquema requerido por los flujos llamados desde el frontend web
-  Fuente de definiciones: DXN_ICA15102026, comparada con el alcance frontend confirmado.
-  No contiene datos ni configuraciones propias de ICA.
-  Aplicar en DXNCOMAS. Revisar docs/migracion-sql-dxncomas-20261019.md.
-*/
-USE [DXNCOMAS];
-GO
-
-/* Tabla de indicadores y parámetros. Cargar luego los valores propios de COMAS. */
+﻿
 IF OBJECT_ID(N'dbo.Indicador', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.Indicador

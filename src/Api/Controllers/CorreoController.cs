@@ -2,11 +2,10 @@ using System.Globalization;
 using System.Net;
 using System.Net.Mail;
 using Ecommerce.Api.Security;
-using Ecommerce.Application.Models.Email;
+using Ecommerce.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
-using Microsoft.Extensions.Options;
 
 namespace Ecommerce.Api.Controllers;
 
@@ -28,12 +27,10 @@ public class CorreoController : ControllerBase
         ".zip"
     };
 
-    private readonly EmailSettings _emailSettings;
+    private readonly EmailSenderConfigurationService _emailSenderConfiguration;
 
-    public CorreoController(IOptions<EmailSettings> emailSettings)
-    {
-        _emailSettings = emailSettings.Value;
-    }
+    public CorreoController(EmailSenderConfigurationService emailSenderConfiguration) =>
+        _emailSenderConfiguration = emailSenderConfiguration;
 
     [AllowAnonymous]
     [HttpPost("enviar-comprobante", Name = "EnviarCorreoComprobante")]
@@ -54,8 +51,9 @@ public class CorreoController : ControllerBase
             });
         }
 
-        var emisor = (_emailSettings.Email ?? string.Empty).Trim();
-        var clave = (_emailSettings.Key ?? string.Empty).Trim();
+        var emailSettings = await _emailSenderConfiguration.GetEffectiveAsync(cancellationToken);
+        var emisor = (emailSettings.Email ?? string.Empty).Trim();
+        var clave = (emailSettings.Key ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(emisor) || string.IsNullOrWhiteSpace(clave))
         {
             return StatusCode((int)HttpStatusCode.InternalServerError, new
@@ -69,7 +67,7 @@ public class CorreoController : ControllerBase
         {
             using var mail = new MailMessage
             {
-                From = new MailAddress(emisor, string.IsNullOrWhiteSpace(_emailSettings.DisplayName) ? null : _emailSettings.DisplayName.Trim()),
+                From = new MailAddress(emisor, string.IsNullOrWhiteSpace(emailSettings.DisplayName) ? null : emailSettings.DisplayName.Trim()),
                 Subject = request.Asunto!.Trim(),
                 Body = ConstruirCuerpoComprobante(request),
                 IsBodyHtml = true
@@ -104,9 +102,9 @@ public class CorreoController : ControllerBase
 
             using var smtp = new SmtpClient
             {
-                Host = string.IsNullOrWhiteSpace(_emailSettings.Host) ? "smtp.gmail.com" : _emailSettings.Host.Trim(),
-                Port = _emailSettings.Port.GetValueOrDefault(587),
-                EnableSsl = _emailSettings.EnableSsl ?? true,
+                Host = string.IsNullOrWhiteSpace(emailSettings.Host) ? "smtp.gmail.com" : emailSettings.Host.Trim(),
+                Port = emailSettings.Port.GetValueOrDefault(587),
+                EnableSsl = emailSettings.EnableSsl ?? true,
                 DeliveryMethod = SmtpDeliveryMethod.Network,
                 UseDefaultCredentials = false,
                 Credentials = new NetworkCredential(emisor, clave)
@@ -238,8 +236,9 @@ public class CorreoController : ControllerBase
         if (correos.Any(correo => !MailAddress.TryCreate(correo, out _)))
             return BadRequest(new { ok = false, mensaje = "Hay correos administrativos inválidos en la compañía." });
 
-        var emisor = (_emailSettings.Email ?? string.Empty).Trim();
-        var clave = (_emailSettings.Key ?? string.Empty).Trim();
+        var emailSettings = await _emailSenderConfiguration.GetEffectiveAsync(cancellationToken);
+        var emisor = (emailSettings.Email ?? string.Empty).Trim();
+        var clave = (emailSettings.Key ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(emisor) || string.IsNullOrWhiteSpace(clave))
             return StatusCode((int)HttpStatusCode.InternalServerError, new { ok = false, mensaje = "No está configurado el correo de envío." });
 
@@ -252,7 +251,7 @@ public class CorreoController : ControllerBase
             await using var pdfStream = request.Pdf.OpenReadStream();
             using var mail = new MailMessage
             {
-                From = new MailAddress(emisor, string.IsNullOrWhiteSpace(_emailSettings.DisplayName) ? null : _emailSettings.DisplayName.Trim()),
+                From = new MailAddress(emisor, string.IsNullOrWhiteSpace(emailSettings.DisplayName) ? null : emailSettings.DisplayName.Trim()),
                 Subject = $"DXN CIERRE DE CAJA GENERAL DEL DIA {fechaTexto}",
                 Body = ConstruirCuerpoCierreCaja(nombreCompania, nombreResponsable, diferencial, request.Observacion),
                 IsBodyHtml = true
@@ -265,9 +264,9 @@ public class CorreoController : ControllerBase
 
             using var smtp = new SmtpClient
             {
-                Host = string.IsNullOrWhiteSpace(_emailSettings.Host) ? "smtp.gmail.com" : _emailSettings.Host.Trim(),
-                Port = _emailSettings.Port.GetValueOrDefault(587),
-                EnableSsl = _emailSettings.EnableSsl ?? true,
+                Host = string.IsNullOrWhiteSpace(emailSettings.Host) ? "smtp.gmail.com" : emailSettings.Host.Trim(),
+                Port = emailSettings.Port.GetValueOrDefault(587),
+                EnableSsl = emailSettings.EnableSsl ?? true,
                 DeliveryMethod = SmtpDeliveryMethod.Network,
                 UseDefaultCredentials = false,
                 Credentials = new NetworkCredential(emisor, clave)
@@ -325,16 +324,17 @@ public class CorreoController : ControllerBase
         }
         var correos = SepararCorreos(destinatarios);
         if (correos.Count == 0 || correos.Any(correo => !MailAddress.TryCreate(correo, out _))) return BadRequest(new { ok = false, mensaje = "La compañía no tiene correos administrativos válidos configurados." });
-        var emisor = (_emailSettings.Email ?? string.Empty).Trim(); var clave = (_emailSettings.Key ?? string.Empty).Trim();
+        var emailSettings = await _emailSenderConfiguration.GetEffectiveAsync(cancellationToken);
+        var emisor = (emailSettings.Email ?? string.Empty).Trim(); var clave = (emailSettings.Key ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(emisor) || string.IsNullOrWhiteSpace(clave)) return StatusCode(500, new { ok = false, mensaje = "No está configurado el correo de envío." });
         try
         {
             var fecha = request.FechaReporte?.Date ?? DateTime.Today;
             await using var pdfStream = request.Pdf.OpenReadStream();
-            using var mail = new MailMessage { From = new MailAddress(emisor, string.IsNullOrWhiteSpace(_emailSettings.DisplayName) ? null : _emailSettings.DisplayName.Trim()), Subject = $"DXN INFORME FINAL DE CAJA DEL DIA {fecha:dd-MM-yyyy}", Body = ConstruirCuerpoCierreCaja(compania, responsable, request.Diferencial, request.Observacion), IsBodyHtml = true };
+            using var mail = new MailMessage { From = new MailAddress(emisor, string.IsNullOrWhiteSpace(emailSettings.DisplayName) ? null : emailSettings.DisplayName.Trim()), Subject = $"DXN INFORME FINAL DE CAJA DEL DIA {fecha:dd-MM-yyyy}", Body = ConstruirCuerpoCierreCaja(compania, responsable, request.Diferencial, request.Observacion), IsBodyHtml = true };
             foreach (var correo in correos) mail.To.Add(correo);
             mail.Attachments.Add(new Attachment(pdfStream, request.Pdf.FileName, "application/pdf"));
-            using var smtp = new SmtpClient { Host = string.IsNullOrWhiteSpace(_emailSettings.Host) ? "smtp.gmail.com" : _emailSettings.Host.Trim(), Port = _emailSettings.Port.GetValueOrDefault(587), EnableSsl = _emailSettings.EnableSsl ?? true, DeliveryMethod = SmtpDeliveryMethod.Network, UseDefaultCredentials = false, Credentials = new NetworkCredential(emisor, clave) };
+            using var smtp = new SmtpClient { Host = string.IsNullOrWhiteSpace(emailSettings.Host) ? "smtp.gmail.com" : emailSettings.Host.Trim(), Port = emailSettings.Port.GetValueOrDefault(587), EnableSsl = emailSettings.EnableSsl ?? true, DeliveryMethod = SmtpDeliveryMethod.Network, UseDefaultCredentials = false, Credentials = new NetworkCredential(emisor, clave) };
             await smtp.SendMailAsync(mail, cancellationToken);
             return Ok(new { ok = true, mensaje = "Correo del informe final enviado correctamente.", para = correos });
         }

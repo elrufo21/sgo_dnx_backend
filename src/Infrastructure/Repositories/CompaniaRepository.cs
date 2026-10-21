@@ -248,21 +248,22 @@ public class CompaniaRepository : ICompania
                              OUTER APPLY
                              (
                                  SELECT
-                                     MAX(CASE WHEN Descripcion = 'FECHA_RENOVACION' THEN ValorTexto1 END) AS FechaRenovacion,
-                                     MAX(CASE WHEN Descripcion = 'DESCUENTO_MAXIMO' THEN ValorDecimal END) AS DescuentoMax,
-                                     MAX(CASE WHEN Descripcion = 'CORREO_SGO' THEN ValorTexto1 END) AS CorreoSGO,
-                                     MAX(CASE WHEN Descripcion = 'PASSWORD_CORREO' THEN ValorTexto1 END) AS PasswordCorreo,
-                                     MAX(CASE WHEN Descripcion = 'CORREOS_ADMIN' THEN ValorTexto1 END) AS CorreosAdmin,
-                                     MAX(CASE WHEN Descripcion = 'RENOVACION_OSE' THEN ValorTexto1 END) AS RenovacionOSE,
-                                     MAX(CASE WHEN Descripcion = 'RENOVACION_FIRMA' THEN ValorTexto1 END) AS RenovacionFirma,
-                                     MAX(CASE WHEN Descripcion = 'RENOVACION_SOME' THEN ValorTexto1 END) AS RenovacionSome,
-                                     MAX(CASE WHEN Descripcion = 'BOLETA_POR_LOTE' THEN ValorNum END) AS BoletaPorLote,
-                                     MAX(CASE WHEN Descripcion = 'CAPTURA_HTML' THEN ValorNum END) AS FlagCaptura,
-                                     MAX(CASE WHEN Descripcion = 'MULTIPLES_CAJAS' THEN ValorNum END) AS FlagCaja,
-                                     MAX(CASE WHEN Descripcion = 'ASISTENCIA' THEN ValorNum END) AS FlagAsistencia,
-                                     MAX(CASE WHEN Descripcion = 'DIAS_MAX_DEPOSITO' THEN ValorNum END) AS DiasMaxDep
+                                     MAX(CASE WHEN Area = 'CONFIGURACION' AND TipoIndicador = 3 AND Descripcion = 'FECHA_RENOVACION' THEN ValorTexto1 END) AS FechaRenovacion,
+                                     MAX(CASE WHEN Area = 'VENTAS' AND TipoIndicador = 2 AND Descripcion = 'DESCUENTO_MAXIMO' THEN ValorDecimal END) AS DescuentoMax,
+                                     MAX(CASE WHEN Area = 'CORREO' AND TipoIndicador = 3 AND Descripcion = 'CORREO_SGO' THEN ValorTexto1 END) AS CorreoSGO,
+                                     MAX(CASE WHEN Area = 'CORREO' AND TipoIndicador = 3 AND Descripcion = 'PASSWORD_CORREO' THEN ValorTexto1 END) AS PasswordCorreo,
+                                     MAX(CASE WHEN Area = 'CORREO' AND TipoIndicador = 3 AND Descripcion = 'CORREOS_ADMIN' THEN ValorTexto1 END) AS CorreosAdmin,
+                                     MAX(CASE WHEN Area = 'CONFIGURACION' AND TipoIndicador = 3 AND Descripcion = 'RENOVACION_OSE' THEN ValorTexto1 END) AS RenovacionOSE,
+                                     MAX(CASE WHEN Area = 'CONFIGURACION' AND TipoIndicador = 3 AND Descripcion = 'RENOVACION_FIRMA' THEN ValorTexto1 END) AS RenovacionFirma,
+                                     MAX(CASE WHEN Area = 'CONFIGURACION' AND TipoIndicador = 3 AND Descripcion = 'RENOVACION_SOME' THEN ValorTexto1 END) AS RenovacionSome,
+                                     MAX(CASE WHEN Area = 'VENTAS' AND TipoIndicador = 1 AND Descripcion = 'BOLETA_POR_LOTE' THEN ValorNum END) AS BoletaPorLote,
+                                     MAX(CASE WHEN Area = 'VENTAS' AND TipoIndicador = 1 AND Descripcion = 'CAPTURA_HTML' THEN ValorNum END) AS FlagCaptura,
+                                     MAX(CASE WHEN Area = 'CAJA' AND TipoIndicador = 1 AND Descripcion = 'MULTIPLES_CAJAS' THEN ValorNum END) AS FlagCaja,
+                                     MAX(CASE WHEN Area = 'CAJA' AND TipoIndicador = 1 AND Descripcion = 'ASISTENCIA' THEN ValorNum END) AS FlagAsistencia,
+                                     MAX(CASE WHEN Area = 'CAJA' AND TipoIndicador = 2 AND Descripcion = 'DIAS_MAX_DEPOSITO' THEN ValorNum END) AS DiasMaxDep
                                  FROM dbo.Indicador
                                  WHERE CompaniaId = Compania.CompaniaId
+                                   AND IdIndicador IS NULL
                              ) Configuracion
                              )
                              SELECT *
@@ -429,7 +430,7 @@ public class CompaniaRepository : ICompania
                 RETURN;
             END;
 
-            UPDATE dbo.Indicador
+            UPDATE dbo.Indicador WITH (UPDLOCK, HOLDLOCK)
                SET Area = @Area,
                    TipoIndicador = @TipoIndicador,
                    ValorTexto1 = @ValorTexto1,
@@ -437,7 +438,8 @@ public class CompaniaRepository : ICompania
                    ValorDecimal = @ValorDecimal,
                    FechaActualizacion = SYSDATETIME()
              WHERE CompaniaId = @CompaniaId
-               AND Descripcion = @Descripcion;
+               AND Descripcion = @Descripcion
+               AND IdIndicador IS NULL;
 
             IF @@ROWCOUNT = 0
                 INSERT INTO dbo.Indicador (CompaniaId, Area, TipoIndicador, IdIndicador, Descripcion, ValorTexto1, ValorNum, ValorDecimal)

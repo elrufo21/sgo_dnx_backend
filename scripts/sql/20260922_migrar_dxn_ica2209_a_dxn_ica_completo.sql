@@ -2090,63 +2090,6 @@ BEGIN
             RETURN;
         END;
 
-        IF ISNULL(@SerieFactura, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieFactura)))
-                    = UPPER(LTRIM(RTRIM(@SerieFactura)))
-            )
-            BEGIN
-                SELECT
-                    'ERROR|La serie de factura ya está registrada en otra máquina.'
-                    AS Data;
-                RETURN;
-            END;
-
-        END;
-
-        IF ISNULL(@SerieNC, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieNC)))
-                    = UPPER(LTRIM(RTRIM(@SerieNC)))
-            )
-            BEGIN
-                SELECT
-                    'ERROR|La serie de nota de crédito ya está registrada en otra máquina.'
-                    AS Data;
-                RETURN;
-            END;
-
-        END;
-
-        IF ISNULL(@SerieBoleta, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieBoleta)))
-                    = UPPER(LTRIM(RTRIM(@SerieBoleta)))
-            )
-            BEGIN
-                SELECT
-                    'ERROR|La serie de boleta ya está registrada en otra máquina.'
-                    AS Data;
-                RETURN;
-            END;
-
-        END;
-
         BEGIN TRY
 
             INSERT INTO MAQUINAS
@@ -2322,72 +2265,6 @@ BEGIN
                 AS Data;
 
             RETURN;
-        END;
-
-        IF ISNULL(@SerieFactura, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieFactura)))
-                    = UPPER(LTRIM(RTRIM(@SerieFactura)))
-                  AND IdMaquina <> @idMaquina
-            )
-            BEGIN
-
-                SELECT
-                    'ERROR|La serie de factura pertenece a otra máquina.'
-                    AS Data;
-
-                RETURN;
-            END;
-
-        END;
-
-        IF ISNULL(@SerieNC, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieNC)))
-                    = UPPER(LTRIM(RTRIM(@SerieNC)))
-                  AND IdMaquina <> @idMaquina
-            )
-            BEGIN
-
-                SELECT
-                    'ERROR|La serie de nota de crédito pertenece a otra máquina.'
-                    AS Data;
-
-                RETURN;
-            END;
-
-        END;
-
-        IF ISNULL(@SerieBoleta, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieBoleta)))
-                    = UPPER(LTRIM(RTRIM(@SerieBoleta)))
-                  AND IdMaquina <> @idMaquina
-            )
-            BEGIN
-
-                SELECT
-                    'ERROR|La serie de boleta pertenece a otra máquina.'
-                    AS Data;
-
-                RETURN;
-            END;
-
         END;
 
         BEGIN TRY

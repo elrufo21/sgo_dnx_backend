@@ -35,14 +35,14 @@ BEGIN
     END;
 
     SET @FechaReferencia = (
-        SELECT TOP (1) DocuEmision
+        SELECT TOP (1) CONVERT(date, DocuEmision)
         FROM dbo.DocumentoVenta
         WHERE TipoCodigo = '03'
           AND CompaniaId = @CompaniaId
           AND EstadoSunat = 'PENDIENTE'
-          AND DocuEmision <= CONVERT(date, GETDATE())
-        GROUP BY DocuEmision
-        ORDER BY DocuEmision ASC
+          AND DocuEmision < CONVERT(date, GETDATE())
+        GROUP BY CONVERT(date, DocuEmision)
+        ORDER BY CONVERT(date, DocuEmision) ASC
     );
 
     SELECT
@@ -69,7 +69,8 @@ BEGIN
                 WHERE d.TipoCodigo = '03'
                   AND d.CompaniaId = @CompaniaId
                   AND d.EstadoSunat = 'PENDIENTE'
-                  AND d.DocuEmision = @FechaReferencia
+                  AND d.DocuEmision >= @FechaReferencia
+                  AND d.DocuEmision < DATEADD(day, 1, @FechaReferencia)
                 ORDER BY d.DocuSerie, d.DocuNumero ASC
                 FOR XML PATH('')
             ), 1, 1, '')

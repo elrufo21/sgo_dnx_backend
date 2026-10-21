@@ -203,17 +203,15 @@ WHERE NOT EXISTS
 
 INSERT dbo.Indicador
     (CompaniaId,Area,TipoIndicador,IdIndicador,Descripcion,ValorTexto1,ValorNum)
-SELECT c.CompaniaId,f.Area,1,p.Id,f.Descripcion,f.Etiqueta,0
+SELECT c.CompaniaId,f.Area,1,NULL,f.Descripcion,f.Etiqueta,0
 FROM dbo.Compania c
 CROSS JOIN
 (
     VALUES
-        ('CAJA',  'CONFIGURACION_CAJA',  'MULTIPLES_CAJAS','Permitir múltiples cajas abiertas'),
-        ('VENTAS','CONFIGURACION_VENTAS','CAPTURA_HTML',   'Habilitar captura HTML de ventas'),
-        ('VENTAS','CONFIGURACION_VENTAS','BOLETA_POR_LOTE','Habilitar emisión de boletas por lote')
-) f(Area,DescripcionPadre,Descripcion,Etiqueta)
-JOIN dbo.Indicador p
-  ON p.CompaniaId=c.CompaniaId AND p.Descripcion=f.DescripcionPadre
+        ('CAJA',  'MULTIPLES_CAJAS','Permitir múltiples cajas abiertas'),
+        ('VENTAS','CAPTURA_HTML',   'Habilitar captura HTML de ventas'),
+        ('VENTAS','BOLETA_POR_LOTE','Habilitar emisión de boletas por lote')
+) f(Area,Descripcion,Etiqueta)
 WHERE NOT EXISTS
 (
     SELECT 1 FROM dbo.Indicador i

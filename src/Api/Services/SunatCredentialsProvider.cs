@@ -35,7 +35,10 @@ public sealed class SunatCredentialsProvider : ISunatCredentialsProvider
         await using var command = new SqlCommand(@"
 SELECT c.CompaniaRUC, i.Descripcion, i.ValorTexto1
 FROM dbo.Compania c
-LEFT JOIN dbo.Indicador i ON i.CompaniaId = c.CompaniaId AND i.Area = 'SUNAT'
+LEFT JOIN dbo.Indicador i ON i.CompaniaId = c.CompaniaId
+                         AND i.Area = 'SUNAT'
+                         AND i.TipoIndicador = 3
+                         AND i.IdIndicador IS NULL
 WHERE c.CompaniaId = @CompaniaId
 ORDER BY i.FechaActualizacion DESC, i.Id DESC;", connection);
         command.Parameters.Add("@CompaniaId", System.Data.SqlDbType.Int).Value = companiaId;

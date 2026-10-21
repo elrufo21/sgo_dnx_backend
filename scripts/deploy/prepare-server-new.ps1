@@ -1,0 +1,143 @@
+param(
+    [string]$ServerName = "192.168.18.47",
+    [string]$OutputDirectory
+)
+
+$ErrorActionPreference = "Stop"
+
+$backendRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$workspaceRoot = (Resolve-Path (Join-Path $backendRoot "..")).Path
+$frontendRoot = Join-Path $workspaceRoot "sgo_dnx_frontend"
+$extensionRoot = Join-Path $workspaceRoot "sgo_dnx_extension"
+$printAgentRoot = Join-Path $workspaceRoot "dnx-print-agent"
+$apiProject = Join-Path $backendRoot "src\Api\Ecommerce.Api.csproj"
+$apiSettingsTemplate = Join-Path $backendRoot "deploy\server-new\appsettings.json"
+
+if (-not $OutputDirectory) {
+    $OutputDirectory = Join-Path $backendRoot ("artifacts\deploy-{0}-{1}" -f $ServerName.ToLowerInvariant(), (Get-Date -Format "yyyyMMdd-HHmmss"))
+}
+
+if (-not (Test-Path $frontendRoot)) { throw "No se encontró el frontend: $frontendRoot" }
+if (-not (Test-Path $apiProject)) { throw "No se encontró el proyecto API: $apiProject" }
+if (-not (Test-Path $apiSettingsTemplate)) { throw "No se encontró el appsettings seguro de despliegue." }
+if (Test-Path $OutputDirectory) { throw "La carpeta de salida ya existe; usa otra ruta para evitar mezclar paquetes: $OutputDirectory" }
+if (-not (Test-Path (Join-Path $frontendRoot "node_modules"))) {
+    throw "Faltan dependencias del frontend. Ejecuta npm ci en $frontendRoot y vuelve a intentarlo."
+}
+
+$apiUrl = "http://${ServerName}:8081/api/v1"
+$webOrigin = "http://${ServerName}:8080"
+$apiOutput = Join-Path $OutputDirectory "api"
+$webOutput = Join-Path $OutputDirectory "web"
+$extensionOutput = Join-Path $OutputDirectory "extension"
+$printAgentOutput = Join-Path $OutputDirectory "print-agent"
+
+New-Item -ItemType Directory -Path $apiOutput, $webOutput, $extensionOutput, $printAgentOutput -Force | Out-Null
+
+$oldApiUrl = $env:VITE_API_BASE_URL
+$oldPrintAgentUrl = $env:VITE_PRINT_AGENT_BASE_URL
+$oldPrintAgentToken = $env:VITE_PRINT_AGENT_TOKEN
+$oldPasswordExpirationLock = $env:VITE_PASSWORD_EXPIRATION_LOCK_ENABLED
+
+try {
+    $env:VITE_API_BASE_URL = $apiUrl
+    $env:VITE_PRINT_AGENT_BASE_URL = "http://127.0.0.1:5174"
+    $env:VITE_PASSWORD_EXPIRATION_LOCK_ENABLED = "true"
+
+    $agentConfigPath = Join-Path $printAgentRoot "agent.config.json"
+    if (-not (Test-Path $agentConfigPath)) { throw "Falta el agent.config.json con el token compartido del agente." }
+    $agentConfig = Get-Content $agentConfigPath -Raw | ConvertFrom-Json
+    if ([string]::IsNullOrWhiteSpace([string]$agentConfig.token)) { throw "El token del agente de impresión está vacío." }
+    $env:VITE_PRINT_AGENT_TOKEN = [string]$agentConfig.token
+
+    Push-Location $frontendRoot
+    try {
+        npm run build:vercel
+        if ($LASTEXITCODE -ne 0) { throw "Falló la compilación del frontend (npm run build:vercel)." }
+    }
+    finally {
+        Pop-Location
+    }
+
+    $frontendDist = Join-Path $frontendRoot "dist"
+    if (-not (Test-Path (Join-Path $frontendDist "index.html"))) {
+        throw "La compilación no generó dist/index.html."
+    }
+    Copy-Item (Join-Path $frontendDist "*") $webOutput -Recurse -Force
+
+    dotnet publish $apiProject --configuration Release --runtime win-x64 --self-contained false --output $apiOutput
+    if ($LASTEXITCODE -ne 0) { throw "Falló la publicación de la API para Windows x64." }
+
+    $deploymentSettings = Get-Content $apiSettingsTemplate -Raw | ConvertFrom-Json
+    $deploymentSettings.LocalMedia.RootPath = "C:\SGO\media"
+    $deploymentSettings.Cors.AllowedOrigins = @(
+        $deploymentSettings.Cors.AllowedOrigins |
+            Where-Object { $_ -ne "http://SERVER-NEW:8080" }
+    ) + $webOrigin | Select-Object -Unique
+    $deploymentSettings | ConvertTo-Json -Depth 10 |
+        Set-Content -Path (Join-Path $apiOutput "appsettings.json") -Encoding UTF8
+    Remove-Item (Join-Path $apiOutput "appsettings.Development.json") -Force -ErrorAction SilentlyContinue
+
+    Copy-Item (Join-Path $extensionRoot "*") $extensionOutput -Recurse -Force
+    $manifestPath = Join-Path $extensionOutput "manifest.json"
+    $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+    $newServerPattern = "http://SERVER-NEW:8080/*"
+    $newWebPattern = "$webOrigin/*"
+    $manifest.host_permissions = @($manifest.host_permissions | ForEach-Object {
+        if ($_ -eq $newServerPattern) { $newWebPattern } else { $_ }
+    } | Select-Object -Unique)
+    foreach ($contentScript in $manifest.content_scripts) {
+        if ($contentScript.js -contains "content-sgo.js") {
+            $contentScript.matches = @($contentScript.matches | ForEach-Object {
+                if ($_ -eq $newServerPattern) { $newWebPattern } else { $_ }
+            } | Select-Object -Unique)
+        }
+    }
+    $manifest | ConvertTo-Json -Depth 10 | Set-Content -Path $manifestPath -Encoding UTF8
+
+    $agentFiles = Get-ChildItem $printAgentRoot -Force | Where-Object {
+        $_.Name -notin @("node_modules", "logs", "agent.config.json", ".env")
+    }
+    foreach ($item in $agentFiles) {
+        Copy-Item $item.FullName $printAgentOutput -Recurse -Force
+    }
+    $agentOrigins = @($agentConfig.allowedOrigins) + $webOrigin | Select-Object -Unique
+    [ordered]@{
+        port = 5174
+        defaultPrinter = ""
+        token = [string]$agentConfig.token
+        allowedOrigins = $agentOrigins
+        maxPdfBytes = 10485760
+    } | ConvertTo-Json -Depth 4 | Set-Content -Path (Join-Path $printAgentOutput "agent.config.json") -Encoding UTF8
+
+    $readme = @"
+# Despliegue DNX para $ServerName
+
+- Web: $webOrigin
+- API: $apiUrl
+- Paquete API: ASP.NET Core para Windows x64, framework-dependent (.NET 7 Hosting Bundle requerido).
+- IIS: sitios SGO Web en puerto 8080 y SGO API en puerto 8081; grupos de aplicaciones sin código administrado.
+- Base prevista: DXNCOMAS. Completar ``api/appsettings.json`` con la cadena de conexión y credenciales autorizadas antes de iniciar IIS.
+- Medios: ``C:\SGO\media``; asignar permiso Modificar al grupo de aplicaciones de SGO API.
+
+El ``appsettings.json`` incluido es una plantilla sin secretos. No iniciar el sitio hasta completar la conexión SQL, claves JWT, correo y demás credenciales necesarias. Este paquete no ejecuta scripts SQL ni restaura bases de datos.
+
+En el servidor instalar IIS, URL Rewrite y el .NET 7 Hosting Bundle. La IP estática de LAN usada en este paquete es 192.168.18.47. La regla de firewall debe limitar los puertos de la aplicación a la subred local.
+
+La extensión se publica aparte desde ``extension/``. Para impresión local, instalar el agente en cada estación que imprime y agregar ``$webOrigin`` a ``allowedOrigins`` de su ``agent.config.json``; el token debe coincidir con el incluido en la web.
+"@
+    Set-Content -Path (Join-Path $OutputDirectory "README.md") -Value $readme -Encoding UTF8
+
+    $zipPath = "$OutputDirectory.zip"
+    Compress-Archive -Path (Join-Path $OutputDirectory "*") -DestinationPath $zipPath -Force
+    Write-Host "Paquete preparado: $OutputDirectory"
+    Write-Host "ZIP: $zipPath"
+    Write-Host "Web: $webOrigin"
+    Write-Host "API: $apiUrl"
+}
+finally {
+    $env:VITE_API_BASE_URL = $oldApiUrl
+    $env:VITE_PRINT_AGENT_BASE_URL = $oldPrintAgentUrl
+    $env:VITE_PRINT_AGENT_TOKEN = $oldPrintAgentToken
+    $env:VITE_PASSWORD_EXPIRATION_LOCK_ENABLED = $oldPasswordExpirationLock
+}

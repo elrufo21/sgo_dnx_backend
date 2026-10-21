@@ -67,7 +67,8 @@ BEGIN
            FechaActualizacion = GETDATE()
       FROM dbo.Indicador i
       INNER JOIN @Configuracion c ON c.Descripcion = i.Descripcion
-     WHERE i.CompaniaId = @CompaniaId;
+     WHERE i.CompaniaId = @CompaniaId
+       AND i.IdIndicador IS NULL;
 
     INSERT INTO dbo.Indicador
         (CompaniaId, Area, TipoIndicador, IdIndicador, Descripcion, ValorTexto1, ValorNum)
@@ -76,8 +77,9 @@ BEGIN
      WHERE NOT EXISTS
      (
          SELECT 1
-           FROM dbo.Indicador i
+           FROM dbo.Indicador i WITH (UPDLOCK, HOLDLOCK)
           WHERE i.CompaniaId = @CompaniaId
+            AND i.IdIndicador IS NULL
             AND i.Descripcion = c.Descripcion
      );
 
@@ -96,13 +98,13 @@ BEGIN
     SET NOCOUNT ON;
 
     SELECT
-        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Descripcion = 'CPE_USUARIO_SOL' ORDER BY FechaActualizacion DESC, Id DESC) AS UsuarioSOL,
-        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Descripcion = 'CPE_CLAVE_SOL' ORDER BY FechaActualizacion DESC, Id DESC) AS ClaveSOL,
-        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Descripcion = 'CPE_CERTIFICADO_PFX' ORDER BY FechaActualizacion DESC, Id DESC) AS CertificadoPFX,
-        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Descripcion = 'CPE_CLAVE_CERTIFICADO' ORDER BY FechaActualizacion DESC, Id DESC) AS ClaveCertificado,
+        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Area = 'CPE' AND TipoIndicador = 3 AND IdIndicador IS NULL AND Descripcion = 'CPE_USUARIO_SOL' ORDER BY FechaActualizacion DESC, Id DESC) AS UsuarioSOL,
+        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Area = 'CPE' AND TipoIndicador = 3 AND IdIndicador IS NULL AND Descripcion = 'CPE_CLAVE_SOL' ORDER BY FechaActualizacion DESC, Id DESC) AS ClaveSOL,
+        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Area = 'CPE' AND TipoIndicador = 3 AND IdIndicador IS NULL AND Descripcion = 'CPE_CERTIFICADO_PFX' ORDER BY FechaActualizacion DESC, Id DESC) AS CertificadoPFX,
+        (SELECT TOP 1 ValorTexto1 FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Area = 'CPE' AND TipoIndicador = 3 AND IdIndicador IS NULL AND Descripcion = 'CPE_CLAVE_CERTIFICADO' ORDER BY FechaActualizacion DESC, Id DESC) AS ClaveCertificado,
         COALESCE
         (
-            (SELECT TOP 1 ValorNum FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Descripcion = 'TIPO_PROCESO_CPE' ORDER BY FechaActualizacion DESC, Id DESC),
+            (SELECT TOP 1 ValorNum FROM dbo.Indicador WHERE CompaniaId = @CompaniaId AND Area = 'CPE' AND TipoIndicador = 2 AND IdIndicador IS NULL AND Descripcion = 'TIPO_PROCESO_CPE' ORDER BY FechaActualizacion DESC, Id DESC),
             3
         ) AS Entorno
     WHERE EXISTS (SELECT 1 FROM dbo.Compania WHERE CompaniaId = @CompaniaId);

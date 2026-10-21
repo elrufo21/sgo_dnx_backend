@@ -52,19 +52,15 @@ WHERE NOT EXISTS
 /* TipoIndicador = 1 identifica un flag booleano: ValorNum 0 = no, 1 = sí. */
 INSERT INTO dbo.Indicador
     (CompaniaId, Area, TipoIndicador, IdIndicador, Descripcion, ValorTexto1, ValorNum)
-SELECT c.CompaniaId, flag.Area, 1, padre.Id, flag.Descripcion, flag.Etiqueta, 0
+SELECT c.CompaniaId, flag.Area, 1, NULL, flag.Descripcion, flag.Etiqueta, 0
 FROM dbo.Compania c
 INNER JOIN
 (
     VALUES
-        ('CAJA',   'CONFIGURACION_CAJA',   'MULTIPLES_CAJAS', 'Permitir múltiples cajas abiertas'),
-        ('VENTAS', 'CONFIGURACION_VENTAS', 'CAPTURA_HTML',    'Habilitar captura HTML de ventas'),
-        ('VENTAS', 'CONFIGURACION_VENTAS', 'BOLETA_POR_LOTE', 'Habilitar emisión de boletas por lote')
-) flag (Area, DescripcionPadre, Descripcion, Etiqueta)
-    ON 1 = 1
-INNER JOIN dbo.Indicador padre
-    ON padre.CompaniaId = c.CompaniaId
-   AND padre.Descripcion = flag.DescripcionPadre
+        ('CAJA',   'MULTIPLES_CAJAS', 'Permitir múltiples cajas abiertas'),
+        ('VENTAS', 'CAPTURA_HTML',    'Habilitar captura HTML de ventas'),
+        ('VENTAS', 'BOLETA_POR_LOTE', 'Habilitar emisión de boletas por lote')
+) flag (Area, Descripcion, Etiqueta)
 WHERE NOT EXISTS
 (
     SELECT 1

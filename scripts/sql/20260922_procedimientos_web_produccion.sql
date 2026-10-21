@@ -1342,63 +1342,6 @@ BEGIN
             RETURN;
         END;
 
-        IF ISNULL(@SerieFactura, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieFactura)))
-                    = UPPER(LTRIM(RTRIM(@SerieFactura)))
-            )
-            BEGIN
-                SELECT
-                    'ERROR|La serie de factura ya está registrada en otra máquina.'
-                    AS Data;
-                RETURN;
-            END;
-
-        END;
-
-        IF ISNULL(@SerieNC, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieNC)))
-                    = UPPER(LTRIM(RTRIM(@SerieNC)))
-            )
-            BEGIN
-                SELECT
-                    'ERROR|La serie de nota de crédito ya está registrada en otra máquina.'
-                    AS Data;
-                RETURN;
-            END;
-
-        END;
-
-        IF ISNULL(@SerieBoleta, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieBoleta)))
-                    = UPPER(LTRIM(RTRIM(@SerieBoleta)))
-            )
-            BEGIN
-                SELECT
-                    'ERROR|La serie de boleta ya está registrada en otra máquina.'
-                    AS Data;
-                RETURN;
-            END;
-
-        END;
-
         BEGIN TRY
 
             INSERT INTO MAQUINAS
@@ -1574,72 +1517,6 @@ BEGIN
                 AS Data;
 
             RETURN;
-        END;
-
-        IF ISNULL(@SerieFactura, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieFactura)))
-                    = UPPER(LTRIM(RTRIM(@SerieFactura)))
-                  AND IdMaquina <> @idMaquina
-            )
-            BEGIN
-
-                SELECT
-                    'ERROR|La serie de factura pertenece a otra máquina.'
-                    AS Data;
-
-                RETURN;
-            END;
-
-        END;
-
-        IF ISNULL(@SerieNC, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieNC)))
-                    = UPPER(LTRIM(RTRIM(@SerieNC)))
-                  AND IdMaquina <> @idMaquina
-            )
-            BEGIN
-
-                SELECT
-                    'ERROR|La serie de nota de crédito pertenece a otra máquina.'
-                    AS Data;
-
-                RETURN;
-            END;
-
-        END;
-
-        IF ISNULL(@SerieBoleta, '') <> ''
-        BEGIN
-
-            IF EXISTS
-            (
-                SELECT 1
-                FROM MAQUINAS
-                WHERE UPPER(LTRIM(RTRIM(SerieBoleta)))
-                    = UPPER(LTRIM(RTRIM(@SerieBoleta)))
-                  AND IdMaquina <> @idMaquina
-            )
-            BEGIN
-
-                SELECT
-                    'ERROR|La serie de boleta pertenece a otra máquina.'
-                    AS Data;
-
-                RETURN;
-            END;
-
         END;
 
         BEGIN TRY
@@ -3630,6 +3507,9 @@ BEGIN
         SELECT TOP (1) @FlagCaja = CONVERT(bit, ISNULL(i.ValorNum, 0))
           FROM dbo.Indicador i
          WHERE i.CompaniaId = @CompaniaId
+           AND i.Area = 'CAJA'
+           AND i.TipoIndicador = 1
+           AND i.IdIndicador IS NULL
            AND i.Descripcion = 'MULTIPLES_CAJAS'
          ORDER BY i.Id DESC;
 
@@ -4258,6 +4138,8 @@ BEGIN
            ValorNum = @Entorno,
            FechaActualizacion = SYSDATETIME()
      WHERE CompaniaId = @CompaniaId
+       AND Area = 'CPE'
+       AND IdIndicador IS NULL
        AND Descripcion = 'TIPO_PROCESO_CPE';
 
     IF @@ROWCOUNT = 0
@@ -5070,6 +4952,9 @@ BEGIN
           SELECT TOP (1) ValorNum
           FROM dbo.Indicador
           WHERE CompaniaId = dbo.Compania.CompaniaId
+            AND Area = 'CPE'
+            AND TipoIndicador = 2
+            AND IdIndicador IS NULL
             AND Descripcion = 'TIPO_PROCESO_CPE'
           ORDER BY Id DESC
       ) configuracion
@@ -5439,6 +5324,9 @@ BEGIN
     SELECT TOP (1) @FlagCaja = CONVERT(bit, ISNULL(i.ValorNum, 0))
       FROM dbo.Indicador i
      WHERE i.CompaniaId = @CompaniaId
+       AND i.Area = 'CAJA'
+       AND i.TipoIndicador = 1
+       AND i.IdIndicador IS NULL
        AND i.Descripcion = 'MULTIPLES_CAJAS'
      ORDER BY i.Id DESC;
 
@@ -5639,12 +5527,13 @@ BEGIN
                 OUTER APPLY
                 (
                     SELECT
-                        MAX(CASE WHEN i.Descripcion = 'DESCUENTO_MAXIMO' THEN i.ValorDecimal END) AS DescuentoMax,
-                        MAX(CASE WHEN i.Descripcion = 'TIPO_PROCESO_CPE' THEN i.ValorNum END) AS TipoProceso,
-                        MAX(CASE WHEN i.Descripcion = 'BOLETA_POR_LOTE' THEN i.ValorNum END) AS BoletaPorLote,
-                        MAX(CASE WHEN i.Descripcion = 'CAPTURA_HTML' THEN i.ValorNum END) AS FlagCaptura
+                        MAX(CASE WHEN i.Area = 'VENTAS' AND i.TipoIndicador = 2 AND i.Descripcion = 'DESCUENTO_MAXIMO' THEN i.ValorDecimal END) AS DescuentoMax,
+                        MAX(CASE WHEN i.Area = 'CPE' AND i.TipoIndicador = 2 AND i.Descripcion = 'TIPO_PROCESO_CPE' THEN i.ValorNum END) AS TipoProceso,
+                        MAX(CASE WHEN i.Area = 'VENTAS' AND i.TipoIndicador = 1 AND i.Descripcion = 'BOLETA_POR_LOTE' THEN i.ValorNum END) AS BoletaPorLote,
+                        MAX(CASE WHEN i.Area = 'VENTAS' AND i.TipoIndicador = 1 AND i.Descripcion = 'CAPTURA_HTML' THEN i.ValorNum END) AS FlagCaptura
                     FROM dbo.Indicador i
                     WHERE i.CompaniaId = p.CompaniaId
+                      AND i.IdIndicador IS NULL
                 ) configuracion
                 WHERE U.UsuarioAlias = @Usuario
                   AND dbo.desincrectar(U.UsuarioClave) = @Clave

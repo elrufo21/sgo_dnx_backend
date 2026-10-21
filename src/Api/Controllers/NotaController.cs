@@ -3041,6 +3041,9 @@ public class NotaController : ControllerBase
                 SELECT TOP (1) ValorNum
                 FROM dbo.Indicador
                 WHERE CompaniaId = d.CompaniaId
+                  AND Area = 'CPE'
+                  AND TipoIndicador = 2
+                  AND IdIndicador IS NULL
                   AND Descripcion = 'TIPO_PROCESO_CPE'
                 ORDER BY Id DESC
             ) configuracion
@@ -4486,6 +4489,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             return null;
         }
 
+        var esBaja = ResolverEstadoResumen(request) == 3;
+
         if (!request.COMPANIA_ID.HasValue || request.COMPANIA_ID.Value <= 0 ||
             !DateTime.TryParseExact(
                 request.FECHA_REFERENCIA?.Trim(),
@@ -4494,7 +4499,9 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 DateTimeStyles.None,
                 out var fechaReferencia))
         {
-            return "No se pudo validar la compañía y fecha de las boletas pendientes.";
+            return esBaja
+                ? "No se pudo validar la compañía y fecha de las boletas anuladas."
+                : "No se pudo validar la compañía y fecha de las boletas pendientes.";
         }
 
         var detalle = request.detalle ?? new List<EnviarResumenBoletasDetalleRequest>();
@@ -4516,43 +4523,110 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             throw new InvalidOperationException("Missing connection string: DefaultConnection");
         }
 
-        var documentosPendientes = new Dictionary<int, string>();
+        var documentosElegibles = new Dictionary<int, string>();
         await using (var connection = new SqlConnection(connectionString))
-        await using (var command = new SqlCommand(
-            @"SELECT DocuId, DocuSerie, DocuNumero
-              FROM dbo.DocumentoVenta
-              WHERE CompaniaId = @CompaniaId
-                AND TipoCodigo = '03'
-                AND EstadoSunat = 'PENDIENTE'
-                AND DocuEmision >= @FechaInicio
-                AND DocuEmision < @FechaFin;",
-            connection))
         {
-            command.Parameters.Add("@CompaniaId", SqlDbType.Int).Value = request.COMPANIA_ID.Value;
-            command.Parameters.Add("@FechaInicio", SqlDbType.Date).Value = fechaReferencia.Date;
-            command.Parameters.Add("@FechaFin", SqlDbType.Date).Value = fechaReferencia.Date.AddDays(1);
-
             await connection.OpenAsync(cancellationToken);
-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            while (await reader.ReadAsync(cancellationToken))
+
+            if (esBaja)
             {
-                var docuId = Convert.ToInt32(reader["DocuId"], CultureInfo.InvariantCulture);
-                var serie = reader["DocuSerie"]?.ToString()?.Trim() ?? string.Empty;
-                var numero = reader["DocuNumero"]?.ToString()?.Trim() ?? string.Empty;
-                documentosPendientes[docuId] = $"{serie}-{numero}";
+                await using (var fechaPendienteCommand = new SqlCommand(
+                    @"SELECT MIN(CONVERT(date, DocuEmision))
+                      FROM dbo.DocumentoVenta
+                      WHERE CompaniaId = @CompaniaId
+                        AND TipoCodigo = '03'
+                        AND DocuEstado = 'ANULADO'
+                        AND EstadoSunat = 'ENVIADO';",
+                    connection))
+                {
+                    fechaPendienteCommand.Parameters.Add("@CompaniaId", SqlDbType.Int).Value = request.COMPANIA_ID.Value;
+                    var fechaPendiente = await fechaPendienteCommand.ExecuteScalarAsync(cancellationToken);
+                    var fechaMasAntigua = fechaPendiente is null || fechaPendiente == DBNull.Value
+                        ? (DateTime?)null
+                        : Convert.ToDateTime(fechaPendiente, CultureInfo.InvariantCulture).Date;
+
+                    if (!fechaMasAntigua.HasValue)
+                    {
+                        return "No se envió la baja: ya no hay boletas anuladas pendientes para esa compañía.";
+                    }
+
+                    if (fechaReferencia.Date != fechaMasAntigua.Value)
+                    {
+                        return $"No se envió la baja: la fecha de referencia debe ser la más antigua pendiente ({fechaMasAntigua.Value:yyyy-MM-dd}). Actualiza el listado e intenta nuevamente.";
+                    }
+                }
+
+                await using var bajasCommand = new SqlCommand(
+                    @"SELECT DocuId, DocuSerie, DocuNumero
+                      FROM dbo.DocumentoVenta
+                      WHERE CompaniaId = @CompaniaId
+                        AND TipoCodigo = '03'
+                        AND DocuEstado = 'ANULADO'
+                        AND EstadoSunat = 'ENVIADO'
+                        AND DocuEmision >= @FechaInicio
+                        AND DocuEmision < @FechaFin;",
+                    connection);
+                bajasCommand.Parameters.Add("@CompaniaId", SqlDbType.Int).Value = request.COMPANIA_ID.Value;
+                bajasCommand.Parameters.Add("@FechaInicio", SqlDbType.Date).Value = fechaReferencia.Date;
+                bajasCommand.Parameters.Add("@FechaFin", SqlDbType.Date).Value = fechaReferencia.Date.AddDays(1);
+
+                await using var reader = await bajasCommand.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var docuId = Convert.ToInt32(reader["DocuId"], CultureInfo.InvariantCulture);
+                    var serie = reader["DocuSerie"]?.ToString()?.Trim() ?? string.Empty;
+                    var numero = reader["DocuNumero"]?.ToString()?.Trim() ?? string.Empty;
+                    documentosElegibles[docuId] = $"{serie}-{numero}";
+                }
+            }
+            else
+            {
+                await using var command = new SqlCommand(
+                    @"SELECT DocuId, DocuSerie, DocuNumero
+                      FROM dbo.DocumentoVenta
+                      WHERE CompaniaId = @CompaniaId
+                        AND TipoCodigo = '03'
+                        AND EstadoSunat = 'PENDIENTE'
+                        AND DocuEmision >= @FechaInicio
+                        AND DocuEmision < @FechaFin
+                        AND DocuEmision < CONVERT(date, GETDATE());",
+                    connection);
+                command.Parameters.Add("@CompaniaId", SqlDbType.Int).Value = request.COMPANIA_ID.Value;
+                command.Parameters.Add("@FechaInicio", SqlDbType.Date).Value = fechaReferencia.Date;
+                command.Parameters.Add("@FechaFin", SqlDbType.Date).Value = fechaReferencia.Date.AddDays(1);
+
+                await using (var todayCommand = new SqlCommand("SELECT CONVERT(date, GETDATE());", connection))
+                {
+                    var fechaHoy = Convert.ToDateTime(
+                        await todayCommand.ExecuteScalarAsync(cancellationToken),
+                        CultureInfo.InvariantCulture).Date;
+                    if (fechaReferencia.Date >= fechaHoy)
+                    {
+                        return "No se envió el resumen: las boletas emitidas hoy se habilitan para envío desde mañana.";
+                    }
+                }
+
+                await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    var docuId = Convert.ToInt32(reader["DocuId"], CultureInfo.InvariantCulture);
+                    var serie = reader["DocuSerie"]?.ToString()?.Trim() ?? string.Empty;
+                    var numero = reader["DocuNumero"]?.ToString()?.Trim() ?? string.Empty;
+                    documentosElegibles[docuId] = $"{serie}-{numero}";
+                }
             }
         }
 
-        var idsPendientes = documentosPendientes.Keys.ToHashSet();
-        var faltantes = idsPendientes.Except(idsEnviadosUnicos).ToList();
-        var noPendientes = idsEnviadosUnicos.Except(idsPendientes).ToList();
-        if (faltantes.Count == 0 && noPendientes.Count == 0)
+        var idsElegibles = documentosElegibles.Keys.ToHashSet();
+        var faltantes = idsElegibles.Except(idsEnviadosUnicos).ToList();
+        var noElegibles = idsEnviadosUnicos.Except(idsElegibles).ToList();
+        if (faltantes.Count == 0 && noElegibles.Count == 0)
         {
             return null;
         }
 
         var numerosFaltantes = faltantes
-            .Select(id => documentosPendientes[id])
+            .Select(id => documentosElegibles[id])
             .Take(10)
             .ToList();
         var detalleFaltantes = numerosFaltantes.Count == 0
@@ -4560,8 +4634,10 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
             : $" Faltan: {string.Join(", ", numerosFaltantes)}";
         var masFaltantes = faltantes.Count > numerosFaltantes.Count ? "…" : string.Empty;
 
-        return $"No se envió el resumen: el detalle contiene {idsEnviadosUnicos.Count} boleta(s), " +
-               $"pero hay {idsPendientes.Count} boleta(s) pendientes para esa compañía y fecha." +
+        var tipoLista = esBaja ? "boleta(s) de baja pendiente(s)" : "boleta(s) pendiente(s)";
+        var tipoEnvio = esBaja ? "la baja" : "el resumen";
+        return $"No se envió {tipoEnvio}: el detalle contiene {idsEnviadosUnicos.Count} boleta(s), " +
+               $"pero hay {idsElegibles.Count} {tipoLista} para esa compañía y fecha." +
                $"{detalleFaltantes}{masFaltantes} Actualiza el listado e intenta nuevamente.";
     }
 
@@ -10117,15 +10193,24 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         if (origen.CompaniaId > 0 && (origen.TipoCodigo == "01" || origen.TipoCodigo == "03"))
         {
             const string sql = """
-                SELECT Descripcion, ValorNum
-                FROM dbo.Indicador
-                WHERE CompaniaId = @CompaniaId
-                  AND Area = 'VENTAS'
-                  AND Descripcion IN (
+                SELECT i.Descripcion, i.ValorNum
+                FROM dbo.Indicador i
+                LEFT JOIN dbo.Indicador padre
+                  ON padre.Id = i.IdIndicador
+                 AND padre.CompaniaId = i.CompaniaId
+                 AND padre.Area = 'VENTAS'
+                 AND padre.TipoIndicador = 0
+                 AND padre.IdIndicador IS NULL
+                 AND padre.Descripcion = 'CONFIGURACION_VENTAS'
+                WHERE i.CompaniaId = @CompaniaId
+                  AND i.Area = 'VENTAS'
+                  AND i.TipoIndicador IN (1, 2)
+                  AND padre.Id IS NOT NULL
+                  AND i.Descripcion IN (
                       'DIAS_ANULACION_BOLETA',
                       'DIAS_ANULACION_FACTURA',
                       'ANULACION_EXCLUIR_DOMINGOS')
-                ORDER BY Id;
+                ORDER BY i.Id;
                 """;
             try
             {

@@ -29,6 +29,7 @@ using Ecommerce.Infrastructure.Persistence;
 using Ecommerce.Infrastructure.Persistence.Repositories;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Identity;
@@ -43,6 +44,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddEnvironmentVariables();
 
+var dataProtectionBuilder = builder.Services.AddDataProtection().SetApplicationName("SGO");
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    dataProtectionBuilder.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
+
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddApplicationServices(builder.Configuration);
 
@@ -54,6 +62,7 @@ builder.Services.AddHttpClient("SunatComprobante", client => client.Timeout = Ti
 builder.Services.AddHttpClient("SunatComprobanteAuth", client => client.Timeout = TimeSpan.FromSeconds(45));
 builder.Services.AddSingleton<ISunatCredentialsProvider, SunatCredentialsProvider>();
 builder.Services.AddSingleton<ISunatAuthService, SunatAuthService>();
+builder.Services.AddScoped<EmailSenderConfigurationService>();
 builder.Services.AddScoped<ISireService, SireService>();
 builder.Services.AddScoped<ISunatComprobanteService, SunatComprobanteService>();
 builder.Services.AddProblemDetails();

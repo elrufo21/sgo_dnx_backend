@@ -52,7 +52,12 @@ public sealed class DepositosCentroController : ControllerBase
               OUTER APPLY (
                   SELECT TOP (1) ValorNum
                     FROM dbo.Indicador
-                   WHERE CompaniaId = c.CompaniaId AND Descripcion = 'DIAS_MAX_DEPOSITO'
+                   WHERE CompaniaId = c.CompaniaId
+                     AND Area = 'CAJA'
+                     AND TipoIndicador = 2
+                     AND IdIndicador IS NULL
+                     AND Descripcion = 'DIAS_MAX_DEPOSITO'
+                   ORDER BY FechaActualizacion DESC, Id DESC
               ) i
              WHERE c.CompaniaId = @CompaniaId;
             """, con);

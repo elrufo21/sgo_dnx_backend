@@ -6,14 +6,14 @@ Adaptar `DXN_ICA` tomando exclusivamente `DXN_CUSCO_D0109` como base funcional. 
 
 ## Script final
 
-Ejecutar [20260919_adaptar_dxn_ica_backend_completo.sql](../scripts/sql/20260919_adaptar_dxn_ica_backend_completo.sql).
+Ejecutar [20260919_adaptar_dxn_ica_backend.sql](../scripts/sql/20260919_adaptar_dxn_ica_backend.sql).
 
 El script:
 
 - incorpora únicamente las columnas de `DXN_CUSCO_D0109` que faltan en `DXN_ICA`;
 - incluye dentro del archivo las definiciones completas de los 40 procedimientos que difieren de la base de referencia y `listaNotaPedido`, requerido por la API de notas;
 - restaura cuatro relaciones con `Producto` y `NotaPedido`, después de validar que no existen datos huérfanos;
-- crea o completa la tabla recursiva `Indicador` y registra por compañía los flags `MULTIPLES_CAJAS`, `CAPTURA_HTML` y `BOLETA_POR_LOTE`;
+- crea o completa la tabla recursiva `Indicador` y registra por compañía los flags raíz `MULTIPLES_CAJAS`, `CAPTURA_HTML` y `BOLETA_POR_LOTE`;
 - conserva los objetos adicionales de `DXN_ICA` y no copia ni elimina datos de negocio.
 
 No se agregan columnas ni procedimientos que existan solamente en el backend adaptado. `Indicador` es la única ampliación fuera de `DXN_CUSCO_D0109`, porque fue solicitada expresamente para la configuración de la migración.
@@ -25,6 +25,7 @@ No se agregan columnas ni procedimientos que existan solamente en el backend ada
 1. Respaldar `DXN_ICA`.
 2. Ejecutar el script completo en producción con una cuenta que pueda modificar `DXN_ICA`.
 3. Comprobar que el resultado final indique `OK`, `41` procedimientos incluidos y la cantidad de flags creados.
+4. Antes de publicar el backend actualizado, ejecutar `scripts/sql/20261020_normalizar_indicadores_configuracion.sql` con `DXN_ICA` seleccionada para normalizar configuraciones antiguas conservando sus valores.
 
 El archivo es autónomo: `DXN_CUSCO_D0109` no necesita existir en el servidor de producción.
 

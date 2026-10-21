@@ -12,13 +12,17 @@ El rango de comprobantes persistido y presentado por la API usa la nomenclatura 
 
 ## Listado de boletas pendientes
 
-`uspListaDocumentosWEB` selecciona la fecha pendiente más antigua de la compañía y devuelve las boletas de esa fecha. El límite superior incluye la fecha actual (`DocuEmision <= CONVERT(date, GETDATE())`), por lo que también aparecen las boletas emitidas hoy. La variante convierte `ICBPER` nulo a cero antes de concatenar cada fila; si se concatenara el valor nulo directamente, la fila completa podría desaparecer del resultado. Instalarla con `scripts/sql/20261016_uspListaDocumentosWEB_icbper.sql`; el procedimiento de escritorio `uspListaDocumentos` permanece intacto. El script independiente evita `CREATE OR ALTER` y `TRY_CONVERT` para mantener compatibilidad con SQL Server 2008.
+`uspListaDocumentosWEB` selecciona la fecha pendiente más antigua de la compañía, pero solo entre fechas anteriores a hoy (`DocuEmision < CONVERT(date, GETDATE())`). Las boletas emitidas hoy no se listan para el resumen del día: quedan disponibles desde mañana. La validación del endpoint aplica el mismo límite para impedir el envío manual de boletas del día actual.
+
+Antes de cerrar caja, el backend bloquea si existen boletas anteriores a hoy con `EstadoSunat = 'PENDIENTE'`, boletas anuladas que aún requieren resumen de baja (`DocuEstado = 'ANULADO'` y `EstadoSunat = 'ENVIADO'`), o resúmenes enviados cuyo `CodigoSunat` todavía es nulo, vacío o espacios (aún no consultados). Una vez guardada una respuesta válida de consulta, el código deja de estar vacío y no bloquea por esta condición, aunque SUNAT/OSE haya rechazado el resumen; el rechazo permanece registrado para su regularización. Los documentos de hoy se mantienen fuera de esta validación hasta mañana. El control es por compañía porque el resumen se genera por compañía y fecha, no por caja individual.
+
+La variante convierte `ICBPER` nulo a cero antes de concatenar cada fila; si se concatenara el valor nulo directamente, la fila completa podría desaparecer del resultado. Para bases donde el procedimiento ya fue instalado, usar el script incremental `scripts/sql/20261020_fix_uspListaDocumentosWEB_excluir_hoy.sql`; para instalaciones nuevas, está actualizado `scripts/sql/20261016_uspListaDocumentosWEB_icbper.sql`. El procedimiento de escritorio `uspListaDocumentos` permanece intacto. Ambos scripts evitan `CREATE OR ALTER` y `TRY_CONVERT` para mantener compatibilidad con SQL Server 2008.
 
 El parser del cliente admite el separador de filas `¬` y su variante con mojibake `Â¬`; así el prefijo de codificación no termina pegado al último campo, como `EstadoSunat`.
 
 El procedimiento filtra por tipo de documento y `EstadoSunat = 'PENDIENTE'`; no filtra el estado local `DocuEstado`. Este cambio afecta qué documentos se listan, pero no modifica estados ni los envía al OSE/SUNAT.
 
-Antes de enviar un resumen RC, el backend compara los `docuId` recibidos con todas las boletas pendientes de la misma compañía y `FECHA_REFERENCIA`. Si falta, sobra o se repite algún documento, devuelve conflicto y no llama a SUNAT. Así se detecta una lista incompleta incluso si el navegador conserva datos viejos o el usuario tenía una búsqueda activa.
+Antes de enviar un resumen RC normal (`STATUS = 1`), el backend compara los `docuId` recibidos con todas las boletas `EstadoSunat = 'PENDIENTE'` de la misma compañía y `FECHA_REFERENCIA`; las emitidas hoy siguen habilitándose desde mañana. Para una baja RC (`STATUS = 3`), compara contra las boletas `DocuEstado = 'ANULADO'` y `EstadoSunat = 'ENVIADO'` de la fecha más antigua pendiente, siguiendo la misma regla de `uspListaBajas`. En ambos flujos, si falta, sobra, se repite o dejó de ser elegible algún documento, devuelve conflicto antes de llamar a SUNAT. Así se detectan listas incompletas o desactualizadas sin cambiar los estados de los documentos.
 
 ## Bajas de boletas por fecha de emisión
 

@@ -668,7 +668,7 @@ public sealed class CashFlowController : ControllerBase
             {
                 ok = false,
                 codigo = "RESUMEN_BOLETAS_PENDIENTE",
-                mensaje = $"No se puede cerrar la caja: hay {resumenPendiente.Cantidad} boleta(s) pendiente(s) del resumen del {resumenPendiente.Fecha:dd/MM/yyyy}. Envía el resumen de boletas antes de cerrar."
+                mensaje = resumenPendiente.CrearMensaje()
             });
         }
 
@@ -917,6 +917,8 @@ public sealed class CashFlowController : ControllerBase
               FROM dbo.Indicador
              WHERE CompaniaId = @CompaniaId
                AND Area = 'CAJA'
+               AND TipoIndicador = 1
+               AND IdIndicador IS NULL
                AND Descripcion = 'MULTIPLES_CAJAS'
              ORDER BY FechaActualizacion DESC, Id DESC
             """, con, tx))
@@ -994,16 +996,53 @@ public sealed class CashFlowController : ControllerBase
         CancellationToken cancellationToken)
     {
         await using var cmd = new SqlCommand("""
+            WITH Pendientes AS
+            (
+                SELECT CONVERT(date, DocuEmision) AS FechaReferencia,
+                       COUNT_BIG(1) AS Boletas,
+                       CAST(0 AS bigint) AS Anulaciones,
+                       CAST(0 AS bigint) AS ResumenesSinConsultar
+                  FROM dbo.DocumentoVenta
+                 WHERE CompaniaId = @CompaniaId
+                   AND TipoCodigo = '03'
+                   AND EstadoSunat = 'PENDIENTE'
+                   AND DocuEmision < CONVERT(date, GETDATE())
+                 GROUP BY CONVERT(date, DocuEmision)
+
+                UNION ALL
+
+                SELECT CONVERT(date, DocuEmision),
+                       CAST(0 AS bigint),
+                       COUNT_BIG(1),
+                       CAST(0 AS bigint)
+                  FROM dbo.DocumentoVenta
+                 WHERE CompaniaId = @CompaniaId
+                   AND TipoCodigo = '03'
+                   AND UPPER(LTRIM(RTRIM(ISNULL(DocuEstado, '')))) = 'ANULADO'
+                   AND UPPER(LTRIM(RTRIM(ISNULL(EstadoSunat, '')))) = 'ENVIADO'
+                   AND DocuEmision < CONVERT(date, GETDATE())
+                 GROUP BY CONVERT(date, DocuEmision)
+
+                UNION ALL
+
+                SELECT CONVERT(date, FechaReferencia),
+                       CAST(0 AS bigint),
+                       CAST(0 AS bigint),
+                       COUNT_BIG(1)
+                  FROM dbo.ResumenBoletas
+                 WHERE CompaniaId = @CompaniaId
+                   AND FechaReferencia < CONVERT(date, GETDATE())
+                   AND NULLIF(LTRIM(RTRIM(CodigoSunat)), '') IS NULL
+                 GROUP BY CONVERT(date, FechaReferencia)
+            )
             SELECT TOP (1)
-                   CONVERT(date, DocuEmision) AS FechaReferencia,
-                   COUNT_BIG(1) AS Cantidad
-              FROM dbo.DocumentoVenta
-             WHERE CompaniaId = @CompaniaId
-               AND TipoCodigo = '03'
-               AND EstadoSunat = 'PENDIENTE'
-               AND DocuEmision < DATEADD(day, 1, CONVERT(date, GETDATE()))
-             GROUP BY CONVERT(date, DocuEmision)
-             ORDER BY CONVERT(date, DocuEmision)
+                   FechaReferencia,
+                   SUM(Boletas) AS Boletas,
+                   SUM(Anulaciones) AS Anulaciones,
+                   SUM(ResumenesSinConsultar) AS ResumenesSinConsultar
+              FROM Pendientes
+             GROUP BY FechaReferencia
+             ORDER BY FechaReferencia
             """, con, tx);
         cmd.Parameters.Add("@CompaniaId", SqlDbType.Int).Value = companiaId;
 
@@ -1012,7 +1051,9 @@ public sealed class CashFlowController : ControllerBase
 
         return new ResumenBoletasPendiente(
             Convert.ToDateTime(reader["FechaReferencia"], CultureInfo.InvariantCulture),
-            Convert.ToInt64(reader["Cantidad"], CultureInfo.InvariantCulture));
+            Convert.ToInt64(reader["Boletas"], CultureInfo.InvariantCulture),
+            Convert.ToInt64(reader["Anulaciones"], CultureInfo.InvariantCulture),
+            Convert.ToInt64(reader["ResumenesSinConsultar"], CultureInfo.InvariantCulture));
     }
 
     private static async Task<CajaUpdateInfo?> ObtenerCajaParaActualizarAsync(
@@ -1148,7 +1189,22 @@ public sealed class CashFlowController : ControllerBase
         decimal Salidas,
         decimal EfectivoEsperado);
 
-    private sealed record ResumenBoletasPendiente(DateTime Fecha, long Cantidad);
+    private sealed record ResumenBoletasPendiente(
+        DateTime Fecha,
+        long Boletas,
+        long Anulaciones,
+        long ResumenesSinConsultar)
+    {
+        public string CrearMensaje()
+        {
+            var pendientes = new List<string>();
+            if (Boletas > 0) pendientes.Add($"{Boletas} boleta(s) pendiente(s) de resumen");
+            if (Anulaciones > 0) pendientes.Add($"{Anulaciones} boleta(s) anulada(s) pendiente(s) de baja");
+            if (ResumenesSinConsultar > 0) pendientes.Add($"{ResumenesSinConsultar} resumen(es) enviado(s) sin consultar");
+
+            return $"No se puede cerrar la caja: hay {string.Join(", ", pendientes)} del {Fecha:dd/MM/yyyy}. Regulariza el resumen o la baja y consulta el ticket antes de cerrar.";
+        }
+    }
 
     private sealed record CajaUpdateInfo(
         string FechaCierre,
@@ -1212,10 +1268,7 @@ public sealed record ActiveCashFlowResponse(
 
 public sealed record CashCountResponse(decimal Billete, int Cantidad);
 
-public sealed record CloseCashFlowRequest(int UsuarioId, decimal? MontoInicial, string? Observacion, List<CashCountRequest>? Monedas) : IAttendanceUserRequest
-{
-    public int AttendanceUserId => UsuarioId;
-}
+public sealed record CloseCashFlowRequest(int UsuarioId, decimal? MontoInicial, string? Observacion, List<CashCountRequest>? Monedas);
 
 public sealed record UpdateCashFlowStateRequest(
     string? Estado,

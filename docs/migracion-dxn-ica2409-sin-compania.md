@@ -19,3 +19,5 @@ El tercer script es estático, apunta explícitamente a `DXN_ICA2409` y crea o a
 La web, incluidos login, caja, correo y CPE, lee esta configuración desde `dbo.Indicador`. Los valores iniciales son descuento `0`, entorno `3`, boleta por lote `1`, captura `0` y una sola caja por compañía. La migración no agrega, actualiza ni elimina columnas o registros en `dbo.Compania`.
 
 Los pasos 4 y 5 trasladan la configuración CPE web a `Indicador`; los dos procedimientos con sufijo `web` son los únicos reemplazados. El escritorio conserva sus campos y procedimientos originales de `Compania`.
+
+Después de completar todos los scripts de configuración (incluidos renovaciones, anulaciones y CPE) y antes de publicar el backend, ejecutar `scripts/sql/20261020_normalizar_indicadores_configuracion.sql` sobre `DXN_ICA2409`. El script conserva valores y corrige la clasificación de indicadores conocidos. Si encuentra duplicados o relaciones padre ausentes, se detiene para revisión manual.

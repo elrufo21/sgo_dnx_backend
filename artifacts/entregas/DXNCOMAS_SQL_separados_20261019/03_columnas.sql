@@ -1,18 +1,6 @@
-﻿/*
-  DXNCOMAS - esquema requerido por los flujos llamados desde el frontend web
-  Fuente de definiciones: DXN_ICA15102026, comparada con el alcance frontend confirmado.
-  No contiene datos ni configuraciones propias de ICA.
-  Aplicar en DXNCOMAS. Revisar docs/migracion-sql-dxncomas-20261019.md.
-*/
-USE [DXNCOMAS];
-GO
+﻿
 
-/*
-  Agrega columnas ausentes en tablas existentes de COMAS.
-  Almacen y Hora son complementarias: la web actual tolera que falten.
-  Si el sistema de escritorio seguirá activo, revisar los INSERT posicionales
-  indicados en docs/migracion-sql-dxncomas-20261019.md antes de aplicar.
-*/
+
 IF COL_LENGTH(N'dbo.DetallePVarios', N'Efectivo') IS NULL
     ALTER TABLE dbo.[DetallePVarios] ADD [Efectivo] decimal(18,2) NULL;
 GO

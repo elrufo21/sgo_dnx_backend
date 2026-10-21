@@ -174,6 +174,9 @@ public class UsuarioRepository : IUsuario
             SELECT Descripcion, ValorTexto1
             FROM dbo.Indicador
             WHERE CompaniaId = @CompaniaId
+              AND Area = 'CONFIGURACION'
+              AND TipoIndicador = 3
+              AND IdIndicador IS NULL
               AND Descripcion IN ('RENOVACION_OSE', 'RENOVACION_FIRMA', 'RENOVACION_SOME');
             """;
 
