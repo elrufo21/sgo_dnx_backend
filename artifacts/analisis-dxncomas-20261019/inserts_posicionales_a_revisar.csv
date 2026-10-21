@@ -1,7 +1,0 @@
-﻿procedimiento,tabla,riesgo,sentencia
-dbo.ingresarProducto,Producto,Agregar columnas altera INSERT sin lista explicita,insert into Producto values
-dbo.ingresarUsuario,Usuarios,Agregar columnas altera INSERT sin lista explicita,insert into Usuarios values
-dbo.InsertarUM,UnidadMedida,Agregar columnas altera INSERT sin lista explicita,insert into UnidadMedida values
-dbo.uspinsertarNotaB,NotaPedido,Agregar columnas altera INSERT sin lista explicita,insert into NotaPedido values
-dbo.uspInsertarPagoVarios,DetallePVarios,Agregar columnas altera INSERT sin lista explicita,insert into DetallePVarios values
-dbo.uspinsertarRB,ResumenBoletas,Agregar columnas altera INSERT sin lista explicita,insert into ResumenBoletas values

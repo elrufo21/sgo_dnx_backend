@@ -1,7 +1,0 @@
-﻿endpoint_backend,metodo,motivo
-ProductosController.GetProductosServicio:308,ProductoRepository.ListarCrudRawAsync:247,uspListarProducto: SP opcional con catch 2812 y consulta directa alternativa.
-ProductosController.GetProductosServicio:308,ProductoRepository.ListarCrudRawAsync:247,uspListarProducto: SP opcional con catch 2812 y consulta directa alternativa.
-ProductosController.GetProductoList:297,ProductoRepository.ListarCrudRawAsync:247,uspListarProducto: SP opcional con catch 2812 y consulta directa alternativa.
-ProductosController.GetProductoList:297,ProductoRepository.ListarCrudRawAsync:247,uspListarProducto: SP opcional con catch 2812 y consulta directa alternativa.
-UserController.Acceso:20,UsuarioRepository.LoginIdentityAsync:120,Alternativa heredada; no necesaria al instalar el contrato principal WEB.
-ProductosController.RegisterProducto:127,ProductoRepository.GuardarProductoLegacyAsync:78,Alternativa heredada; no necesaria al instalar el contrato principal WEB.

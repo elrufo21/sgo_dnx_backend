@@ -1,6 +1,0 @@
-﻿frontend,url,accion
-src/components/EmployeeFormBase.tsx:290,"https://dniruc.apisperu.com/api/v1/dni/{consultaDni.replace(/\D/g, """").slice}?token={VITE_API_DOCUMENTO}",handleConsultarDni
-src/shared/helpers/documentLookup.ts:33,"https://dniruc.apisperu.com/api/v1/{tipoDocumento}/{numeroDocumento}?token={String(import.meta.env.VITE_API_DOCUMENTO ?? """").trim}",consultarDocumentoCliente
-src/features/sales/pages/HtmlCaptureSalePage.tsx:1218,{PRINT_AGENT}/v1/system,loadMachineName
-src/features/sales/pages/HtmlCaptureSalePage.tsx:3271,{PRINT_AGENT}/v1/print,printTicket
-src/features/serviceInvoices/pages/ServiceInvoiceCreate.tsx:794,https://www.api-sgo.somee.com/api/v1/Correo/enviar-comprobante,handleSendEmail
