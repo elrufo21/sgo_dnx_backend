@@ -79,6 +79,15 @@ try {
     Remove-Item (Join-Path $apiOutput "appsettings.Development.json") -Force -ErrorAction SilentlyContinue
 
     Copy-Item (Join-Path $extensionRoot "*") $extensionOutput -Recurse -Force
+    Get-ChildItem $extensionOutput -Recurse -File | Where-Object {
+        $_.Extension -in @(".js", ".json", ".md", ".html", ".css") -and $_.FullName -notmatch "\\.git\\"
+    } | ForEach-Object {
+        $content = Get-Content $_.FullName -Raw
+        $content = $content.Replace("http://SERVER-NEW:8080", $webOrigin)
+        $content = $content.Replace("http://192.168.1.38:8080", $webOrigin)
+        $content = $content.Replace("http://192.168.18.47:8080", $webOrigin)
+        Set-Content -Path $_.FullName -Value $content -Encoding UTF8
+    }
     $manifestPath = Join-Path $extensionOutput "manifest.json"
     $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
     $newServerPattern = "http://SERVER-NEW:8080/*"
@@ -101,7 +110,9 @@ try {
     foreach ($item in $agentFiles) {
         Copy-Item $item.FullName $printAgentOutput -Recurse -Force
     }
-    $agentOrigins = @($agentConfig.allowedOrigins) + $webOrigin | Select-Object -Unique
+    $agentOrigins = @($agentConfig.allowedOrigins | Where-Object {
+        $_ -notmatch "^http://(SERVER-NEW|192\.168\.\d{1,3}\.\d{1,3}):8080$"
+    }) + $webOrigin | Select-Object -Unique
     [ordered]@{
         port = 5174
         defaultPrinter = ""
@@ -109,6 +120,11 @@ try {
         allowedOrigins = $agentOrigins
         maxPdfBytes = 10485760
     } | ConvertTo-Json -Depth 4 | Set-Content -Path (Join-Path $printAgentOutput "agent.config.json") -Encoding UTF8
+
+    $listadosSqlRoot = Join-Path $backendRoot "scripts\sql\20261020_optimizacion_listados"
+    $listadosSqlOutput = Join-Path $OutputDirectory "sql\20261020_optimizacion_listados"
+    New-Item -ItemType Directory -Path $listadosSqlOutput -Force | Out-Null
+    Copy-Item (Join-Path $listadosSqlRoot "*") $listadosSqlOutput -Force
 
     $readme = @"
 # Despliegue DNX para $ServerName
@@ -121,6 +137,8 @@ try {
 - Medios: ``C:\SGO\media``; asignar permiso Modificar al grupo de aplicaciones de SGO API.
 
 El ``appsettings.json`` incluido es una plantilla sin secretos. No iniciar el sitio hasta completar la conexión SQL, claves JWT, correo y demás credenciales necesarias. Este paquete no ejecuta scripts SQL ni restaura bases de datos.
+
+Antes de publicar esta API, el responsable SQL debe aplicar en la base destino los archivos 01, 02 y 03 de ``sql/20261020_optimizacion_listados/``, en ese orden. La carpeta incluye instrucciones y reversión; el archivo 04 es solo para revertir y no debe ejecutarse durante la actualización.
 
 En el servidor instalar IIS, URL Rewrite y el .NET 7 Hosting Bundle. La IP estática de LAN usada en este paquete es 192.168.18.47. La regla de firewall debe limitar los puertos de la aplicación a la subred local.
 

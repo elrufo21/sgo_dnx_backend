@@ -26,11 +26,14 @@ public sealed class CashFlowController : ControllerBase
     public async Task<IActionResult> Listar(
         [FromQuery] DateOnly? fechaInicio,
         [FromQuery] DateOnly? fechaFin,
-        CancellationToken cancellationToken)
+        [FromQuery] int? page = null,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? buscar = null,
+        CancellationToken cancellationToken = default)
     {
         if (fechaInicio.HasValue != fechaFin.HasValue)
             return BadRequest(new { ok = false, mensaje = "Seleccione fecha inicio y fecha fin." });
-        if (fechaInicio > fechaFin)
+        if (fechaFin == DateOnly.MaxValue || fechaInicio > fechaFin)
             return BadRequest(new { ok = false, mensaje = "La fecha inicio no puede ser mayor que la fecha fin." });
 
         var connectionString = _configuration.GetConnectionString("DefaultConnection");
@@ -39,19 +42,30 @@ public sealed class CashFlowController : ControllerBase
 
         var items = new List<CashFlowResponse>();
         await using var con = new SqlConnection(connectionString);
-        await using var cmd = new SqlCommand(fechaInicio.HasValue ? "listarCajaFechaWEB" : "listarCajaWEB", con)
+        await using var cmd = new SqlCommand("dbo.uspListarControlCajaWeb", con)
         {
-            CommandType = CommandType.StoredProcedure
+            CommandType = CommandType.StoredProcedure,
+            CommandTimeout = 15
         };
-        if (fechaInicio.HasValue)
-        {
-            cmd.Parameters.Add("@fechainicio", SqlDbType.Date).Value = fechaInicio.Value.ToDateTime(TimeOnly.MinValue);
-            cmd.Parameters.Add("@fechafin", SqlDbType.Date).Value = fechaFin!.Value.ToDateTime(TimeOnly.MinValue);
-        }
+        cmd.Parameters.Add("@FechaInicio", SqlDbType.Date).Value = (object?)fechaInicio?.ToDateTime(TimeOnly.MinValue) ?? DBNull.Value;
+        cmd.Parameters.Add("@FechaFin", SqlDbType.Date).Value = (object?)fechaFin?.ToDateTime(TimeOnly.MinValue) ?? DBNull.Value;
+        cmd.Parameters.Add("@Page", SqlDbType.Int).Value = page.HasValue ? Math.Max(page.Value, 1) : DBNull.Value;
+        cmd.Parameters.Add("@PageSize", SqlDbType.Int).Value = Math.Clamp(pageSize, 1, 200);
+        cmd.Parameters.Add("@Buscar", SqlDbType.NVarChar, 150).Value = string.IsNullOrWhiteSpace(buscar) ? DBNull.Value : buscar.Trim()[..Math.Min(buscar.Trim().Length, 150)];
+        var totalRows = 0;
+        var actualPage = 1;
+        var actualPageSize = Math.Clamp(pageSize, 1, 200);
 
         await con.OpenAsync(cancellationToken);
         await using (var reader = await cmd.ExecuteReaderAsync(cancellationToken))
         {
+            if (await reader.ReadAsync(cancellationToken))
+            {
+                totalRows = Convert.ToInt32(reader["TotalRows"], CultureInfo.InvariantCulture);
+                actualPage = Convert.ToInt32(reader["Page"], CultureInfo.InvariantCulture);
+                actualPageSize = Convert.ToInt32(reader["PageSize"], CultureInfo.InvariantCulture);
+            }
+            await reader.NextResultAsync(cancellationToken);
             while (await reader.ReadAsync(cancellationToken))
             {
                 items.Add(new CashFlowResponse(
@@ -61,8 +75,7 @@ public sealed class CashFlowController : ControllerBase
                     Convert.ToDecimal(reader["MontoIniSol"], CultureInfo.InvariantCulture),
                     Convert.ToDecimal(reader["CajaIngresos"], CultureInfo.InvariantCulture),
                     Convert.ToDecimal(reader["CajaSalidas"], CultureInfo.InvariantCulture),
-                    Convert.ToDecimal(reader["CajaTotal"], CultureInfo.InvariantCulture)
-                        - Convert.ToDecimal(reader["CajaIngresos"], CultureInfo.InvariantCulture),
+                    Convert.ToDecimal(reader["Diferencia"], CultureInfo.InvariantCulture),
                     reader["CajaEncargado"]?.ToString() ?? string.Empty,
                     reader["CajaUsuario"]?.ToString() ?? string.Empty,
                     reader["CajaEstado"]?.ToString() ?? string.Empty,
@@ -70,22 +83,9 @@ public sealed class CashFlowController : ControllerBase
             }
         }
 
-        var cajasCerradas = items
-            .Where(item => item.Estado.StartsWith("CERRAD", StringComparison.OrdinalIgnoreCase))
-            .Select(item => item.CajaId)
-            .ToArray();
-        if (cajasCerradas.Length > 0)
-        {
-            var diferencias = await ObtenerDiferenciasCerradasAsync(con, cajasCerradas, cancellationToken);
-            items = items
-                .Select(item => diferencias.TryGetValue(item.CajaId, out var diferencia)
-                    ? item with { Diferencia = diferencia }
-                    : item)
-                .ToList();
-        }
-
-        items.Sort((a, b) => b.CajaId.CompareTo(a.CajaId));
-        return Ok(items);
+        return page.HasValue
+            ? Ok(new { items, totalRows, page = actualPage, pageSize = actualPageSize })
+            : Ok(items);
     }
 
     [HttpGet("ventas-no-capturadas")]
@@ -124,76 +124,6 @@ public sealed class CashFlowController : ControllerBase
         }
 
         return Ok(new { fecha, ventasNoCapturadas = rows });
-    }
-
-    private static async Task<Dictionary<long, decimal>> ObtenerDiferenciasCerradasAsync(
-        SqlConnection con,
-        IReadOnlyList<long> cajaIds,
-        CancellationToken cancellationToken)
-    {
-        var parametros = cajaIds.Select((_, index) => $"@cajaId{index}").ToArray();
-        var sql = $"""
-            WITH Cajas AS
-            (
-                SELECT c.CajaId, c.MontoIniSOl
-                FROM dbo.Caja c
-                WHERE c.CajaId IN ({string.Join(", ", parametros)})
-                  AND UPPER(LTRIM(RTRIM(c.CajaEstado))) LIKE 'CERRAD%'
-            ), Monedas AS
-            (
-                SELECT m.CajaId, SUM(ISNULL(m.Monto, 0)) AS MontoContado
-                FROM dbo.Monedas m
-                INNER JOIN Cajas c ON c.CajaId = m.CajaId
-                GROUP BY m.CajaId
-            ), Ventas AS
-            (
-                SELECT n.CajaId,
-                       SUM(CASE WHEN t.TipoVenta = 'OBS' THEN ISNULL(t.Importe, 0) ELSE 0 END) AS SistemaObs,
-                       SUM(CASE WHEN t.TipoVenta = 'IOC' THEN ISNULL(t.Importe, 0) ELSE 0 END) AS SistemaIoc
-                FROM Cajas c
-                INNER JOIN dbo.NotaPedido n ON n.CajaId = c.CajaId
-                INNER JOIN dbo.TABLAOBS t
-                    ON t.NotaTransaccion = n.NotaTransaccion
-                   AND t.TipoVenta IN ('OBS', 'IOC')
-                GROUP BY n.CajaId
-            ), Movimientos AS
-            (
-                SELECT d.CajaId,
-                       SUM(CASE WHEN d.DetalleMovimiento = 'SALIDA' AND ISNULL(d.NotaId, 0) = 0
-                                THEN ISNULL(d.DetalleMonto, 0) ELSE 0 END) AS Salidas,
-                       SUM(CASE WHEN d.DetalleMovimiento = 'INGRESO' AND ISNULL(d.NotaId, 0) = 0
-                                     AND ISNULL(d.DetalleConcepto, '') NOT IN ('TOTAL EFECTIVO', 'SENCILLO')
-                                THEN ISNULL(d.DetalleMonto, 0) ELSE 0 END) AS IngresosManuales
-                FROM Cajas c
-                INNER JOIN dbo.CajaDetalle d ON d.CajaId = c.CajaId
-                GROUP BY d.CajaId
-            ), Calculos AS
-            (
-                SELECT c.CajaId,
-                       ISNULL(c.MontoIniSOl, 0)
-                       + ISNULL(v.SistemaObs, 0)
-                       + ISNULL(v.SistemaIoc, 0)
-                       - ISNULL(mv.Salidas, 0)
-                       + ISNULL(mv.IngresosManuales, 0) AS IngresosEsperados,
-                       ISNULL(m.MontoContado, 0) AS MontoContado
-                FROM Cajas c
-                LEFT JOIN Monedas m ON m.CajaId = c.CajaId
-                LEFT JOIN Ventas v ON v.CajaId = c.CajaId
-                LEFT JOIN Movimientos mv ON mv.CajaId = c.CajaId
-            )
-            SELECT CajaId, MontoContado - IngresosEsperados AS Diferencia
-            FROM Calculos;
-            """;
-        await using var cmd = new SqlCommand(sql, con);
-        for (var i = 0; i < cajaIds.Count; i++)
-            cmd.Parameters.Add(parametros[i], SqlDbType.BigInt).Value = cajaIds[i];
-
-        var diferencias = new Dictionary<long, decimal>();
-        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-            diferencias[Convert.ToInt64(reader["CajaId"], CultureInfo.InvariantCulture)] =
-                Convert.ToDecimal(reader["Diferencia"], CultureInfo.InvariantCulture);
-        return diferencias;
     }
 
     [HttpPost("open", Name = "OpenCashFlow")]

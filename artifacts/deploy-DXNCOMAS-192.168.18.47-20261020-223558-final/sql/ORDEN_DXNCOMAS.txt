@@ -1,0 +1,16 @@
+DXNCOMAS — PARCHES INCREMENTALES (SQL Server 2008 R2)
+
+Destino: base DXNCOMAS. Ejecutar solo con autorización y revisión del responsable de SQL.
+No se ejecutó ningún script al preparar este paquete.
+
+Orden sugerido:
+1. 20261020_fix_uspListaDocumentosWEB_excluir_hoy.sql
+2. 20261020_usp_Maquina_permitir_series_repetidas.sql
+3. 20261020_maquinas_permitir_impresora_repetida.sql
+4. 20261020_normalizar_indicadores_configuracion.sql
+
+Antes de ejecutar:
+- Confirmar que SSMS apunta a DXNCOMAS y respaldar según el procedimiento operativo.
+- Ejecutar y verificar cada parche por separado.
+- El parche de indicadores cambia solo Area, TipoIndicador e IdIndicador; no borra filas ni cambia ValorTexto1, ValorNum o ValorDecimal. Aborta completo si encuentra duplicados o relaciones inválidas. DXNCOMASWEB tuvo duplicados en una validación previa; el responsable debe comprobar DXNCOMAS por separado antes de ejecutarlo.
+- Los otros parches actualizan procedimientos y quitan una restricción/índice único de MAQUINAS.Tiketera solo si existe; no actualizan datos de negocio.

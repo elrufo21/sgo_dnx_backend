@@ -2389,10 +2389,14 @@ public class NotaController : ControllerBase
         [FromQuery] bool pendientesOse = false,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
+        [FromQuery] string? buscar = null,
         CancellationToken cancellationToken = default)
     {
         page = page <= 0 ? 1 : page;
         pageSize = pageSize <= 0 ? 50 : Math.Min(pageSize, 200);
+
+        if (fechaFin?.Date == DateTime.MaxValue.Date || (fechaInicio.HasValue && fechaFin.HasValue && fechaInicio.Value.Date > fechaFin.Value.Date))
+            return BadRequest(new { ok = false, mensaje = "El rango de fechas no es válido." });
 
         var connectionString = _configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -2407,134 +2411,26 @@ public class NotaController : ControllerBase
         var items = new List<object>();
         await using var con = new SqlConnection(connectionString);
         await con.OpenAsync(cancellationToken);
-        const string docuFechaPagoSelect = "w.DocuFechaPago,";
-        const string ncDocuFechaPagoSelect = "nw.DocuFechaPago,";
-        const string groupByDocuFechaPago = ", w.DocuFechaPago, nc.DocuFechaPago";
-
-        var sql = $"""
-            WITH Base AS (
-            SELECT
-                d.DocuId,
-                d.NotaId,
-                d.CompaniaId,
-                d.DocuDocumento,
-                d.DocuSerie,
-                d.DocuNumero,
-                d.DocuEmision,
-                {docuFechaPagoSelect}
-                d.ClienteId,
-                c.ClienteRazon AS ClienteRazon,
-                c.ClienteRuc AS ClienteRuc,
-                c.ClienteDni AS ClienteDni,
-                c.ClienteDireccion AS DireccionFiscal,
-                d.DocuSubTotal,
-                d.DocuIgv,
-                d.DocuTotal,
-                d.DocuSaldo,
-                d.DocuEstado,
-                d.EstadoSunat,
-                d.CodigoSunat,
-                d.MensajeSunat,
-                d.DocuHash,
-                MAX(ISNULL(w.DocuPdfUrl, '')) AS DocuPdfUrl,
-                MAX(ISNULL(w.DocuXmlUrl, '')) AS DocuXmlUrl,
-                MAX(ISNULL(w.DocuCdrUrl, '')) AS DocuCdrUrl,
-                d.FormaPago,
-                d.DocuCondicion,
-                d.DocuConcepto,
-                d.DocuAsociado,
-                nc.DocuId AS DocuRelacionadoId,
-                nc.DocuDocumento AS DocuRelacionadoDocumento,
-                nc.DocuSerie AS DocuRelacionadoSerie,
-                nc.DocuNumero AS DocuRelacionadoNumero,
-                nc.DocuFechaPago AS DocuRelacionadoFechaPago,
-                nc.TipoCodigo AS DocuRelacionadoTipoCodigo,
-                nc.DocuEstado AS DocuRelacionadoEstado,
-                nc.EstadoSunat AS DocuRelacionadoEstadoSunat,
-                COUNT(dd.DetalleId) AS TotalDetalles
-            FROM DocumentoVenta d
-            OUTER APPLY (
-                SELECT TOP (1)
-                    n.DocuId,
-                    n.DocuDocumento,
-                    n.DocuSerie,
-                    n.DocuNumero,
-                    {ncDocuFechaPagoSelect}
-                    n.TipoCodigo,
-                    n.DocuEstado,
-                    n.EstadoSunat
-                FROM DocumentoVenta n
-                LEFT JOIN DocumentoVentaCpeWeb nw ON nw.DocuId = n.DocuId
-                WHERE n.TipoCodigo = '07'
-                  AND (
-                        LTRIM(RTRIM(ISNULL(n.DocuAsociado, ''))) = CONVERT(VARCHAR(30), d.DocuId)
-                        OR LTRIM(RTRIM(ISNULL(n.DocuNroGuia, ''))) = LTRIM(RTRIM(ISNULL(d.DocuSerie, ''))) + '-' + LTRIM(RTRIM(ISNULL(d.DocuNumero, '')))
-                      )
-                ORDER BY
-                    CASE WHEN LTRIM(RTRIM(ISNULL(n.EstadoSunat, ''))) = 'ENVIADO' THEN 0 ELSE 1 END,
-                    n.DocuId DESC
-            ) nc
-            LEFT JOIN Cliente c ON c.ClienteId = d.ClienteId
-            LEFT JOIN DocumentoVentaCpeWeb w ON w.DocuId = d.DocuId
-            LEFT JOIN DetalleDocumento dd ON dd.DocuId = d.DocuId
-            WHERE (
-                    (@PendientesOse = 1 AND d.TipoCodigo IN ('01', '07'))
-                    OR (@PendientesOse = 0
-                        AND d.TipoCodigo = '01'
-                        AND LTRIM(RTRIM(ISNULL(d.DocuDocumento, ''))) = 'FACTURA')
-                  )
-              AND (@CompaniaId IS NULL OR d.CompaniaId = @CompaniaId)
-              AND (@EstadoSunat IS NULL OR LTRIM(RTRIM(ISNULL(d.EstadoSunat, ''))) = @EstadoSunat)
-              AND (@PendientesOse = 0 OR LTRIM(RTRIM(ISNULL(d.EstadoSunat, ''))) = 'PENDIENTE')
-              AND (@FechaInicio IS NULL OR d.DocuEmision >= @FechaInicio)
-              AND (@FechaFin IS NULL OR d.DocuEmision <= @FechaFin)
-              AND (
-                    @SoloServicio = 0
-                    OR UPPER(LTRIM(RTRIM(ISNULL(d.DocuCondicion, '')))) = @CondicionFacturaServicio
-                    OR UPPER(LTRIM(RTRIM(ISNULL(d.DocuAsociado, '')))) = @MarcaFacturaServicio
-                    OR EXISTS (
-                        SELECT 1
-                        FROM DetalleDocumento ds
-                        LEFT JOIN Producto p ON p.IdProducto = ds.IdProducto
-                        WHERE ds.DocuId = d.DocuId
-                          AND (
-                                UPPER(LTRIM(RTRIM(ISNULL(ds.DetalleUM, '')))) = 'ZZ'
-                                OR UPPER(LTRIM(RTRIM(ISNULL(p.ProductoINV, '')))) <> 'S'
-                              )
-                    )
-                  )
-            GROUP BY
-                d.DocuId, d.NotaId, d.CompaniaId, d.DocuDocumento, d.DocuSerie, d.DocuNumero,
-                d.DocuEmision, d.ClienteId, c.ClienteRazon, c.ClienteRuc, c.ClienteDni,
-                c.ClienteDireccion, d.DocuSubTotal, d.DocuIgv, d.DocuTotal, d.DocuSaldo,
-                d.DocuEstado, d.EstadoSunat, d.CodigoSunat, d.MensajeSunat, d.DocuHash,
-                d.FormaPago, d.DocuCondicion, d.DocuConcepto, d.DocuAsociado,
-                nc.DocuId, nc.DocuDocumento, nc.DocuSerie, nc.DocuNumero, nc.TipoCodigo,
-                nc.DocuEstado, nc.EstadoSunat{groupByDocuFechaPago}
-            ),
-            Ranked AS (
-                SELECT Base.*, ROW_NUMBER() OVER (ORDER BY DocuEmision DESC, DocuId DESC) AS RowNum
-                FROM Base
-            )
-            SELECT *
-            FROM Ranked
-            WHERE RowNum BETWEEN @Start AND @End
-            ORDER BY RowNum;
-            """;
-
-        await using var cmd = new SqlCommand(sql, con);
-        cmd.Parameters.AddWithValue("@CompaniaId", (object?)companiaId ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@EstadoSunat", string.IsNullOrWhiteSpace(estadoSunat) ? DBNull.Value : estadoSunat.Trim());
-        cmd.Parameters.AddWithValue("@FechaInicio", (object?)fechaInicio?.Date ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@FechaFin", (object?)fechaFin?.Date ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@SoloServicio", soloServicio ? 1 : 0);
-        cmd.Parameters.AddWithValue("@PendientesOse", pendientesOse ? 1 : 0);
-        cmd.Parameters.AddWithValue("@MarcaFacturaServicio", DocuAsociadoFacturaServicioOse);
-        cmd.Parameters.AddWithValue("@CondicionFacturaServicio", DocuCondicionFacturaServicio);
-        cmd.Parameters.AddWithValue("@Start", ((page - 1) * pageSize) + 1);
-        cmd.Parameters.AddWithValue("@End", page * pageSize);
+        await using var cmd = new SqlCommand("dbo.uspListarFacturasServicioWeb", con)
+        {
+            CommandType = CommandType.StoredProcedure,
+            CommandTimeout = 15
+        };
+        cmd.Parameters.Add("@CompaniaId", SqlDbType.Int).Value = (object?)companiaId ?? DBNull.Value;
+        cmd.Parameters.Add("@EstadoSunat", SqlDbType.VarChar, 50).Value = string.IsNullOrWhiteSpace(estadoSunat) ? DBNull.Value : estadoSunat.Trim();
+        cmd.Parameters.Add("@FechaInicio", SqlDbType.Date).Value = (object?)fechaInicio?.Date ?? DBNull.Value;
+        cmd.Parameters.Add("@FechaFin", SqlDbType.Date).Value = (object?)fechaFin?.Date ?? DBNull.Value;
+        cmd.Parameters.Add("@SoloServicio", SqlDbType.Bit).Value = soloServicio;
+        cmd.Parameters.Add("@PendientesOse", SqlDbType.Bit).Value = pendientesOse;
+        cmd.Parameters.Add("@Page", SqlDbType.Int).Value = page;
+        cmd.Parameters.Add("@PageSize", SqlDbType.Int).Value = pageSize;
+        cmd.Parameters.Add("@Buscar", SqlDbType.NVarChar, 150).Value = string.IsNullOrWhiteSpace(buscar) ? DBNull.Value : buscar.Trim()[..Math.Min(buscar.Trim().Length, 150)];
 
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        var totalRows = 0;
+        if (await reader.ReadAsync(cancellationToken))
+            totalRows = Convert.ToInt32(reader["TotalRows"], CultureInfo.InvariantCulture);
+        await reader.NextResultAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
         {
             var serieDoc = reader["DocuSerie"]?.ToString()?.Trim() ?? string.Empty;
@@ -2608,6 +2504,7 @@ public class NotaController : ControllerBase
             ok = true,
             page,
             pageSize,
+            totalRows,
             items
         });
     }

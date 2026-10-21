@@ -27,10 +27,17 @@ Estas son instalaciones distintas. No reutilizar entre ellas el ZIP, IP, CORS, `
 - El backend original usa `net7.0` y `global.json` fija SDK `7.0.410`.
 - No actualizar framework, SDK ni paquetes como parte de este despliegue sin que el usuario lo solicite expresamente. Un intento previo cambió a .NET 10 sin autorización; los `.csproj` y `global.json` fueron restaurados a .NET 7.
 - No usar los paquetes `deploy-192.168.18.47-20261019-235644.zip` ni `deploy-192.168.18.47-20261019-235819.zip`: se generaron con `net10.0`.
-- Paquete correcto generado con `net7.0`: `artifacts/deploy-192.168.18.47-20261020-000405.zip`. Fue copiado a `C:\SGO\deploy-192.168.18.47-20261020-000405.zip` y extraído directamente bajo `C:\SGO`.
+- Paquete histórico generado con `net7.0`: `artifacts/deploy-192.168.18.47-20261020-000405.zip`. Fue copiado y extraído bajo `C:\SGO`; para una actualización completa usar el paquete limpio más reciente documentado abajo.
 - Ese ZIP se creó antes de corregir el `LocalMedia:RootPath`; su `api/appsettings.json` podría volver a poner `D:\SGO\media` si se extrae otra vez. No volver a extraerlo encima del despliegue actual. El generador y la plantilla locales ya se corrigieron; regenerar un paquete antes de un redeploy completo.
 - .NET 7 ya no tiene soporte de Microsoft. Registrar este riesgo y mantenerlo visible, pero no actualizar la versión sin autorización; cualquier migración futura debe ser un trabajo separado y probado.
 
+## Estaciones cliente de DXNCOMAS: extensión y agente
+
+- Después de desplegar la actualización completa, usar `extension/` y `print-agent/` del paquete COMAS más reciente indicado abajo. El paquete anterior sigue en `C:\SGO` hasta que se actualice; no mezclar sus archivos con los del build nuevo. No usar las carpetas del paquete DXN_ICA: son destinos distintos.
+- Instalar la extensión de producción en cada navegador Brave/Chrome que use DXN: abrir `brave://extensions` o `chrome://extensions`, activar modo desarrollador, elegir **Cargar descomprimida** y seleccionar la carpeta `extension` con `manifest.json`. El manifest incluye el origen de COMAS `http://192.168.18.47:8080`.
+- Instalar `print-agent/` en cada PC que tenga impresora. Requiere Node.js 20 o superior; ejecutar `npm.cmd ci` dentro de la carpeta y luego `powershell -ExecutionPolicy Bypass -File .\install-service.ps1` desde PowerShell como administrador. `npm.cmd` evita el bloqueo de `npm.ps1` por la política de scripts de PowerShell. La configuración ya preparada contiene el origen COMAS y el token que debe corresponder al frontend; conservarla sin publicar el token.
+- Comprobar en cada PC con `Invoke-WebRequest http://127.0.0.1:5174/health`. El agente es local a cada estación y debe estar activo en la PC desde la cual se imprime. Si el servicio no ve una impresora instalada solo para el usuario, configurar el servicio para iniciar con una cuenta que tenga acceso a esa impresora.
+- De este ZIP tomar únicamente las carpetas del agente y la extensión para las estaciones. Su configuración de API no es un paquete de actualización seguro para volver a extraer completo sobre el servidor.
 ## SQL: no tocar
 
 - El usuario indicó expresamente que otra persona se encarga de SQL y que por ahora no se toque.
@@ -41,6 +48,17 @@ Estas son instalaciones distintas. No reutilizar entre ellas el ZIP, IP, CORS, `
 - Se intentó `20261020_normalizar_indicadores_configuracion.sql`, pero la validación previa abortó antes de modificar filas al detectar 11 descripciones duplicadas para `CompaniaId = 1`. Revisar y resolver esos duplicados antes de volver a normalizar. También se ejecutó `20261020_maquinas_permitir_impresora_repetida.sql`; no encontró una restricción ni índice único sobre `Tiketera`, por lo que no hizo cambios.
 - La captura de SSMS muestra SQL Authentication con el login `sa`; no recomendar `sa` para la aplicación. Solicitar una cuenta de aplicación con permisos necesarios.
 
+## Build completo de actualización DXNCOMAS — 2026-10-20
+
+- Paquete: `artifacts/deploy-DXNCOMAS-192.168.18.47-20261020-223558-final.zip`.
+- Incluye frontend, API .NET 7 para Windows x64, extensión y agente, más los cuatro parches SQL incrementales del 2026-10-20.
+- El frontend, la API, CORS, la extensión y `agent.config.json` se verificaron con el destino COMAS `192.168.18.47`; extensión y agente no conservan orígenes de DXN_ICA.
+- El ZIP no incluye `api/appsettings.json`; mantiene separada `configuration/appsettings.template.json` para no sobrescribir la cadena de conexión ni secretos del servidor.
+- Compilación Vite y publicación .NET 7 exitosas; se mantiene una advertencia de bundle grande en frontend y advertencias preexistentes del backend.
+- Los SQL se incluyen solo para el DBA. Ninguno se ejecutó y no se hizo despliegue al servidor.
+- El normalizador de indicadores conserva filas y valores (`ValorTexto1`, `ValorNum`, `ValorDecimal`); actualiza metadatos y aborta sin cambios si encuentra duplicados o relaciones inválidas. Verificar DXNCOMAS por separado antes de ejecutarlo.
+- SHA-256: `0138EA34A61DB258FE890A58100F010940BB0DF697BCB702EE8057E6B361EA19`.
+- El build incluye un token compartido para el agente. Tratar el ZIP como confidencial y mantener juntos el agente y el frontend del mismo build.
 ## Paquete de actualización DXN_ICA — 2026-10-20
 
 - El servidor DXN_ICA indicado por el usuario es `192.168.1.38`: frontend `http://192.168.1.38:8080/login`, API `http://192.168.1.38:8081/api/v1`.
@@ -80,3 +98,12 @@ El paquete contiene un token compartido para la extensión/agente de impresión.
 
 
 
+
+
+
+
+## Pendiente para la siguiente publicacion: optimizacion de listados
+
+El codigo nuevo de Caja y Facturas de servicio requiere aplicar previamente los archivos 01, 02 y 03 de `scripts/sql/20261020_optimizacion_listados/` en la BD de cada destino. No se aplicaron en ninguna base ni estan incluidos en los ZIP historicos documentados arriba. La carpeta contiene indices, dos procedimientos nuevos y reversion separada; conserva los datos de Indicador y los SP anteriores. Ver [detalle y orden](../scripts/sql/20261020_optimizacion_listados/README.md).
+
+El generador `prepare-server-new.ps1` copia esta carpeta SQL a los paquetes futuros y avisa del requisito. No ejecuta los scripts. API y frontend deben actualizarse juntos una vez aplicados los SP. Se mantiene .NET 7, las IP y la separacion entre ICA y COMAS.
