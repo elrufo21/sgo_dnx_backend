@@ -1,0 +1,1 @@
+SALIDA DESCARTADA. No desplegar: la verificacion detecto carpetas temporales de desarrollo. Usar solo el ZIP nuevo verificado e indicado en docs/deploy-dxncomas.md.

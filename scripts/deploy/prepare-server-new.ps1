@@ -27,12 +27,18 @@ if (-not (Test-Path (Join-Path $frontendRoot "node_modules"))) {
 
 $apiUrl = "http://${ServerName}:8081/api/v1"
 $webOrigin = "http://${ServerName}:8080"
+$databaseName = switch ($ServerName) {
+    "192.168.1.38" { "DXN_ICA" }
+    "192.168.18.47" { "DXNCOMAS" }
+    default { "<base destino>" }
+}
 $apiOutput = Join-Path $OutputDirectory "api"
 $webOutput = Join-Path $OutputDirectory "web"
+$configurationOutput = Join-Path $OutputDirectory "configuration"
 $extensionOutput = Join-Path $OutputDirectory "extension"
 $printAgentOutput = Join-Path $OutputDirectory "print-agent"
 
-New-Item -ItemType Directory -Path $apiOutput, $webOutput, $extensionOutput, $printAgentOutput -Force | Out-Null
+New-Item -ItemType Directory -Path $apiOutput, $webOutput, $configurationOutput, $extensionOutput, $printAgentOutput -Force | Out-Null
 
 $oldApiUrl = $env:VITE_API_BASE_URL
 $oldPrintAgentUrl = $env:VITE_PRINT_AGENT_BASE_URL
@@ -70,15 +76,19 @@ try {
 
     $deploymentSettings = Get-Content $apiSettingsTemplate -Raw | ConvertFrom-Json
     $deploymentSettings.LocalMedia.RootPath = "C:\SGO\media"
-    $deploymentSettings.Cors.AllowedOrigins = @(
-        $deploymentSettings.Cors.AllowedOrigins |
-            Where-Object { $_ -ne "http://SERVER-NEW:8080" }
-    ) + $webOrigin | Select-Object -Unique
+    $deploymentSettings.Cors.AllowedOrigins = @("http://localhost:8080", $webOrigin)
+    $deploymentSettings.EmailSettings.DisplayName = if ($databaseName -eq "DXNCOMAS") { "DXN COMAS" } else { "DXN ICA" }
     $deploymentSettings | ConvertTo-Json -Depth 10 |
-        Set-Content -Path (Join-Path $apiOutput "appsettings.json") -Encoding UTF8
-    Remove-Item (Join-Path $apiOutput "appsettings.Development.json") -Force -ErrorAction SilentlyContinue
+        Set-Content -Path (Join-Path $configurationOutput "appsettings.template.json") -Encoding UTF8
+    Get-ChildItem -LiteralPath $apiOutput -Filter "appsettings*.json" -File | ForEach-Object {
+        Remove-Item -LiteralPath $_.FullName -Force
+    }
 
-    Copy-Item (Join-Path $extensionRoot "*") $extensionOutput -Recurse -Force
+    Get-ChildItem -LiteralPath $extensionRoot -Force | Where-Object {
+        $_.Name -notin @(".git", "node_modules", "logs") -and $_.Name -notlike ".env*"
+    } | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination $extensionOutput -Recurse -Force
+    }
     Get-ChildItem $extensionOutput -Recurse -File | Where-Object {
         $_.Extension -in @(".js", ".json", ".md", ".html", ".css") -and $_.FullName -notmatch "\\.git\\"
     } | ForEach-Object {
@@ -105,7 +115,7 @@ try {
     $manifest | ConvertTo-Json -Depth 10 | Set-Content -Path $manifestPath -Encoding UTF8
 
     $agentFiles = Get-ChildItem $printAgentRoot -Force | Where-Object {
-        $_.Name -notin @("node_modules", "logs", "agent.config.json", ".env")
+        $_.Name -notin @(".git", "node_modules", "logs", "agent.config.json") -and $_.Name -notlike ".env*" -and $_.Name -notlike "*.log"
     }
     foreach ($item in $agentFiles) {
         Copy-Item $item.FullName $printAgentOutput -Recurse -Force
@@ -133,21 +143,25 @@ try {
 - API: $apiUrl
 - Paquete API: ASP.NET Core para Windows x64, framework-dependent (.NET 7 Hosting Bundle requerido).
 - IIS: sitios SGO Web en puerto 8080 y SGO API en puerto 8081; grupos de aplicaciones sin código administrado.
-- Base prevista: DXNCOMAS. Completar ``api/appsettings.json`` con la cadena de conexión y credenciales autorizadas antes de iniciar IIS.
+- Base prevista: $databaseName. Conservar ``api/appsettings.json`` del servidor con su conexión y credenciales actuales.
 - Medios: ``C:\SGO\media``; asignar permiso Modificar al grupo de aplicaciones de SGO API.
 
-El ``appsettings.json`` incluido es una plantilla sin secretos. No iniciar el sitio hasta completar la conexión SQL, claves JWT, correo y demás credenciales necesarias. Este paquete no ejecuta scripts SQL ni restaura bases de datos.
+El paquete no contiene ``api/appsettings.json``: no reemplaza conexión, claves ni credenciales existentes. ``configuration/appsettings.template.json`` es solo una plantilla sin secretos para instalaciones nuevas; completarla antes de iniciar IIS. Conservar también las carpetas ``media`` y ``keys`` del servidor. Este paquete no ejecuta scripts SQL ni restaura bases de datos.
 
 Antes de publicar esta API, el responsable SQL debe aplicar en la base destino los archivos 01, 02 y 03 de ``sql/20261020_optimizacion_listados/``, en ese orden. La carpeta incluye instrucciones y reversión; el archivo 04 es solo para revertir y no debe ejecutarse durante la actualización.
 
-En el servidor instalar IIS, URL Rewrite y el .NET 7 Hosting Bundle. La IP estática de LAN usada en este paquete es 192.168.18.47. La regla de firewall debe limitar los puertos de la aplicación a la subred local.
+En el servidor instalar IIS, URL Rewrite y el .NET 7 Hosting Bundle. La IP estática de LAN usada en este paquete es $ServerName. La regla de firewall debe limitar los puertos de la aplicación a la subred local.
 
 La extensión se publica aparte desde ``extension/``. Para impresión local, instalar el agente en cada estación que imprime y agregar ``$webOrigin`` a ``allowedOrigins`` de su ``agent.config.json``; el token debe coincidir con el incluido en la web.
 "@
     Set-Content -Path (Join-Path $OutputDirectory "README.md") -Value $readme -Encoding UTF8
 
-    $zipPath = "$OutputDirectory.zip"
-    Compress-Archive -Path (Join-Path $OutputDirectory "*") -DestinationPath $zipPath -Force
+    $zipPath = "$OutputDirectory-final.zip"
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($OutputDirectory, $zipPath, [System.IO.Compression.CompressionLevel]::Optimal, $false)
+    if ($ServerName -in @("192.168.18.47", "192.168.1.38")) {
+        & (Join-Path $PSScriptRoot "verify-package.ps1") -PackagePath $zipPath -ServerName $ServerName
+    }
     Write-Host "Paquete preparado: $OutputDirectory"
     Write-Host "ZIP: $zipPath"
     Write-Host "Web: $webOrigin"

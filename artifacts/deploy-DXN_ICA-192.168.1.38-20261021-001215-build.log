@@ -1,0 +1,32 @@
+
+> sgo@0.0.0 build:vercel
+> vite build
+
+vite v7.2.6 building client environment for production...
+transforming...
+✓ 4199 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                     0.61 kB │ gzip:     0.35 kB
+dist/assets/index-DsESiwki.css     92.96 kB │ gzip:    16.43 kB
+dist/assets/index-L49Hc2rc.js   4,874.63 kB │ gzip: 1,495.08 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 32.35s
+Versión de MSBuild 17.7.6+77d58ec69 para .NET
+  Determining projects to restore...
+  Todos los proyectos están actualizados para la restauración.
+  Ecommerce.Domain -> C:\Users\User\Desktop\desarrollo_dnx\sgo_dnx_backend\src\Core\Ecommerce.Domain\bin\Release\net7.0\Ecommerce.Domain.dll
+  Ecommerce.Application -> C:\Users\User\Desktop\desarrollo_dnx\sgo_dnx_backend\src\Core\Ecommerce.Application\bin\Release\net7.0\Ecommerce.Application.dll
+  Ecommerce.Infrastructure -> C:\Users\User\Desktop\desarrollo_dnx\sgo_dnx_backend\src\Infrastructure\bin\Release\net7.0\Ecommerce.Infrastructure.dll
+  Ecommerce.Api -> C:\Users\User\Desktop\desarrollo_dnx\sgo_dnx_backend\src\Api\bin\Release\net7.0\win-x64\Ecommerce.Api.dll
+  Ecommerce.Api -> C:\Users\User\Desktop\desarrollo_dnx\sgo_dnx_backend\artifacts\deploy-DXN_ICA-192.168.1.38-20261021-001215\api\
+OK: URLs, CORS, .NET 7, IIS, impresion, SQL y configuracion conservada (192.168.1.38).
+SHA256: FE5F0553492561A132F09E06B9845EF881D7ABBF85A0B4BE69DE9909FBCE71F3
+Paquete preparado: C:\Users\User\Desktop\desarrollo_dnx\sgo_dnx_backend\artifacts\deploy-DXN_ICA-192.168.1.38-20261021-001215
+ZIP: C:\Users\User\Desktop\desarrollo_dnx\sgo_dnx_backend\artifacts\deploy-DXN_ICA-192.168.1.38-20261021-001215-final.zip
+Web: http://192.168.1.38:8080
+API: http://192.168.1.38:8081/api/v1

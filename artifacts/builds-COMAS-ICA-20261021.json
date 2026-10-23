@@ -1,0 +1,28 @@
+[
+  {
+    "deployment": "DXNCOMAS",
+    "zip": "deploy-DXNCOMAS-192.168.18.47-20261021-001052-final.zip",
+    "web": "http://192.168.18.47:8080",
+    "api": "http://192.168.18.47:8081/api/v1",
+    "framework": "net7.0",
+    "runtime": "win-x64",
+    "bytes": 14914756,
+    "sha256": "A379C27E5CEC8548C84F98005EF2B963826D79A83F13ADE1C4BFCF693B089F99",
+    "verified": true,
+    "sqlExecuted": false,
+    "deployed": false
+  },
+  {
+    "deployment": "DXN_ICA",
+    "zip": "deploy-DXN_ICA-192.168.1.38-20261021-001215-final.zip",
+    "web": "http://192.168.1.38:8080",
+    "api": "http://192.168.1.38:8081/api/v1",
+    "framework": "net7.0",
+    "runtime": "win-x64",
+    "bytes": 14914744,
+    "sha256": "FE5F0553492561A132F09E06B9845EF881D7ABBF85A0B4BE69DE9909FBCE71F3",
+    "verified": true,
+    "sqlExecuted": false,
+    "deployed": false
+  }
+]

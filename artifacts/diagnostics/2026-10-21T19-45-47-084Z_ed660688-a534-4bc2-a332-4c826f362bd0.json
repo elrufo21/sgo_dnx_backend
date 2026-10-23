@@ -1,0 +1,22 @@
+{
+  "jobId": "ed660688-a534-4bc2-a332-4c826f362bd0",
+  "timestamp": "2026-10-21T19:45:47.084Z",
+  "build": "20261021-diagnostics-v1",
+  "mode": "capture",
+  "hostname": "CAJA-A-DXN",
+  "windowsUser": "HP 800 G5",
+  "pid": 19428,
+  "origin": "http://192.168.18.47:8080",
+  "requestedPrinter": "EPSON TM-T20II RECEIPT",
+  "pdfBytes": 15346,
+  "pdfSha256": "56ed9d2fc7644be4943bbaa811a4863d0964bd9a63b2d4fb23986677bea2435d",
+  "options": {
+    "printer": "EPSON TM-T20II RECEIPT",
+    "scale": "fit",
+    "silent": true
+  },
+  "pdfPath": "C:\\Users\\HP 800 G5\\Desktop\\print-agent\\diagnostics\\2026-10-21T19-45-47-084Z_ed660688-a534-4bc2-a332-4c826f362bd0.pdf",
+  "metadataPath": "C:\\Users\\HP 800 G5\\Desktop\\print-agent\\diagnostics\\2026-10-21T19-45-47-084Z_ed660688-a534-4bc2-a332-4c826f362bd0.json",
+  "status": "captured_not_printed",
+  "elapsedMs": 3
+}

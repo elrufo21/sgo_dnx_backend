@@ -9,7 +9,8 @@ Leer este archivo antes de continuar cualquier trabajo de despliegue para DXNCOM
 | DXN_ICA | `DXN_ICA` | `192.168.1.38` | `http://192.168.1.38:8080/login` | `http://192.168.1.38:8081/api/v1` |
 | DXNCOMAS | `DXNCOMAS` | `SERVER-NEW`, `192.168.18.47` | `http://192.168.18.47:8080` | `http://192.168.18.47:8081/api/v1` |
 
-Estas son instalaciones distintas. No reutilizar entre ellas el ZIP, IP, CORS, `appsettings.json`, conexión de base de datos ni credenciales del otro caso. Para DXN_ICA, el ZIP corregido del 2026-10-20 es `artifacts/deploy-DXN_ICA-192.168.1.38-20261020-210610-final.zip`. El ZIP generado con `192.168.18.47` para DXN_ICA está supersedido y no debe usarse. Para DXNCOMAS, el contexto del servidor y sus pasos pendientes están documentados abajo; no hay que asumir que el paquete de DXN_ICA sirve para esa máquina.
+Estas son instalaciones distintas. No reutilizar entre ellas el ZIP, IP, CORS, `appsettings.json`, conexion de base de datos ni credenciales del otro caso. Los paquetes vigentes son los builds del **2026-10-21** indicados abajo; los del 2026-10-20 quedan como referencia historica. Los nuevos paquetes se prepararon y verificaron localmente, sin subirlos a los servidores ni ejecutar SQL.
+
 ## Servidor y alcance de DXNCOMAS
 
 - Servidor destino: `SERVER-NEW`, Windows Server 2022 Standard, x64.
@@ -107,3 +108,103 @@ El paquete contiene un token compartido para la extensión/agente de impresión.
 El codigo nuevo de Caja y Facturas de servicio requiere aplicar previamente los archivos 01, 02 y 03 de `scripts/sql/20261020_optimizacion_listados/` en la BD de cada destino. No se aplicaron en ninguna base ni estan incluidos en los ZIP historicos documentados arriba. La carpeta contiene indices, dos procedimientos nuevos y reversion separada; conserva los datos de Indicador y los SP anteriores. Ver [detalle y orden](../scripts/sql/20261020_optimizacion_listados/README.md).
 
 El generador `prepare-server-new.ps1` copia esta carpeta SQL a los paquetes futuros y avisa del requisito. No ejecuta los scripts. API y frontend deben actualizarse juntos una vez aplicados los SP. Se mantiene .NET 7, las IP y la separacion entre ICA y COMAS.
+
+## Builds vigentes de COMAS e ICA — 2026-10-21
+
+- **DXNCOMAS**: `artifacts/deploy-DXNCOMAS-192.168.18.47-20261021-001052-final.zip`. Web `http://192.168.18.47:8080`, API `http://192.168.18.47:8081/api/v1`. SHA-256: `A379C27E5CEC8548C84F98005EF2B963826D79A83F13ADE1C4BFCF693B089F99`.
+- **DXN_ICA**: `artifacts/deploy-DXN_ICA-192.168.1.38-20261021-001215-final.zip`. Web `http://192.168.1.38:8080`, API `http://192.168.1.38:8081/api/v1`. SHA-256: `FE5F0553492561A132F09E06B9845EF881D7ABBF85A0B4BE69DE9909FBCE71F3`.
+
+- Ambos incluyen frontend compilado con Vite, API .NET 7 Windows x64 framework-dependent, extension, agente y la carpeta `sql/20261020_optimizacion_listados/` con instrucciones. Los DLL de la API son identicos en ambos paquetes; cada frontend fue compilado por separado con su URL destino.
+- Antes de publicar la API nueva, el responsable SQL debe aplicar 01 indices, 02 procedimiento de Caja y 03 procedimiento de Facturas de servicio en la BD de cada destino, si aun no se aplicaron. `04_reversion.sql` no se ejecuta durante la actualizacion.
+- No contienen `api/appsettings.json` ni configuraciones de desarrollo: conservar el appsettings actual de cada servidor. La plantilla segura y CORS del destino estan separados en `configuration/appsettings.template.json`. Conservar las carpetas media y keys.
+- Verificados dentro de cada ZIP: URL compilada, ausencia de la IP del otro destino, CORS, extension, agente/token consistente, .NET 7, RID win-x64, web.config de IIS y coincidencia exacta de los SQL revisados. Verificacion repetible con `scripts/deploy/verify-package.ps1 -PackagePath <zip> -ServerName <ip>`.
+- Se corrigio el generador para excluir .git, dependencias y logs del agente, separar la plantilla de appsettings y adaptar el README/CORS al destino. El proyecto API excluye `tmp-build-*` de la publicacion. Una salida preliminar descartada quedo marcada `NO_USAR.txt` y sus archivos renombrados a `NO-USAR-*.invalid`; no es una entrega valida.
+- Reporte local sin secretos: `artifacts/builds-COMAS-ICA-20261021.json`. No se ejecuto SQL ni se desplego en ningun servidor durante esta preparacion. El token de impresion forma parte de los paquetes: mantenerlos en destinos autorizados.
+
+## Paquetes de extensión Firefox — 2026-10-21
+
+- COMAS: `artifacts/firefox-extensions-20261021/SGO-DXN-Capture-Firefox-comas-0.2.0.xpi` (origen `http://192.168.18.47:8080`). SHA-256 `AE8C661D2070C691A10DC30D3E069B57BA33D8BCEB60DB15BAE65EB8677F73DB`.
+- ICA: `artifacts/firefox-extensions-20261021/SGO-DXN-Capture-Firefox-ica-0.2.0.xpi` (origen `http://192.168.1.38:8080`). SHA-256 `704CAB0D04D618ECCD169ED2B6DF4DD6A4568A7A3D045EA815923EEEA83C08E3`.
+- Incluyen manifest V3 compatible con Firefox (`background.scripts`), Gecko ID y declaración de categorías de datos que la extensión transfiere a SGO. Los paquetes Chrome/Brave no se modificaron.
+- Son paquetes sin firma para prueba temporal desde `about:debugging` y se eliminan al cerrar Firefox. La instalación permanente requiere firma Mozilla. No se publicaron ni instalaron en ningún navegador.
+- Se verificó el contenido raíz del XPI, URL del destino correcto, ausencia de la IP del otro servidor y sintaxis JavaScript con `node --check`.
+
+### Corrección Firefox COMAS 0.2.1 — 2026-10-21
+
+- Usar `artifacts/firefox-comas-20261021/SGO-DXN-Capture-Firefox-comas-0.2.1.xpi`
+  en lugar del paquete COMAS 0.2.0 de arriba. SHA-256
+  `C16E895B0CF6C4F8A82DCAEFECDA1AC4FC5E64CB89C26D1FD04A5A651DBBED3B`.
+- El 0.2.0 abría SGO pero Firefox ignoraba los patrones con `:8080`, por lo que
+  no cargaba el script de entrega. El nuevo manifest usa `http://192.168.18.47/*`
+  y restringe el puerto con `include_globs`; background comprueba el origen exacto
+  `http://192.168.18.47:8080` después de consultar las pestañas. No reutiliza :8081,
+  localhost ni ICA. Además, un READY tardío de Ventas no descarta un resumen OBS.
+- Generador compartido: desde `sgo_dnx_extension_dev`, ejecutar
+  `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-firefox.ps1 -Target comas`.
+  Reutiliza el puente corregido y el extractor/botones de producción. Guía:
+  `sgo_dnx_extension_dev/docs/firefox-comas.md`.
+- Verificado en Firefox 158.0.1, perfil aislado y datos simulados: pestaña nueva,
+  cambios Venta/Resumen y reutilización de cada formulario; también selección
+  del origen COMAS y sintaxis JavaScript. No se probó una sesión OBS real ni se
+  instaló en el perfil personal. No requiere cambiar web/API, SQL ni agente.
+- Cargar temporalmente desde `about:debugging#/runtime/this-firefox`, retirar la
+  versión anterior y recargar las pestañas OBS/SGO. Sigue siendo un XPI sin firma;
+  la instalación permanente requiere firma Mozilla. ICA 0.2.0 no se ha regenerado.
+
+## Diagnóstico de papel excesivo en estación COMAS — 2026-10-21
+
+- Estación del usuario: perfil `C:\Users\HP 800 G5`. El servicio `DNXPrintAgent` apunta a `Documents\print-agent\dnx-print-agent-service.exe` y usa `LocalSystem`. Un intento de usar la cuenta del usuario falló al iniciar; se regresó a Sistema local. No insistir con credenciales sin revisar el error real.
+- El PDF del primer request recibido contiene una página completa de react-pdf, `226 x 836.1 pt` (aprox. `79.7 x 295 mm`), sin la tira extensa en blanco vista en las fotos. El request selecciona `EPSON TM-T20II RECEIPT`; no confundir con la TM-T20IV configurada en el agente de desarrollo.
+- El usuario confirma que desde el visor de PDF imprime bien en la estación afectada; desde el agente sale una tira extensa en blanco con el ticket. Esto acota el fallo a la ruta de impresión del agente/servicio y el driver, pero no descarta diferencias entre preferencias de usuario y valores globales.
+- Se añadió `printScale` opcional en `dnx-print-agent/src/config.mjs` y se pasa a `pdf-to-printer` en `src/server.mjs`. Vacío conserva el comportamiento anterior. El paquete de prueba local está en `tmp/dnx-print-agent-scale-fit-test.zip`, sin configuración con secretos ni dependencias. Las cinco pruebas unitarias pasaron; no prueban el resultado físico.
+- El usuario copió los dos archivos actualizados desde el paquete extraído del escritorio a la carpeta Documents del servicio. Confirmó servicio Running y `printScale=fit`. Después confirmó con fotos que el papel excesivo persiste: **fit no es una solución confirmada**.
+- Revisión del código upstream de SumatraPDF `3.4.6rel/src/Print.cpp`: intenta asignar el tamaño de la primera página del PDF, obtiene el papel efectivo del contexto del driver y centra la página con fit/shrink; noscale cambia la colocación, pero no garantiza eliminar avances o longitud de página del driver. No afirmar que omitir paperSize implica que Sumatra nunca solicita el tamaño del PDF.
+- Hipótesis principal pendiente de confirmar en la estación: tamaño largo de rollo aceptado por Epson/centrado y/o avance al inicio o fin del documento. Revisar los valores globales de la impresora (Propiedades > Opciones avanzadas > Valores predeterminados de impresión), tamaño de papel y Feed and Cut, comparados con la configuración que funciona desde el visor. El manual oficial Epson TM-T20II distingue configuración por usuario/global y ajustes de avance/corte.
+- No se modificaron SQL, frontend ni API en esta investigación. No hacer más cambios de escala ni nuevos builds hasta recoger la configuración efectiva de la impresora o realizar una comparación controlada entre Sumatra en sesión y el servicio.
+- Prueba posterior del usuario: reducir 3276 mm no corrigió COMAS y su PC local imprime bien aun usando ese formato. No atribuir el problema únicamente al largo de papel configurado.
+- Se preparó la carpeta local `tmp/dnx-print-agent-scale-fit-test` con dependencias mediante `npm.cmd ci`, configuración local con `printScale=fit` y token verificado contra el frontend de desarrollo sin mostrarlo. El ZIP original sigue sin configuración con secretos ni dependencias.
+- El usuario instaló esa copia como servicio en su PC de desarrollo; se comprobó `DNXPrintAgent Running`, `StartName=LocalSystem`, apuntando al ejecutable de la carpeta de prueba. El usuario confirmó que imprime bien también como servicio. Ser servicio/LocalSystem por sí solo no reproduce el fallo; falta comparar la misma ejecución en la estación de COMAS.
+- En la PC local se verificó con `Win32_Printer`: cola `EPSON TM-T20IV Receipt`, controlador `EPSON TM-T(203dpi) Receipt6`, puerto `TMUSB001`. En COMAS el request usa `EPSON TM-T20II RECEIPT` y las capturas muestran un diálogo con Receipt5; esto sugiere diferencias de controlador, pero se debe obtener DriverName/versión de COMAS antes de concluir o cambiar drivers. El archivo UNIDRV.DLL local es un componente Windows, su versión no equivale a la versión de Epson APD.
+- COMAS confirmó por `Win32_Printer`: cola `EPSON TM-T20II Receipt`, DriverName `EPSON TM-T20II Receipt5`, PortName `ESDPRT001`. Son controladores distintos respecto de la PC local; el puerto Epson por sí solo no demuestra una falla y esto no autoriza reemplazar APD5 por APD6.
+- El manual Epson Advanced Printer Driver Ver.5, M00062200-2EN Rev.B, apartado Paper Saver Setting (pág.93), ubica el recorte superior/inferior en Paper/Quality > Paper Source. Esa pestaña no se ha recibido aún en las capturas de COMAS. Comprobar el valor en los valores predeterminados globales antes de hacer más cambios de papel, escala o controlador. El agente actual no pasa bin/paper source, por lo que no impone ese ajuste.
+- El usuario confirmó luego que ICA también usa EPSON TM-T20II Receipt5 y ESDPRT001 y funciona. El nombre del driver/puerto no basta para explicar COMAS; no atribuir el fallo únicamente a Receipt5 ni recomendar reemplazo por Receipt6 con estos datos.
+
+## Paquete autorizado de captura sin imprimir — 2026-10-21
+
+- El usuario pidió suspender temporalmente la impresión del agente en COMAS para no gastar papel, guardar el PDF exacto recibido y añadir registros. No continuar haciendo ensayos físicos hasta revisar esos archivos.
+- Paquete: artifacts/print-agent-diagnostico-comas-20261021-v1.zip. SHA-256: B5382E7DEA78B8B53E37801C3B2683D27B4D1C116D5BCB906E0E9E33FA10DCC2. Contiene cuatro módulos src, configurar-diagnostico.ps1 y README; no incluye tokens, configuración de estación ni dependencias. Actualiza un servicio ya instalado.
+- El activador, ejecutado por el usuario como administrador en la PC cliente, descubre la ruta real del servicio DNXPrintAgent, respalda src y agent.config.json, conserva los valores existentes, actualiza el código, activa diagnosticMode true, reinicia y exige que /health confirme build 20261021-diagnostics-v1 y modo activo. Si falla después de parar el servicio, lo deja detenido. No cambia la cuenta del servicio.
+- En modo diagnóstico, POST /v1/print guarda bytes originales en diagnostics junto al agente, con un JSON individual y jobs.jsonl. Registra ID, fecha, equipo, usuario Windows, origen, opciones, tamaño y SHA-256, sin token/base64/texto del documento. No consulta ni llama a la impresora, tampoco como respaldo si guardar falla.
+- Responde HTTP 409 con captured true y printed false para que el frontend actual muestre el bloqueo con ruta del PDF y no anuncie éxito de impresión. La consulta /health sigue respondiendo 200. No requiere build del front/back ni SQL. Los PDF se guardan en disco local, no hay descarga automática del navegador ni publicación por HTTP.
+- Once pruebas automatizadas exitosas: bytes/hash, no llamadas de impresión al capturar o fallar, limpieza normal con impresión simulada, autenticación, CORS, salud, recuperación de cola tras error y respuesta 409. La prueba HTTP usó otro proceso/puerto temporal; no se imprimió papel ni se modificó el servicio local de prueba ya instalado. El script de activación se validó por sintaxis, pendiente de ejecutar por el usuario en COMAS.
+- Guía completa: dnx-print-agent/docs/diagnostico-sin-imprimir.md. Para volver a impresión normal se usa el mismo script con -Desactivar, solo después de revisar los archivos.
+
+## Extensión Chrome/Brave independiente COMAS — 2026-10-22
+
+- Paquete: `artifacts/chrome-comas-20261022/SGO-DXN-Capture-Chrome-COMAS-0.2.1.zip`.
+- SHA-256: `5834C34117BDD4A0610491BC5A3B9360215FB2D3DBDCB612CD1CF6925432E1F5`.
+- Se tomó la extensión del build completo COMAS `deploy-DXNCOMAS-192.168.18.47-20261021-001052`; el manifest limita OBS y SGO a los orígenes previstos y SGO COMAS `http://192.168.18.47:8080`. El nombre visible identifica COMAS y la versión es 0.2.1.
+- Instalar: extraer el ZIP y en `chrome://extensions` o `brave://extensions`, activar Modo desarrollador, pulsar **Cargar descomprimida** y seleccionar la carpeta `extension` que contiene `manifest.json`. Recargar las pestañas OBS/SGO. Retirar otra variante si genera botones duplicados.
+- El paquete solo fue generado localmente; no se instaló en estaciones ni se modificó frontend/API/SQL.
+## Build completo DXN_ICA — 2026-10-22
+
+- Paquete: `artifacts/deploy-192.168.1.38-20261022-120020-final.zip`.
+- Frontend: `http://192.168.1.38:8080`; API: `http://192.168.1.38:8081/api/v1`.
+- SHA-256: `02E251DC7D5506CDC9FB70506F48818C64670EF64C2FEDC9E591E9978411FB40`.
+- Incluye frontend, API Windows x64 framework-dependent (.NET 7), extensión, agente de impresión y los scripts SQL informativos `20261020_optimizacion_listados`. El ZIP omite `api/appsettings.json` para conservar la conexión y secretos propios del servidor.
+- El paquete pasó `verify-package.ps1`: URLs y CORS corresponden a ICA, .NET/RID son net7.0/win-x64, no incluye IP de COMAS y la configuración del servidor no se reemplaza. El frontend compiló con una advertencia de bundle grande; la publicación del backend terminó con advertencias de análisis preexistentes.
+- Los scripts SQL no se ejecutaron. Antes de publicar la API, el responsable de SQL debe confirmar/aplicar 01, 02 y 03 en la base DXN_ICA si aún están pendientes; `04_reversion.sql` es solo para una reversión autorizada. No se desplegó nada al servidor.
+## Build completo DXNCOMAS — 2026-10-22
+
+- Paquete: `artifacts/deploy-192.168.18.47-20261022-121755-final.zip`.
+- Frontend: `http://192.168.18.47:8080`; API: `http://192.168.18.47:8081/api/v1`.
+- SHA-256: `AA6F5F7E0F7C9B5DB83EB1ACCF7FBBD72DAACA1ACB462B065EE59577A8B7346F`.
+- Incluye frontend, API Windows x64 framework-dependent (.NET 7), extensión, agente de impresión y los scripts SQL informativos `20261020_optimizacion_listados`. El ZIP omite `api/appsettings.json` para conservar la conexión y secretos propios del servidor.
+- El paquete pasó `verify-package.ps1`: URLs y CORS corresponden a COMAS, .NET/RID son net7.0/win-x64, no incluye IP de ICA y la configuración del servidor no se reemplaza. El frontend compiló con una advertencia de bundle grande; el backend terminó correctamente.
+- Los scripts SQL no se ejecutaron. Antes de publicar la API, el responsable de SQL debe confirmar/aplicar 01, 02 y 03 en DXNCOMAS si aún están pendientes; `04_reversion.sql` es solo para una reversión autorizada. No se desplegó nada al servidor.
+## Frontend solamente para ICA y COMAS — 2026-10-22
+
+- ICA: `artifacts/front-DXN_ICA-192.168.1.38-20261022-145738-final.zip`; API compilada `http://192.168.1.38:8081/api/v1/`; SHA-256 `D242126EC9418855915EE28517792F4F6AFB80DCDD08819A05FE717A96B954E6`.
+- COMAS: `artifacts/front-DXNCOMAS-192.168.18.47-20261022-145738-final.zip`; API compilada `http://192.168.18.47:8081/api/v1/`; SHA-256 `BE910FF6F13D384FD19B70C9D6DE40BF798CB937AA3CDB2D200198377AB54D21`.
+- Ambos paquetes contienen solo el frontend compilado bajo `web/` y un README. No incluyen API ni SQL. Se verificó que cada bundle contiene su propia URL de API y no contiene la IP del otro destino.
+- Para publicarlos, copiar el contenido de `web/` a la raíz del sitio web correspondiente. Los paquetes se generaron localmente; no se copiaron a los servidores.

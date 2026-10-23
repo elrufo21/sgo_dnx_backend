@@ -1,0 +1,825 @@
+{
+  "salesWidths": [
+    {
+      "columns": "932px",
+      "mainScroll": 964,
+      "mainWidth": 964,
+      "pageWidth": 1199,
+      "width": 1199
+    },
+    {
+      "columns": "597px 320px",
+      "mainScroll": 965,
+      "mainWidth": 965,
+      "pageWidth": 1200,
+      "width": 1200
+    },
+    {
+      "columns": "672.172px 323.828px",
+      "mainScroll": 1044,
+      "mainWidth": 1044,
+      "pageWidth": 1279,
+      "width": 1279
+    },
+    {
+      "columns": "672.844px 324.156px",
+      "mainScroll": 1045,
+      "mainWidth": 1045,
+      "pageWidth": 1280,
+      "width": 1280
+    },
+    {
+      "columns": "686.453px 330.547px",
+      "mainScroll": 1065,
+      "mainWidth": 1065,
+      "pageWidth": 1300,
+      "width": 1300
+    },
+    {
+      "columns": "731.328px 351.672px",
+      "mainScroll": 1131,
+      "mainWidth": 1131,
+      "pageWidth": 1366,
+      "width": 1366
+    },
+    {
+      "columns": "738.328px 354.969px",
+      "mainScroll": 1149,
+      "mainWidth": 1149,
+      "pageWidth": 1404,
+      "width": 1404
+    },
+    {
+      "columns": "738.812px 355.188px",
+      "mainScroll": 1150,
+      "mainWidth": 1150,
+      "pageWidth": 1405,
+      "width": 1405
+    },
+    {
+      "columns": "762.609px 366.391px",
+      "mainScroll": 1185,
+      "mainWidth": 1185,
+      "pageWidth": 1440,
+      "width": 1440
+    },
+    {
+      "columns": "827.203px 396.797px",
+      "mainScroll": 1280,
+      "mainWidth": 1280,
+      "pageWidth": 1535,
+      "width": 1535
+    },
+    {
+      "columns": "785px 440px",
+      "mainScroll": 1281,
+      "mainWidth": 1281,
+      "pageWidth": 1536,
+      "width": 1536
+    },
+    {
+      "columns": "473px",
+      "mainScroll": 513,
+      "mainWidth": 513,
+      "pageWidth": 768,
+      "width": 768
+    },
+    {
+      "columns": "355px",
+      "mainScroll": 375,
+      "mainWidth": 375,
+      "pageWidth": 390,
+      "width": 390
+    }
+  ],
+  "desktopModules": [
+    {
+      "grids": [
+        {
+          "cols": "621px 256px",
+          "width": 893
+        }
+      ],
+      "main": 965,
+      "path": "/service-invoices/create",
+      "scroll": 965,
+      "text": "Factura de servicio\n\nProceso 3 · operacion 1001 · servicio\n\nVolver\nFormulario\nForma pago\nC",
+      "width": 1200
+    },
+    {
+      "grids": [],
+      "main": 965,
+      "path": "/service-invoices",
+      "scroll": 965,
+      "text": "Nueva\nFecha Inicio\n01/\n10/\n26\n​\nFecha Fin\n31/\n10/\n26\n​\nBuscar\nID\tCOMPROBANTE\tFECHA\tCONCEPT",
+      "width": 1200
+    },
+    {
+      "grids": [],
+      "main": 965,
+      "path": "/cash_flow_control",
+      "scroll": 965,
+      "text": "Abrir caja\nFecha Inicio\n01/\n10/\n26\n​\nFecha Fin\n31/\n10/\n26\n​\nVER\tFECHA APERTURA\tFECHA CIERR",
+      "width": 1200
+    },
+    {
+      "grids": [],
+      "main": 965,
+      "path": "/cash_flow_control/create",
+      "scroll": 965,
+      "text": "Caja\nProductos\nGuardar\nEncargado\nUSUARIO DE PRUEBA NOMBRE MUY LARGO\nSencillo\nEstado\nACTIVO",
+      "width": 1200
+    },
+    {
+      "grids": [
+        {
+          "cols": "352px 532.984px",
+          "width": 901
+        }
+      ],
+      "main": 965,
+      "path": "/petty-cash-movements",
+      "scroll": 965,
+      "text": "Movimiento de Caja Chica\n\nNo tienes una caja activa.\n\nActualizar\nMovimiento\nSALIDA\nMovimie",
+      "width": 1200
+    },
+    {
+      "grids": [
+        {
+          "cols": "304px 581px",
+          "width": 901
+        },
+        {
+          "cols": "270px",
+          "width": 270
+        }
+      ],
+      "main": 965,
+      "path": "/depositos-centro",
+      "scroll": 965,
+      "text": "Nuevo depósito\nMovimiento\n(SELECCIONE)\nMovimiento\nEntidad bancaria\n(NO APLICA)\nEntidad ban",
+      "width": 1200
+    },
+    {
+      "grids": [
+        {
+          "cols": "118.156px 118.156px 118.156px 118.156px 118.156px 118.156px",
+          "width": 829
+        }
+      ],
+      "main": 965,
+      "path": "/shopping/create",
+      "scroll": 965,
+      "text": "Nueva Compra\nProveedor\nVer lista\nRegistrar\n​\nRUC\nRUC\nFecha de emision\nFecha de emision\nDoc",
+      "width": 1200
+    },
+    {
+      "grids": [
+        {
+          "cols": "141.797px 141.797px 141.797px 141.797px 141.797px",
+          "width": 805
+        }
+      ],
+      "main": 965,
+      "path": "/purchases/create",
+      "scroll": 965,
+      "text": "Crear Proveedor / Cliente\nNuevo\nGuardar\nNombre / Razon Social\nNombre / Razon Social\nRUC\nRU",
+      "width": 1200
+    },
+    {
+      "grids": [
+        {
+          "cols": "118.156px 118.156px 118.156px 118.156px 118.156px 118.156px",
+          "width": 829
+        }
+      ],
+      "main": 965,
+      "path": "/send_note/create",
+      "scroll": 965,
+      "text": "Nueva nota de pedido\nConcepto\n​\nT. Doc\n​\nForma de pago\nSeleccionar...\nForma de pago\nEntida",
+      "width": 1200
+    },
+    {
+      "grids": [
+        {
+          "cols": "595.781px 317.219px",
+          "width": 933
+        }
+      ],
+      "main": 965,
+      "path": "/pos",
+      "scroll": 965,
+      "text": "Cards\nTabla\n1 ítems\n|\n25 resultados\nSin imagen\n\nTEST1\n\nPRODUCTO DE PRUEBA DESCRIPCIÓN LARG",
+      "width": 1200
+    },
+    {
+      "grids": [
+        {
+          "cols": "495.672px 421.312px",
+          "width": 933
+        }
+      ],
+      "main": 965,
+      "path": "/pos/payment",
+      "scroll": 965,
+      "text": "Confirmar cobro\n\nPago y comprobante\nVolver al POS\nItems a cobrar\n1\nPV: 5.00\nPV mensual: 0.",
+      "width": 1200
+    },
+    {
+      "grids": [
+        {
+          "cols": "462px 385px",
+          "width": 859
+        },
+        {
+          "cols": "36px 205px 205px",
+          "width": 462
+        },
+        {
+          "cols": "385px",
+          "width": 385
+        }
+      ],
+      "main": 965,
+      "path": "/accounting/pdt-company",
+      "scroll": 965,
+      "text": "F-Inicio:\nF-Fin:\nBuscar\nActualizar\nPAGO SUNAT S/\n0.00\nIMP RENTA S/\n0.00\nExcel\nVentas\nCompr",
+      "width": 1200
+    },
+    {
+      "grids": [],
+      "main": 965,
+      "path": "/accounting/sire-ventas",
+      "scroll": 965,
+      "text": "SIRE ventas\n\nRegistros exportados de ventas por periodo tributario.\n\nRegistros\n\n0\n\nBI S/\n\n",
+      "width": 1200
+    },
+    {
+      "grids": [],
+      "main": 965,
+      "path": "/reports/products",
+      "scroll": 965,
+      "text": "Año\nAño\nProducto\nProducto\nCOLUMNAS\nLÍNEAS\nSeleccione un año y un producto para consultar s",
+      "width": 1200
+    },
+    {
+      "grids": [
+        {
+          "cols": "297.656px 297.672px 297.656px",
+          "width": 925
+        }
+      ],
+      "main": 965,
+      "path": "/maintenance",
+      "scroll": 965,
+      "text": "Productos\n\nAdministra el catálogo de productos.\n\nCategorías\n\nGestiona sublineas y códigos ",
+      "width": 1200
+    },
+    {
+      "grids": [
+        {
+          "cols": "297.656px 297.672px 297.656px",
+          "width": 925
+        }
+      ],
+      "main": 965,
+      "path": "/configuration",
+      "scroll": 965,
+      "text": "Configuración\n\nAjusta parametros clave de operacion y facturacion electronica.\n\nFacturació",
+      "width": 1200
+    }
+  ],
+  "compactFinal": [
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/service-invoices/create",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/service-invoices",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/cash_flow_control/create",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/petty-cash-movements",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/depositos-centro",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/shopping/create",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/purchases/create",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/send_note/create",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/pos",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/pos/payment",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/accounting/pdt-company",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/accounting/sire-ventas",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/reports/products",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/maintenance",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 964,
+      "page": 1199,
+      "path": "/configuration",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/service-invoices/create",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/service-invoices",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/cash_flow_control/create",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/petty-cash-movements",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/depositos-centro",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/shopping/create",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/purchases/create",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/send_note/create",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/pos",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/pos/payment",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/accounting/pdt-company",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/accounting/sire-ventas",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/reports/products",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/maintenance",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/configuration",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/service-invoices/create",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/service-invoices",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/cash_flow_control/create",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/petty-cash-movements",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/depositos-centro",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/shopping/create",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/purchases/create",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/send_note/create",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/pos",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/pos/payment",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/accounting/pdt-company",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/accounting/sire-ventas",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/reports/products",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/maintenance",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/configuration",
+      "scroll": 375,
+      "width": 390
+    }
+  ],
+  "populatedReports": [
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/accounting/sire-ventas",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/accounting/sire-ventas",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 958,
+      "page": 1199,
+      "path": "/accounting/sire-ventas",
+      "scroll": 958,
+      "width": 1199
+    },
+    {
+      "main": 965,
+      "page": 1200,
+      "path": "/accounting/sire-ventas",
+      "scroll": 965,
+      "width": 1200
+    },
+    {
+      "main": 1131,
+      "page": 1366,
+      "path": "/accounting/sire-ventas",
+      "scroll": 1131,
+      "width": 1366
+    },
+    {
+      "main": 1287,
+      "page": 1536,
+      "path": "/accounting/sire-ventas",
+      "scroll": 1287,
+      "width": 1536
+    },
+    {
+      "main": 375,
+      "page": 390,
+      "path": "/reports/products",
+      "scroll": 375,
+      "width": 390
+    },
+    {
+      "main": 513,
+      "page": 768,
+      "path": "/reports/products",
+      "scroll": 513,
+      "width": 768
+    },
+    {
+      "main": 960,
+      "page": 1199,
+      "path": "/reports/products",
+      "scroll": 960,
+      "width": 1199
+    },
+    {
+      "main": 965,
+      "page": 1200,
+      "path": "/reports/products",
+      "scroll": 965,
+      "width": 1200
+    },
+    {
+      "main": 1131,
+      "page": 1366,
+      "path": "/reports/products",
+      "scroll": 1131,
+      "width": 1366
+    },
+    {
+      "main": 1286,
+      "page": 1536,
+      "path": "/reports/products",
+      "scroll": 1286,
+      "width": 1536
+    }
+  ],
+  "paymentWidths": [
+    {
+      "columns": null,
+      "main": 964,
+      "panels": [],
+      "path": "/pos/payment",
+      "scroll": 964,
+      "width": 1199
+    },
+    {
+      "columns": "495.672px 421.312px",
+      "main": 965,
+      "panels": [
+        {
+          "left": 236,
+          "top": 388,
+          "width": 496
+        },
+        {
+          "left": 236,
+          "top": 146,
+          "width": 496
+        },
+        {
+          "left": 748,
+          "top": 146,
+          "width": 421
+        }
+      ],
+      "path": "/pos/payment",
+      "scroll": 965,
+      "width": 1200
+    },
+    {
+      "columns": "594.312px 505.156px",
+      "main": 1155,
+      "panels": [
+        {
+          "left": 254,
+          "top": 398,
+          "width": 594
+        },
+        {
+          "left": 254,
+          "top": 156,
+          "width": 594
+        },
+        {
+          "left": 864,
+          "top": 156,
+          "width": 505
+        }
+      ],
+      "path": "/pos/payment",
+      "scroll": 1155,
+      "width": 1404
+    },
+    {
+      "columns": "591.5px 502.797px",
+      "main": 1150,
+      "panels": [
+        {
+          "left": 260,
+          "top": 398,
+          "width": 592
+        },
+        {
+          "left": 260,
+          "top": 156,
+          "width": 592
+        },
+        {
+          "left": 867,
+          "top": 156,
+          "width": 503
+        }
+      ],
+      "path": "/pos/payment",
+      "scroll": 1150,
+      "width": 1405
+    },
+    {
+      "columns": "661.609px 562.391px",
+      "main": 1280,
+      "panels": [
+        {
+          "left": 260,
+          "top": 398,
+          "width": 662
+        },
+        {
+          "left": 260,
+          "top": 156,
+          "width": 662
+        },
+        {
+          "left": 938,
+          "top": 156,
+          "width": 562
+        }
+      ],
+      "path": "/pos/payment",
+      "scroll": 1280,
+      "width": 1535
+    },
+    {
+      "columns": "459.203px 388.547px 353.25px",
+      "main": 1281,
+      "panels": [
+        {
+          "left": 260,
+          "top": 156,
+          "width": 459
+        },
+        {
+          "left": 739,
+          "top": 156,
+          "width": 389
+        },
+        {
+          "left": 1148,
+          "top": 156,
+          "width": 353
+        }
+      ],
+      "path": "/pos/payment",
+      "scroll": 1281,
+      "width": 1536
+    }
+  ]
+}

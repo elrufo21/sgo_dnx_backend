@@ -31,6 +31,8 @@ El backend filtra los indicadores por compañía, área, tipo, descripción y ra
 
 ## Uso
 
+`ListaProductosTabla` es un flag raíz de `VENTAS` por compañía que elige la presentación de productos en captura HTML: 0 mantiene el autocomplete y 1 activa Productos/Detalle con cantidades sincronizadas. Se inicializa en 0 mediante [20261022_configurar_lista_productos_tabla.sql](../scripts/sql/20261022_configurar_lista_productos_tabla.sql), conservando los demás indicadores. Ver [comportamiento e instalación](lista-productos-tabla.md).
+
 Ejecutar [20260918_crear_tabla_indicador.sql](../scripts/sql/20260918_crear_tabla_indicador.sql) en la instancia que contiene `DXN_ICA`. El script solo crea la tabla si aún no existe.
 
 Para una tabla ya creada, ejecutar después [20260918_configurar_flags_indicador.sql](../scripts/sql/20260918_configurar_flags_indicador.sql). El script agrega el alcance por compañía y crea los flags `MULTIPLES_CAJAS`, `CAPTURA_HTML` y `BOLETA_POR_LOTE` como indicadores raíz, desactivados por defecto. Las categorías `CONFIGURACION_CAJA` y `CONFIGURACION_VENTAS` se conservan donde otros indicadores jerárquicos las requieren.

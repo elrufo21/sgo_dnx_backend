@@ -1,0 +1,4 @@
+agent.config.json
+node_modules/
+dnx-print-agent-service.exe
+dnx-print-agent-service.xml

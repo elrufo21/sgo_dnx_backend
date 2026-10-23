@@ -1,0 +1,595 @@
+
+> sgo@0.0.0 typecheck
+> tsc -b
+
+src/components/CashFlowForm.tsx(27,3): error TS7031: Binding element 'name' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(28,3): error TS7031: Binding element 'label' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(29,3): error TS7031: Binding element 'labelClassName' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(30,3): error TS7031: Binding element 'inputClassName' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(31,3): error TS7031: Binding element 'value' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(32,3): error TS7031: Binding element 'onChange' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(33,3): error TS7031: Binding element 'readOnly' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(34,3): error TS7031: Binding element 'disabled' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(60,3): error TS7031: Binding element 'name' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(61,3): error TS7031: Binding element 'label' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(62,3): error TS7031: Binding element 'options' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(63,3): error TS7031: Binding element 'labelClassName' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(64,3): error TS7031: Binding element 'selectClassName' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(65,3): error TS7031: Binding element 'value' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(66,3): error TS7031: Binding element 'onChange' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(67,3): error TS7031: Binding element 'disabled' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(86,21): error TS7006: Parameter 'opt' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(295,17): error TS2345: Argument of type '(prev: { caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }) => { ...; }' is not assignable to parameter of type 'SetStateAction<{ caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }>'.
+  Type '(prev: { caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }) => { ...; }' is not assignable to type '(prevState: { caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }) => { ...; }'.
+    Call signature return types '{ ingresos: CashFlowMovementWeb[]; sencillo: number; fechaApertura: string; fechaCierre: string; estado: string; observaciones: string; conteoMonedas: { cantidad: string | number; denominacion: number; }[]; ventaTotal: { ...; }; gastos: CashFlowMovementWeb[]; sistemaObs: number; caja: string; }' and '{ caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }' are incompatible.
+      The types of 'conteoMonedas' are incompatible between these types.
+        Type '{ cantidad: string | number; denominacion: number; }[]' is not assignable to type '{ cantidad: string; denominacion: number; }[]'.
+          Type '{ cantidad: string | number; denominacion: number; }' is not assignable to type '{ cantidad: string; denominacion: number; }'.
+            Types of property 'cantidad' are incompatible.
+              Type 'string | number' is not assignable to type 'string'.
+                Type 'number' is not assignable to type 'string'.
+src/components/CashFlowForm.tsx(403,33): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(403,40): error TS7006: Parameter 'valor' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(406,43): error TS2322: Type 'string | number' is not assignable to type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/CashFlowForm.tsx(413,17): error TS2345: Argument of type '(prev: { caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }) => { ...; }' is not assignable to parameter of type 'SetStateAction<{ caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }>'.
+  Type '(prev: { caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }) => { ...; }' is not assignable to type '(prevState: { caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }) => { ...; }'.
+    Call signature return types '{ ingresos: any[]; caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }' and '{ caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }' are incompatible.
+      The types of 'ingresos' are incompatible between these types.
+        Type 'any[]' is not assignable to type 'never[]'.
+          Type 'any' is not assignable to type 'never'.
+src/components/CashFlowForm.tsx(416,14): error TS2339: Property 'id' does not exist on type 'never'.
+src/components/CashFlowForm.tsx(416,28): error TS2698: Spread types may only be created from object types.
+src/components/CashFlowForm.tsx(424,17): error TS2345: Argument of type '(prev: { caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }) => { ...; }' is not assignable to parameter of type 'SetStateAction<{ caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }>'.
+  Type '(prev: { caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }) => { ...; }' is not assignable to type '(prevState: { caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }) => { ...; }'.
+    Call signature return types '{ sencillo: number | ""; ingresos: any[]; caja: string; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }' and '{ caja: string; sencillo: number | ""; estado: string; fechaApertura: string; fechaCierre: string; observaciones: string; conteoMonedas: { cantidad: string; denominacion: number; }[]; ingresos: never[]; gastos: never[]; sistemaObs: number; ventaTotal: { ...; }; }' are incompatible.
+      The types of 'ingresos' are incompatible between these types.
+        Type 'any[]' is not assignable to type 'never[]'.
+          Type 'any' is not assignable to type 'never'.
+src/components/CashFlowForm.tsx(428,14): error TS2339: Property 'descripcion' does not exist on type 'never'.
+src/components/CashFlowForm.tsx(429,15): error TS2698: Spread types may only be created from object types.
+src/components/CashFlowForm.tsx(463,38): error TS2339: Property 'importe' does not exist on type 'never'.
+src/components/CashFlowForm.tsx(470,10): error TS2339: Property 'descripcion' does not exist on type 'never'.
+src/components/CashFlowForm.tsx(471,11): error TS2698: Spread types may only be created from object types.
+src/components/CashFlowForm.tsx(472,14): error TS2339: Property 'descripcion' does not exist on type 'never'.
+src/components/CashFlowForm.tsx(473,13): error TS2698: Spread types may only be created from object types.
+src/components/CashFlowForm.tsx(563,9): error TS2322: Type '{ cantidad: string; denominacion: number; }[]' is not assignable to type 'CashCount[]'.
+  Type '{ cantidad: string; denominacion: number; }' is not assignable to type 'CashCount'.
+    Types of property 'cantidad' are incompatible.
+      Type 'string' is not assignable to type 'number | ""'.
+src/components/CashFlowForm.tsx(851,13): error TS2339: Property 'querySelector' does not exist on type 'never'.
+src/components/CashFlowForm.tsx(861,61): error TS2339: Property 'descripcion' does not exist on type 'never'.
+src/components/CashFlowForm.tsx(1057,21): error TS2322: Type '{ cantidad: string; denominacion: number; }[]' is not assignable to type 'CashCount[]'.
+  Type '{ cantidad: string; denominacion: number; }' is not assignable to type 'CashCount'.
+    Types of property 'cantidad' are incompatible.
+      Type 'string' is not assignable to type 'number | ""'.
+src/components/CashFlowForm.tsx(1079,26): error TS2741: Property 'disabled' is missing in type '{ name: string; label: string; value: string; onChange: () => void; readOnly: true; inputClassName: string; labelClassName: string; }' but required in type '{ [x: string]: any; name: any; label: any; labelClassName: any; inputClassName: any; value: any; onChange: any; readOnly: any; disabled: any; }'.
+src/components/CashFlowForm.tsx(1097,38): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(1110,24): error TS2741: Property 'disabled' is missing in type '{ name: string; label: string; type: string; value: string | number; onChange: (e: any) => void; readOnly: boolean; autoFocus: boolean; inputClassName: string; labelClassName: string; step: string; }' but required in type '{ [x: string]: any; name: any; label: any; labelClassName: any; inputClassName: any; value: any; onChange: any; readOnly: any; disabled: any; }'.
+src/components/CashFlowForm.tsx(1115,36): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(1128,36): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/components/CashFlowForm.tsx(1134,35): error TS2339: Property 'querySelector' does not exist on type 'never'.
+src/components/CashFlowForm.tsx(1159,24): error TS2741: Property 'disabled' is missing in type '{ name: string; label: string; value: string; onChange: () => void; readOnly: true; inputClassName: string; labelClassName: string; }' but required in type '{ [x: string]: any; name: any; label: any; labelClassName: any; inputClassName: any; value: any; onChange: any; readOnly: any; disabled: any; }'.
+src/components/CashFlowForm.tsx(1170,24): error TS2741: Property 'disabled' is missing in type '{ name: string; label: string; value: string; onChange: () => void; readOnly: true; inputClassName: string; labelClassName: string; }' but required in type '{ [x: string]: any; name: any; label: any; labelClassName: any; inputClassName: any; value: any; onChange: any; readOnly: any; disabled: any; }'.
+src/components/EmployeeFormBase.tsx(131,19): error TS2339: Property 'map' does not exist on type '{}'.
+src/components/EmployeeFormBase.tsx(131,24): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/components/EmployeeFormBase.tsx(140,48): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/components/EmployeeFormBase.tsx(298,37): error TS2339: Property 'nombres' does not exist on type 'object'.
+src/components/EmployeeFormBase.tsx(299,45): error TS2339: Property 'apellidoPaterno' does not exist on type 'object'.
+src/components/EmployeeFormBase.tsx(300,45): error TS2339: Property 'apellidoMaterno' does not exist on type 'object'.
+src/components/EmployeeFormBase.tsx(303,16): error TS2339: Property 'dni' does not exist on type 'object'.
+src/components/EmployeeFormBase.tsx(304,16): error TS2339: Property 'nombres' does not exist on type 'object'.
+src/components/EmployeeFormBase.tsx(305,16): error TS2339: Property 'apellidoPaterno' does not exist on type 'object'.
+src/components/EmployeeFormBase.tsx(306,16): error TS2339: Property 'apellidoMaterno' does not exist on type 'object'.
+src/components/EmployeeFormBase.tsx(327,41): error TS2322: Type '(e?: BaseSyntheticEvent<object, any, any> | undefined) => Promise<void>' is not assignable to type 'SubmitHandler<Personal>'.
+  Types of parameters 'e' and 'data' are incompatible.
+    Type 'Personal' is missing the following properties from type 'BaseSyntheticEvent<object, any, any>': nativeEvent, currentTarget, target, bubbles, and 11 more.
+src/components/EmployeeFormBase.tsx(530,35): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/components/EmployeeFormBase.tsx(532,53): error TS2339: Property 'trim' does not exist on type 'string | number | boolean'.
+  Property 'trim' does not exist on type 'number'.
+src/components/forms/HookFormInput.tsx(192,58): error TS2339: Property 'value' does not exist on type 'EventTarget & HTMLDivElement'.
+src/components/forms/table/AutoCompleteTable.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/forms/table/AutoCompleteTable.tsx(10,34): error TS7031: Binding element 'getValue' implicitly has an 'any' type.
+src/components/forms/table/AutoCompleteTable.tsx(10,44): error TS7031: Binding element 'row' implicitly has an 'any' type.
+src/components/forms/table/AutoCompleteTable.tsx(10,49): error TS7031: Binding element 'column' implicitly has an 'any' type.
+src/components/forms/table/AutoCompleteTable.tsx(10,57): error TS7031: Binding element 'table' implicitly has an 'any' type.
+src/components/forms/table/AutoCompleteTable.tsx(51,22): error TS2339: Property 'cantidad' does not exist on type '{}'.
+src/components/forms/table/AutoCompleteTable.tsx(51,58): error TS2339: Property 'cantidad' does not exist on type '{}'.
+src/components/forms/table/EditableCheckboxCell.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/forms/table/EditableCheckboxCell.tsx(3,33): error TS7031: Binding element 'getValue' implicitly has an 'any' type.
+src/components/forms/table/EditableCheckboxCell.tsx(3,43): error TS7031: Binding element 'row' implicitly has an 'any' type.
+src/components/forms/table/EditableCheckboxCell.tsx(3,48): error TS7031: Binding element 'column' implicitly has an 'any' type.
+src/components/forms/table/EditableCheckboxCell.tsx(3,56): error TS7031: Binding element 'table' implicitly has an 'any' type.
+src/components/forms/table/EditableCheckboxCell.tsx(6,21): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/components/forms/table/EditableNumberCell.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/forms/table/EditableNumberCell.tsx(3,31): error TS7031: Binding element 'getValue' implicitly has an 'any' type.
+src/components/forms/table/EditableNumberCell.tsx(3,41): error TS7031: Binding element 'row' implicitly has an 'any' type.
+src/components/forms/table/EditableNumberCell.tsx(3,46): error TS7031: Binding element 'column' implicitly has an 'any' type.
+src/components/forms/table/EditableNumberCell.tsx(3,54): error TS7031: Binding element 'table' implicitly has an 'any' type.
+src/components/forms/table/EditableNumberCell.tsx(15,24): error TS7006: Parameter 'next' implicitly has an 'any' type.
+src/components/forms/table/EditableNumberCell.tsx(20,25): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/components/forms/table/EditableSelectCell.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/components/forms/table/EditableSelectCell.tsx(3,31): error TS7031: Binding element 'getValue' implicitly has an 'any' type.
+src/components/forms/table/EditableSelectCell.tsx(3,41): error TS7031: Binding element 'row' implicitly has an 'any' type.
+src/components/forms/table/EditableSelectCell.tsx(3,46): error TS7031: Binding element 'column' implicitly has an 'any' type.
+src/components/forms/table/EditableSelectCell.tsx(3,54): error TS7031: Binding element 'table' implicitly has an 'any' type.
+src/components/forms/table/EditableSelectCell.tsx(7,21): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/components/forms/table/EditableSelectCell.tsx(17,21): error TS7006: Parameter 'opt' implicitly has an 'any' type.
+src/components/forms/table/EditableTextCell.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/forms/table/EditableTextCell.tsx(4,3): error TS7031: Binding element 'getValue' implicitly has an 'any' type.
+src/components/forms/table/EditableTextCell.tsx(5,3): error TS7031: Binding element 'row' implicitly has an 'any' type.
+src/components/forms/table/EditableTextCell.tsx(6,3): error TS7031: Binding element 'column' implicitly has an 'any' type.
+src/components/forms/table/EditableTextCell.tsx(7,3): error TS7031: Binding element 'table' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(13,12): error TS7031: Binding element 'userColumns' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(14,9): error TS7031: Binding element 'initialData' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(15,3): error TS7031: Binding element 'onDataChange' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(34,6): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(34,11): error TS7006: Parameter '_columnId' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(34,22): error TS7006: Parameter 'filterValue' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(47,32): error TS7006: Parameter 'acc' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(47,37): error TS7006: Parameter 'col' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(54,6): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(55,26): error TS7006: Parameter 'col' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(64,6): error TS7006: Parameter 'rows' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(87,6): error TS7006: Parameter 'rowIndex' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(87,16): error TS7006: Parameter 'columnId' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(87,26): error TS7006: Parameter 'value' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(89,16): error TS7006: Parameter 'old' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(90,33): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(90,38): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(108,6): error TS7006: Parameter 'rowIndex' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(108,16): error TS7006: Parameter 'updater' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(110,16): error TS7006: Parameter 'old' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(111,33): error TS7006: Parameter 'row' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(111,38): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(128,6): error TS7006: Parameter 'rowIndex' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(129,36): error TS7006: Parameter '_' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(129,39): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(143,18): error TS7031: Binding element 'row' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(177,27): error TS7006: Parameter 'column' implicitly has an 'any' type.
+src/components/forms/table/FormTable.tsx(238,33): error TS2538: Type 'false' cannot be used as an index type.
+src/components/inputs/NavigableNumberInput.tsx(38,36): error TS2322: Type 'HTMLInputElement | null' is not assignable to type 'HTMLInputElement'.
+  Type 'null' is not assignable to type 'HTMLInputElement'.
+src/components/maintenance/HolidayForm.tsx(135,41): error TS2322: Type '(e?: BaseSyntheticEvent<object, any, any> | undefined) => Promise<void>' is not assignable to type 'SubmitHandler<Holiday>'.
+  Types of parameters 'e' and 'data' are incompatible.
+    Type 'Holiday' is missing the following properties from type 'BaseSyntheticEvent<object, any, any>': nativeEvent, currentTarget, target, bubbles, and 11 more.
+src/components/maintenance/ProviderForm.tsx(152,7): error TS2353: Object literal may only specify known properties, and 'numeroDocumento' does not exist in type 'ProviderFormValues | { id?: number | undefined; razon?: string | undefined; ruc?: string | undefined; contacto?: string | undefined; celular?: string | undefined; ... 7 more ...; numeroDocumentoConsulta?: string | undefined; } | ResetAction<...>'.
+src/components/maintenance/ProviderForm.tsx(188,13): error TS2339: Property 'numeroDocumento' does not exist on type 'ProviderFormValues'.
+src/components/ProductFormBase.tsx(491,11): error TS2322: Type '(event: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => void' is not assignable to type 'FormEventHandler<HTMLDivElement>'.
+  Types of parameters 'event' and 'event' are incompatible.
+    Type 'FormEvent<HTMLDivElement>' is not assignable to type 'FormEvent<HTMLInputElement | HTMLTextAreaElement>'.
+      Type 'HTMLDivElement' is not assignable to type 'HTMLInputElement | HTMLTextAreaElement'.
+        Type 'HTMLDivElement' is missing the following properties from type 'HTMLInputElement': accept, alt, autocomplete, capture, and 54 more.
+src/components/ProductFormBase.tsx(492,11): error TS2322: Type '(event: React.CompositionEvent<HTMLInputElement | HTMLTextAreaElement>) => void' is not assignable to type 'CompositionEventHandler<HTMLDivElement>'.
+  Types of parameters 'event' and 'event' are incompatible.
+    Type 'CompositionEvent<HTMLDivElement>' is not assignable to type 'CompositionEvent<HTMLInputElement | HTMLTextAreaElement>'.
+      Type 'HTMLDivElement' is not assignable to type 'HTMLInputElement | HTMLTextAreaElement'.
+        Type 'HTMLDivElement' is missing the following properties from type 'HTMLInputElement': accept, alt, autocomplete, capture, and 54 more.
+src/components/ProductFormBase.tsx(519,11): error TS2322: Type '(event: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => void' is not assignable to type 'FormEventHandler<HTMLDivElement>'.
+  Types of parameters 'event' and 'event' are incompatible.
+    Type 'FormEvent<HTMLDivElement>' is not assignable to type 'FormEvent<HTMLInputElement | HTMLTextAreaElement>'.
+      Type 'HTMLDivElement' is not assignable to type 'HTMLInputElement | HTMLTextAreaElement'.
+        Type 'HTMLDivElement' is missing the following properties from type 'HTMLInputElement': accept, alt, autocomplete, capture, and 54 more.
+src/components/ProductFormBase.tsx(520,11): error TS2322: Type '(event: React.CompositionEvent<HTMLInputElement | HTMLTextAreaElement>) => void' is not assignable to type 'CompositionEventHandler<HTMLDivElement>'.
+  Types of parameters 'event' and 'event' are incompatible.
+    Type 'CompositionEvent<HTMLDivElement>' is not assignable to type 'CompositionEvent<HTMLInputElement | HTMLTextAreaElement>'.
+      Type 'HTMLDivElement' is not assignable to type 'HTMLInputElement | HTMLTextAreaElement'.
+        Type 'HTMLDivElement' is missing the following properties from type 'HTMLInputElement': accept, alt, autocomplete, capture, and 54 more.
+src/components/ProductFormBase.tsx(555,11): error TS2322: Type '(event: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => void' is not assignable to type 'FormEventHandler<HTMLDivElement>'.
+  Types of parameters 'event' and 'event' are incompatible.
+    Type 'FormEvent<HTMLDivElement>' is not assignable to type 'FormEvent<HTMLInputElement | HTMLTextAreaElement>'.
+      Type 'HTMLDivElement' is not assignable to type 'HTMLInputElement | HTMLTextAreaElement'.
+        Type 'HTMLDivElement' is missing the following properties from type 'HTMLInputElement': accept, alt, autocomplete, capture, and 54 more.
+src/components/ProductFormBase.tsx(556,11): error TS2322: Type '(event: React.CompositionEvent<HTMLInputElement | HTMLTextAreaElement>) => void' is not assignable to type 'CompositionEventHandler<HTMLDivElement>'.
+  Types of parameters 'event' and 'event' are incompatible.
+    Type 'CompositionEvent<HTMLDivElement>' is not assignable to type 'CompositionEvent<HTMLInputElement | HTMLTextAreaElement>'.
+      Type 'HTMLDivElement' is not assignable to type 'HTMLInputElement | HTMLTextAreaElement'.
+        Type 'HTMLDivElement' is missing the following properties from type 'HTMLInputElement': accept, alt, autocomplete, capture, and 54 more.
+src/components/ProductFormBase.tsx(706,3): error TS6133: 'onArchive' is declared but its value is never read.
+src/components/ProductFormBase.tsx(793,47): error TS2345: Argument of type '() => { categoria: string; idSubLinea: number | null; codigo: string; nombre: string; unidadMedida: string; valorCritico: number; preCosto: number | null; preVenta: number | null; preVentaB: number; ... 16 more ...; unidadImagenAlternaFile: null; }' is not assignable to parameter of type '() => ProductFormValues'.
+  Type '{ categoria: string; idSubLinea: number | null; codigo: string; nombre: string; unidadMedida: string; valorCritico: number; preCosto: number | null; preVenta: number | null; preVentaB: number; ... 16 more ...; unidadImagenAlternaFile: null; }' is not assignable to type 'ProductFormValues'.
+    Type '{ categoria: string; idSubLinea: number | null; codigo: string; nombre: string; unidadMedida: string; valorCritico: number; preCosto: number | null; preVenta: number | null; preVentaB: number; ... 16 more ...; unidadImagenAlternaFile: null; }' is not assignable to type 'Omit<Product, "id">'.
+      Types of property 'cantidad' are incompatible.
+        Type 'number | null' is not assignable to type 'number'.
+          Type 'null' is not assignable to type 'number'.
+src/components/ProductFormBase.tsx(902,5): error TS6133: 'handleSubmit' is declared but its value is never read.
+src/components/ProductFormBase.tsx(910,32): error TS6133: 'errors' is declared but its value is never read.
+src/components/ProductFormBase.tsx(1014,9): error TS6133: 'unidadMedidaOptions' is declared but its value is never read.
+src/components/ProductFormBase.tsx(1641,67): error TS2345: Argument of type 'string' is not assignable to parameter of type '"bien" | "servicio" | "S" | "N"'.
+src/components/ProductFormBase.tsx(1897,29): error TS2365: Operator '>' cannot be applied to types 'string | number | boolean | string[] | File | ProductUnitOption | ProductUnitOption[]' and 'number'.
+src/components/ProductFormBase.tsx(1931,29): error TS2365: Operator '>=' cannot be applied to types 'string | number | boolean | string[] | File | ProductUnitOption | ProductUnitOption[]' and 'number'.
+src/components/ProductFormBase.tsx(1948,29): error TS2365: Operator '>=' cannot be applied to types 'string | number | boolean | string[] | File | ProductUnitOption | ProductUnitOption[]' and 'number'.
+src/components/PurchaseFormBase.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/PurchaseFormBase.tsx(325,21): error TS2322: Type 'AccessorKeyColumnDef<CuentaBancaria, string>[]' is not assignable to type 'ColumnDef<CuentaBancaria, unknown>[]'.
+  Type 'AccessorKeyColumnDef<CuentaBancaria, string>' is not assignable to type 'ColumnDef<CuentaBancaria, unknown>'.
+    Type 'AccessorKeyColumnDefBase<CuentaBancaria, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'ColumnDef<CuentaBancaria, unknown>'.
+      Type 'AccessorKeyColumnDefBase<CuentaBancaria, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<CuentaBancaria, unknown> & Partial<IdIdentifier<CuentaBancaria, unknown>>'.
+        Type 'AccessorKeyColumnDefBase<CuentaBancaria, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<CuentaBancaria, unknown>'.
+          Types of property 'footer' are incompatible.
+            Type 'ColumnDefTemplate<HeaderContext<CuentaBancaria, string>> | undefined' is not assignable to type 'ColumnDefTemplate<HeaderContext<CuentaBancaria, unknown>> | undefined'.
+              Type '(props: HeaderContext<CuentaBancaria, string>) => any' is not assignable to type 'ColumnDefTemplate<HeaderContext<CuentaBancaria, unknown>> | undefined'.
+                Type '(props: HeaderContext<CuentaBancaria, string>) => any' is not assignable to type '(props: HeaderContext<CuentaBancaria, unknown>) => any'.
+                  Types of parameters 'props' and 'props' are incompatible.
+                    Type 'HeaderContext<CuentaBancaria, unknown>' is not assignable to type 'HeaderContext<CuentaBancaria, string>'.
+                      The types of 'column.accessorFn' are incompatible between these types.
+                        Type 'AccessorFn<CuentaBancaria, unknown> | undefined' is not assignable to type 'AccessorFn<CuentaBancaria, string> | undefined'.
+                          Type 'AccessorFn<CuentaBancaria, unknown>' is not assignable to type 'AccessorFn<CuentaBancaria, string>'.
+                            Type 'unknown' is not assignable to type 'string'.
+src/components/SendNoteFormBase.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/components/SendNoteFormBase.tsx(159,10): error TS6133: 'movilidad' is declared but its value is never read.
+src/components/SendNoteFormBase.tsx(303,9): error TS6133: 'productCodeOptions' is declared but its value is never read.
+src/components/SendNoteFormBase.tsx(674,9): error TS6133: 'fechaEmitidoLabel' is declared but its value is never read.
+src/components/SendNoteFormBase.tsx(680,41): error TS2322: Type '(e?: BaseSyntheticEvent<object, any, any> | undefined) => Promise<void>' is not assignable to type 'SubmitHandler<SendNoteFormValues>'.
+  Types of parameters 'e' and 'data' are incompatible.
+    Type 'SendNoteFormValues' is missing the following properties from type 'BaseSyntheticEvent<object, any, any>': nativeEvent, currentTarget, target, bubbles, and 11 more.
+src/components/SendNoteFormBase.tsx(879,25): error TS2322: Type '{ tableData: SendNoteItem[]; descuento: number; adicional: number; efectivo: number; deposito: number; onChangeMovilidad: Dispatch<SetStateAction<number>>; onChangeDescuento: Dispatch<...>; onChangeAdicional: Dispatch<...>; onChangeEfectivo: Dispatch<...>; onChangeDeposito: Dispatch<...>; }' is not assignable to type 'IntrinsicAttributes & SendNoteTotalsPanelProps'.
+  Property 'onChangeMovilidad' does not exist on type 'IntrinsicAttributes & SendNoteTotalsPanelProps'.
+src/components/ShoppingFormBase.tsx(63,7): error TS6133: 'monedaOptions' is declared but its value is never read.
+src/components/ShoppingFormBase.tsx(103,7): error TS2322: Type 'string | number' is not assignable to type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/components/ShoppingFormBase.tsx(110,7): error TS2322: Type 'ShoppingItem[] | { productId: null; codigo: string; nombre: string; unidadMedida: string; stock: number; preCosto: number; preVenta: number; cantidad: null; descuento: number; importe: number; }[]' is not assignable to type 'ShoppingItem[] | undefined'.
+  Type '{ productId: null; codigo: string; nombre: string; unidadMedida: string; stock: number; preCosto: number; preVenta: number; cantidad: null; descuento: number; importe: number; }[]' is not assignable to type 'ShoppingItem[]'.
+    Type '{ productId: null; codigo: string; nombre: string; unidadMedida: string; stock: number; preCosto: number; preVenta: number; cantidad: null; descuento: number; importe: number; }' is not assignable to type 'ShoppingItem'.
+      Types of property 'cantidad' are incompatible.
+        Type 'null' is not assignable to type 'number'.
+src/components/ShoppingFormBase.tsx(139,5): error TS6133: 'getValues' is declared but its value is never read.
+src/components/ShoppingFormBase.tsx(148,62): error TS2345: Argument of type 'ShoppingItem[] | undefined' is not assignable to parameter of type 'ShoppingItem[] | (() => ShoppingItem[])'.
+  Type 'undefined' is not assignable to type 'ShoppingItem[] | (() => ShoppingItem[])'.
+src/components/ShoppingFormBase.tsx(217,38): error TS2345: Argument of type 'ShoppingItem[] | undefined' is not assignable to parameter of type 'ShoppingItem[]'.
+  Type 'undefined' is not assignable to type 'ShoppingItem[]'.
+src/components/ShoppingFormBase.tsx(265,29): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+src/components/ShoppingFormBase.tsx(687,17): error TS2322: Type '{ productId: null; codigo: string; nombre: string; unidadMedida: string; stock: number; preCosto: number; preVenta: number; cantidad: null; descuento: number; importe: number; }' is not assignable to type '{ productId?: number | null | undefined; codigo?: string | undefined; nombre?: string | undefined; unidadMedida?: string | undefined; stock?: number | undefined; preCosto?: number | undefined; preVenta?: number | undefined; cantidad?: number | undefined; descuento?: number | undefined; importe?: number | undefined; }'.
+  Types of property 'cantidad' are incompatible.
+    Type 'null' is not assignable to type 'number | undefined'.
+src/components/ShoppingFormBase.tsx(689,21): error TS2322: Type '{ productId: null; codigo: string; nombre: string; unidadMedida: string; stock: number; preCosto: number; preVenta: number; cantidad: null; descuento: number; importe: number; }' is not assignable to type 'ShoppingItem'.
+  Types of property 'cantidad' are incompatible.
+    Type 'null' is not assignable to type 'number'.
+src/components/ShoppingFormBase.tsx(690,26): error TS2322: Type '{ productId: null; codigo: string; nombre: string; unidadMedida: string; stock: number; preCosto: number; preVenta: number; cantidad: null; descuento: number; importe: number; }' is not assignable to type 'ShoppingItem'.
+  Types of property 'cantidad' are incompatible.
+    Type 'null' is not assignable to type 'number'.
+src/components/ShoppingFormBase.tsx(725,15): error TS2322: Type '{ productId: null; codigo: string; nombre: string; unidadMedida: string; stock: number; preCosto: number; preVenta: number; cantidad: null; descuento: number; importe: number; }' is not assignable to type '{ productId?: number | null | undefined; codigo?: string | undefined; nombre?: string | undefined; unidadMedida?: string | undefined; stock?: number | undefined; preCosto?: number | undefined; preVenta?: number | undefined; cantidad?: number | undefined; descuento?: number | undefined; importe?: number | undefined; }'.
+  Types of property 'cantidad' are incompatible.
+    Type 'null' is not assignable to type 'number | undefined'.
+src/components/ShoppingFormBase.tsx(727,19): error TS2322: Type '{ productId: null; codigo: string; nombre: string; unidadMedida: string; stock: number; preCosto: number; preVenta: number; cantidad: null; descuento: number; importe: number; }' is not assignable to type 'ShoppingItem'.
+  Types of property 'cantidad' are incompatible.
+    Type 'null' is not assignable to type 'number'.
+src/components/ShoppingFormBase.tsx(728,24): error TS2322: Type '{ productId: null; codigo: string; nombre: string; unidadMedida: string; stock: number; preCosto: number; preVenta: number; cantidad: null; descuento: number; importe: number; }' is not assignable to type 'ShoppingItem'.
+  Types of property 'cantidad' are incompatible.
+    Type 'null' is not assignable to type 'number'.
+src/components/ShoppingFormBase.tsx(736,41): error TS2322: Type '(e?: BaseSyntheticEvent<object, any, any> | undefined) => Promise<void>' is not assignable to type 'SubmitHandler<ShoppingFormData>'.
+  Types of parameters 'e' and 'data' are incompatible.
+    Type 'ShoppingFormData' is missing the following properties from type 'BaseSyntheticEvent<object, any, any>': nativeEvent, currentTarget, target, bubbles, and 11 more.
+src/components/ShoppingFormBase.tsx(844,35): error TS2339: Property 'trim' does not exist on type 'string | number | ShoppingItem | ShoppingItem[]'.
+  Property 'trim' does not exist on type 'number'.
+src/components/ShoppingFormBase.tsx(850,50): error TS2345: Argument of type '{}' is not assignable to parameter of type 'number'.
+src/components/ShoppingFormBase.tsx(855,43): error TS2345: Argument of type '{}' is not assignable to parameter of type 'string'.
+src/components/ShoppingFormBase.tsx(868,37): error TS2339: Property 'trim' does not exist on type 'string | number | ShoppingItem | ShoppingItem[]'.
+  Property 'trim' does not exist on type 'number'.
+src/components/ShoppingFormBase.tsx(870,51): error TS2339: Property 'trim' does not exist on type 'string | number | ShoppingItem | ShoppingItem[]'.
+  Property 'trim' does not exist on type 'number'.
+src/components/ShoppingFormBase.tsx(877,47): error TS2345: Argument of type '{}' is not assignable to parameter of type 'string'.
+src/components/ShoppingFormBase.tsx(882,48): error TS2345: Argument of type '{}' is not assignable to parameter of type 'number'.
+src/components/ShoppingFormBase.tsx(914,60): error TS2339: Property 'trim' does not exist on type 'string | number | ShoppingItem | ShoppingItem[]'.
+  Property 'trim' does not exist on type 'number'.
+src/components/ShoppingFormBase.tsx(916,59): error TS2345: Argument of type 'string | number | ShoppingItem | ShoppingItem[]' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/ticketQr.ts(1,20): error TS7016: Could not find a declaration file for module 'qrcode'. 'C:/Users/User/Desktop/desarrollo_dnx/sgo_dnx_frontend/node_modules/qrcode/lib/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/qrcode` if it exists or add a new declaration (.d.ts) file containing `declare module 'qrcode';`
+src/features/accounting/pages/PdtCompanyPage.tsx(550,10): error TS6133: 'purchaseSource' is declared but its value is never read.
+src/features/accounting/pages/PdtCompanyPage.tsx(1312,9): error TS6133: 'salesSourceLabel' is declared but its value is never read.
+src/features/accounting/pages/PdtCompanyPage.tsx(1429,11): error TS2322: Type 'AccessorKeyColumnDef<SalesDocument, string>[]' is not assignable to type 'ColumnDef<SalesDocument, unknown>[]'.
+  Type 'AccessorKeyColumnDef<SalesDocument, string>' is not assignable to type 'ColumnDef<SalesDocument, unknown>'.
+    Type 'AccessorKeyColumnDefBase<SalesDocument, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'ColumnDef<SalesDocument, unknown>'.
+      Type 'AccessorKeyColumnDefBase<SalesDocument, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<SalesDocument, unknown> & Partial<IdIdentifier<SalesDocument, unknown>>'.
+        Type 'AccessorKeyColumnDefBase<SalesDocument, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<SalesDocument, unknown>'.
+          Types of property 'footer' are incompatible.
+            Type 'ColumnDefTemplate<HeaderContext<SalesDocument, string>> | undefined' is not assignable to type 'ColumnDefTemplate<HeaderContext<SalesDocument, unknown>> | undefined'.
+              Type '(props: HeaderContext<SalesDocument, string>) => any' is not assignable to type 'ColumnDefTemplate<HeaderContext<SalesDocument, unknown>> | undefined'.
+                Type '(props: HeaderContext<SalesDocument, string>) => any' is not assignable to type '(props: HeaderContext<SalesDocument, unknown>) => any'.
+                  Types of parameters 'props' and 'props' are incompatible.
+                    Type 'HeaderContext<SalesDocument, unknown>' is not assignable to type 'HeaderContext<SalesDocument, string>'.
+                      The types of 'column.accessorFn' are incompatible between these types.
+                        Type 'AccessorFn<SalesDocument, unknown> | undefined' is not assignable to type 'AccessorFn<SalesDocument, string> | undefined'.
+                          Type 'AccessorFn<SalesDocument, unknown>' is not assignable to type 'AccessorFn<SalesDocument, string>'.
+                            Type 'unknown' is not assignable to type 'string'.
+src/features/accounting/pages/PdtCompanyPage.tsx(1495,11): error TS2322: Type 'AccessorKeyColumnDef<PurchaseDocument, string>[]' is not assignable to type 'ColumnDef<PurchaseDocument, unknown>[]'.
+  Type 'AccessorKeyColumnDef<PurchaseDocument, string>' is not assignable to type 'ColumnDef<PurchaseDocument, unknown>'.
+    Type 'AccessorKeyColumnDefBase<PurchaseDocument, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'ColumnDef<PurchaseDocument, unknown>'.
+      Type 'AccessorKeyColumnDefBase<PurchaseDocument, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<PurchaseDocument, unknown> & Partial<IdIdentifier<PurchaseDocument, unknown>>'.
+        Type 'AccessorKeyColumnDefBase<PurchaseDocument, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<PurchaseDocument, unknown>'.
+          Types of property 'footer' are incompatible.
+            Type 'ColumnDefTemplate<HeaderContext<PurchaseDocument, string>> | undefined' is not assignable to type 'ColumnDefTemplate<HeaderContext<PurchaseDocument, unknown>> | undefined'.
+              Type '(props: HeaderContext<PurchaseDocument, string>) => any' is not assignable to type 'ColumnDefTemplate<HeaderContext<PurchaseDocument, unknown>> | undefined'.
+                Type '(props: HeaderContext<PurchaseDocument, string>) => any' is not assignable to type '(props: HeaderContext<PurchaseDocument, unknown>) => any'.
+                  Types of parameters 'props' and 'props' are incompatible.
+                    Type 'HeaderContext<PurchaseDocument, unknown>' is not assignable to type 'HeaderContext<PurchaseDocument, string>'.
+                      The types of 'column.accessorFn' are incompatible between these types.
+                        Type 'AccessorFn<PurchaseDocument, unknown> | undefined' is not assignable to type 'AccessorFn<PurchaseDocument, string> | undefined'.
+                          Type 'AccessorFn<PurchaseDocument, unknown>' is not assignable to type 'AccessorFn<PurchaseDocument, string>'.
+                            Type 'unknown' is not assignable to type 'string'.
+src/features/auth/LoginPage.tsx(226,23): error TS2353: Object literal may only specify known properties, and '"data-auto-next"' does not exist in type 'Partial<OutlinedInputProps> | Partial<FilledInputProps> | Partial<InputProps>'.
+src/features/auth/LoginPage.tsx(299,23): error TS2353: Object literal may only specify known properties, and '"data-auto-next"' does not exist in type 'Partial<OutlinedInputProps> | Partial<FilledInputProps> | Partial<InputProps>'.
+src/features/auth/LoginPage.tsx(335,38): error TS2322: Type '{ "data-lpignore": string; "data-1p-ignore": string; "data-bwignore": string; "data-form-type": string; style?: { WebkitTextSecurity: string; } | undefined; autoComplete: string; autoCorrect: string; autoCapitalize: "off"; spellCheck: false; }' is not assignable to type 'InputBaseComponentProps'.
+  Types of property 'style' are incompatible.
+    Type '{ WebkitTextSecurity: string; } | undefined' is not assignable to type 'CSSProperties | undefined'.
+      Object literal may only specify known properties, and 'WebkitTextSecurity' does not exist in type 'Properties<string | number, string & {}>'.
+src/features/cashFlow/pages/CashFinalReportPage.tsx(690,20): error TS2339: Property 'ok' does not exist on type '{}'.
+src/features/cashFlow/pages/CashFinalReportPage.tsx(691,33): error TS2339: Property 'mensaje' does not exist on type '{}'.
+src/features/cashFlow/pages/CashFinalReportPage.tsx(692,28): error TS2339: Property 'mensaje' does not exist on type '{}'.
+src/features/cashFlow/pages/DepositosCentroPage.tsx(103,10): error TS6133: 'validation' is declared but its value is never read.
+src/features/customers/pages/customerCreate.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/features/customers/pages/customerCreate.tsx(81,9): error TS2322: Type '(data: Omit<{ clienteCodigo: string; nombreRazon: string; ruc: string; dni: string; direccionFiscal: string; direccionDespacho: string; telefonoMovil: string; email: string; registradoPor: string; estado: string; fecha: string | null; documentoPredeterminado: "BOLETA" | "FACTURA" | "PROFORMA V"; }, "id">) => Promise...' is not assignable to type '(data: Omit<Client, "id">) => boolean | Promise<boolean>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'Omit<Client, "id">' is not assignable to type 'Omit<{ clienteCodigo: string; nombreRazon: string; ruc: string; dni: string; direccionFiscal: string; direccionDespacho: string; telefonoMovil: string; email: string; registradoPor: string; estado: string; fecha: string | null; documentoPredeterminado: "BOLETA" | ... 1 more ... | "PROFORMA V"; }, "id">'.
+      Types of property 'fecha' are incompatible.
+        Type 'string | null | undefined' is not assignable to type 'string | null'.
+          Type 'undefined' is not assignable to type 'string | null'.
+src/features/customers/pages/customerEdit.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/features/customers/pages/customerList.tsx(55,7): error TS2322: Type 'AccessorKeyColumnDef<Client, string>' is not assignable to type 'ColumnDef<Client, unknown>'.
+  Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'ColumnDef<Client, unknown>'.
+    Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown> & Partial<IdIdentifier<Client, unknown>>'.
+      Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown>'.
+        Types of property 'footer' are incompatible.
+          Type 'ColumnDefTemplate<HeaderContext<Client, string>> | undefined' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+            Type '(props: HeaderContext<Client, string>) => any' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+              Type '(props: HeaderContext<Client, string>) => any' is not assignable to type '(props: HeaderContext<Client, unknown>) => any'.
+                Types of parameters 'props' and 'props' are incompatible.
+                  Type 'HeaderContext<Client, unknown>' is not assignable to type 'HeaderContext<Client, string>'.
+                    The types of 'column.accessorFn' are incompatible between these types.
+                      Type 'AccessorFn<Client, unknown> | undefined' is not assignable to type 'AccessorFn<Client, string> | undefined'.
+                        Type 'AccessorFn<Client, unknown>' is not assignable to type 'AccessorFn<Client, string>'.
+                          Type 'unknown' is not assignable to type 'string'.
+src/features/customers/pages/customerList.tsx(59,7): error TS2322: Type 'AccessorKeyColumnDef<Client, string>' is not assignable to type 'ColumnDef<Client, unknown>'.
+  Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'ColumnDef<Client, unknown>'.
+    Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown> & Partial<IdIdentifier<Client, unknown>>'.
+      Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown>'.
+        Types of property 'footer' are incompatible.
+          Type 'ColumnDefTemplate<HeaderContext<Client, string>> | undefined' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+            Type '(props: HeaderContext<Client, string>) => any' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+              Type '(props: HeaderContext<Client, string>) => any' is not assignable to type '(props: HeaderContext<Client, unknown>) => any'.
+                Types of parameters 'props' and 'props' are incompatible.
+                  Type 'HeaderContext<Client, unknown>' is not assignable to type 'HeaderContext<Client, string>'.
+                    The types of 'column.accessorFn' are incompatible between these types.
+                      Type 'AccessorFn<Client, unknown> | undefined' is not assignable to type 'AccessorFn<Client, string> | undefined'.
+                        Type 'AccessorFn<Client, unknown>' is not assignable to type 'AccessorFn<Client, string>'.
+                          Type 'unknown' is not assignable to type 'string'.
+src/features/customers/pages/customerList.tsx(63,7): error TS2322: Type 'AccessorKeyColumnDef<Client, string>' is not assignable to type 'ColumnDef<Client, unknown>'.
+  Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'ColumnDef<Client, unknown>'.
+    Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown> & Partial<IdIdentifier<Client, unknown>>'.
+      Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown>'.
+        Types of property 'footer' are incompatible.
+          Type 'ColumnDefTemplate<HeaderContext<Client, string>> | undefined' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+            Type '(props: HeaderContext<Client, string>) => any' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+              Type '(props: HeaderContext<Client, string>) => any' is not assignable to type '(props: HeaderContext<Client, unknown>) => any'.
+                Types of parameters 'props' and 'props' are incompatible.
+                  Type 'HeaderContext<Client, unknown>' is not assignable to type 'HeaderContext<Client, string>'.
+                    The types of 'column.accessorFn' are incompatible between these types.
+                      Type 'AccessorFn<Client, unknown> | undefined' is not assignable to type 'AccessorFn<Client, string> | undefined'.
+                        Type 'AccessorFn<Client, unknown>' is not assignable to type 'AccessorFn<Client, string>'.
+                          Type 'unknown' is not assignable to type 'string'.
+src/features/customers/pages/customerList.tsx(67,7): error TS2322: Type 'AccessorKeyColumnDef<Client, string>' is not assignable to type 'ColumnDef<Client, unknown>'.
+  Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'ColumnDef<Client, unknown>'.
+    Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown> & Partial<IdIdentifier<Client, unknown>>'.
+      Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown>'.
+        Types of property 'footer' are incompatible.
+          Type 'ColumnDefTemplate<HeaderContext<Client, string>> | undefined' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+            Type '(props: HeaderContext<Client, string>) => any' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+              Type '(props: HeaderContext<Client, string>) => any' is not assignable to type '(props: HeaderContext<Client, unknown>) => any'.
+                Types of parameters 'props' and 'props' are incompatible.
+                  Type 'HeaderContext<Client, unknown>' is not assignable to type 'HeaderContext<Client, string>'.
+                    The types of 'column.accessorFn' are incompatible between these types.
+                      Type 'AccessorFn<Client, unknown> | undefined' is not assignable to type 'AccessorFn<Client, string> | undefined'.
+                        Type 'AccessorFn<Client, unknown>' is not assignable to type 'AccessorFn<Client, string>'.
+                          Type 'unknown' is not assignable to type 'string'.
+src/features/customers/pages/customerList.tsx(71,7): error TS2322: Type 'AccessorKeyColumnDef<Client, string>' is not assignable to type 'ColumnDef<Client, unknown>'.
+  Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'ColumnDef<Client, unknown>'.
+    Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown> & Partial<IdIdentifier<Client, unknown>>'.
+      Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown>'.
+        Types of property 'footer' are incompatible.
+          Type 'ColumnDefTemplate<HeaderContext<Client, string>> | undefined' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+            Type '(props: HeaderContext<Client, string>) => any' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+              Type '(props: HeaderContext<Client, string>) => any' is not assignable to type '(props: HeaderContext<Client, unknown>) => any'.
+                Types of parameters 'props' and 'props' are incompatible.
+                  Type 'HeaderContext<Client, unknown>' is not assignable to type 'HeaderContext<Client, string>'.
+                    The types of 'column.accessorFn' are incompatible between these types.
+                      Type 'AccessorFn<Client, unknown> | undefined' is not assignable to type 'AccessorFn<Client, string> | undefined'.
+                        Type 'AccessorFn<Client, unknown>' is not assignable to type 'AccessorFn<Client, string>'.
+                          Type 'unknown' is not assignable to type 'string'.
+src/features/customers/pages/customerList.tsx(75,7): error TS2322: Type 'AccessorKeyColumnDef<Client, string | undefined>' is not assignable to type 'ColumnDef<Client, unknown>'.
+  Type 'AccessorKeyColumnDefBase<Client, string | undefined> & Partial<StringHeaderIdentifier>' is not assignable to type 'ColumnDef<Client, unknown>'.
+    Type 'AccessorKeyColumnDefBase<Client, string | undefined> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown> & Partial<IdIdentifier<Client, unknown>>'.
+      Type 'AccessorKeyColumnDefBase<Client, string | undefined> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown>'.
+        Types of property 'footer' are incompatible.
+          Type 'ColumnDefTemplate<HeaderContext<Client, string | undefined>> | undefined' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+            Type '(props: HeaderContext<Client, string | undefined>) => any' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+              Type '(props: HeaderContext<Client, string | undefined>) => any' is not assignable to type '(props: HeaderContext<Client, unknown>) => any'.
+                Types of parameters 'props' and 'props' are incompatible.
+                  Type 'HeaderContext<Client, unknown>' is not assignable to type 'HeaderContext<Client, string | undefined>'.
+                    The types of 'column.accessorFn' are incompatible between these types.
+                      Type 'AccessorFn<Client, unknown> | undefined' is not assignable to type 'AccessorFn<Client, string | undefined> | undefined'.
+                        Type 'AccessorFn<Client, unknown>' is not assignable to type 'AccessorFn<Client, string | undefined>'.
+                          Type 'unknown' is not assignable to type 'string | undefined'.
+src/features/customers/pages/customerList.tsx(79,7): error TS2322: Type 'AccessorKeyColumnDef<Client, string>' is not assignable to type 'ColumnDef<Client, unknown>'.
+  Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'ColumnDef<Client, unknown>'.
+    Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown> & Partial<IdIdentifier<Client, unknown>>'.
+      Type 'AccessorKeyColumnDefBase<Client, string> & Partial<StringHeaderIdentifier>' is not assignable to type 'AccessorKeyColumnDefBase<Client, unknown>'.
+        Types of property 'footer' are incompatible.
+          Type 'ColumnDefTemplate<HeaderContext<Client, string>> | undefined' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+            Type '(props: HeaderContext<Client, string>) => any' is not assignable to type 'ColumnDefTemplate<HeaderContext<Client, unknown>> | undefined'.
+              Type '(props: HeaderContext<Client, string>) => any' is not assignable to type '(props: HeaderContext<Client, unknown>) => any'.
+                Types of parameters 'props' and 'props' are incompatible.
+                  Type 'HeaderContext<Client, unknown>' is not assignable to type 'HeaderContext<Client, string>'.
+                    The types of 'column.accessorFn' are incompatible between these types.
+                      Type 'AccessorFn<Client, unknown> | undefined' is not assignable to type 'AccessorFn<Client, string> | undefined'.
+                        Type 'AccessorFn<Client, unknown>' is not assignable to type 'AccessorFn<Client, string>'.
+                          Type 'unknown' is not assignable to type 'string'.
+src/features/maintenance/areas/areas.api.ts(24,15): error TS2339: Property 'map' does not exist on type '{}'.
+src/features/maintenance/areas/areas.api.ts(24,20): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/features/maintenance/areas/areas.api.ts(49,52): error TS2345: Argument of type '{} | undefined' is not assignable to parameter of type 'AreaApiResponse'.
+  Type 'undefined' is not assignable to type 'AreaApiResponse'.
+src/features/maintenance/categories/categories.api.ts(106,56): error TS2345: Argument of type '{} | undefined' is not assignable to parameter of type 'CategoryApiResponse'.
+  Type 'undefined' is not assignable to type 'CategoryApiResponse'.
+src/features/maintenance/computers/computers.api.ts(27,15): error TS2339: Property 'map' does not exist on type '{}'.
+src/features/maintenance/computers/computers.api.ts(27,20): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/features/maintenance/computers/computers.api.ts(73,56): error TS2345: Argument of type '{} | undefined' is not assignable to parameter of type 'ComputerApiResponse'.
+  Type 'undefined' is not assignable to type 'ComputerApiResponse'.
+src/features/maintenance/computers/computersList.tsx(4,25): error TS6196: 'Area' is declared but never used.
+src/features/maintenance/computers/computersList.tsx(7,22): error TS6133: 'areas' is declared but its value is never read.
+src/features/maintenance/computers/computersList.tsx(45,7): error TS2322: Type '({ key: string; header: string; render?: undefined; } | { key: string; header: string; render: (row: Computer) => string; })[]' is not assignable to type 'ColumnConfig<Computer>[]'.
+  Type '{ key: string; header: string; render?: undefined; } | { key: string; header: string; render: (row: Computer) => string; }' is not assignable to type 'ColumnConfig<Computer>'.
+    Type '{ key: string; header: string; render?: undefined; }' is not assignable to type 'ColumnConfig<Computer>'.
+      Types of property 'key' are incompatible.
+        Type 'string' is not assignable to type 'keyof Computer | undefined'.
+src/features/maintenance/employees/pages/employeeCreate.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/features/maintenance/employees/pages/employeeCreate.tsx(46,7): error TS2353: Object literal may only specify known properties, and 'personalLicencia' does not exist in type 'SetStateAction<Partial<Personal>>'.
+src/features/maintenance/employees/pages/employeeCreate.tsx(70,7): error TS2353: Object literal may only specify known properties, and 'personalLicencia' does not exist in type 'SetStateAction<Partial<Personal>>'.
+src/features/maintenance/holidays/holidayCreate.tsx(13,10): error TS1345: An expression of type 'void' cannot be tested for truthiness.
+src/features/maintenance/holidays/holidayEdit.tsx(29,10): error TS1345: An expression of type 'void' cannot be tested for truthiness.
+src/features/maintenance/holidays/holidays.api.ts(183,28): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string | HolidayApiResponse | null'.
+src/features/maintenance/providers/providers.api.ts(33,15): error TS2339: Property 'map' does not exist on type '{}'.
+src/features/maintenance/providers/providers.api.ts(33,20): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/features/maintenance/users/pages/userCreate.tsx(70,7): error TS2322: Type '(data: Omit<User, "UsuarioID">) => Promise<boolean>' is not assignable to type '(data: Omit<User, "UsuarioID"> | Partial<User>) => boolean | Promise<boolean>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'Omit<User, "UsuarioID"> | Partial<User>' is not assignable to type 'Omit<User, "UsuarioID">'.
+      Type 'Partial<User>' is not assignable to type 'Omit<User, "UsuarioID">'.
+        Types of property 'PersonalId' are incompatible.
+          Type 'number | undefined' is not assignable to type 'number'.
+            Type 'undefined' is not assignable to type 'number'.
+src/features/maintenance/users/pages/userEdit.tsx(30,15): error TS2339: Property 'id' does not exist on type 'User'.
+src/features/maintenance/users/pages/userEdit.tsx(77,7): error TS2322: Type '(data: Omit<User, "id">) => Promise<boolean>' is not assignable to type '(data: Omit<User, "UsuarioID"> | Partial<User>) => boolean | Promise<boolean>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'Omit<User, "UsuarioID"> | Partial<User>' is not assignable to type 'Omit<User, "id">'.
+      Property 'UsuarioID' is missing in type 'Omit<User, "UsuarioID">' but required in type 'Omit<User, "id">'.
+src/features/orderNotes/pages/orderNotesList.tsx(16,35): error TS6133: 'Trash2' is declared but its value is never read.
+src/features/orderNotes/pages/orderNotesList.tsx(99,7): error TS6133: 'canDeleteNote' is declared but its value is never read.
+src/features/pos/hooks/usePosCartDraftPersistence.ts(119,18): error TS18047: 'activeDraft' is possibly 'null'.
+src/features/pos/pages/PaymentPage.tsx(1201,5): error TS6133: 'register' is declared but its value is never read.
+src/features/pos/pages/PaymentPage.tsx(1213,9): error TS6133: 'notes' is declared but its value is never read.
+src/features/pos/pages/PaymentPage.tsx(3420,25): error TS2339: Property 'notaDescuento' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaFecha: string; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaDias: number; notaFechaPago: string; notaDireccion: null; ... 32 more ...; responsable: string; } | { ...; }'.
+  Property 'notaDescuento' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaSubtotal: number; notaTotal: number; notaPagar: number; notaEntrega: string; ... 11 more ...; nroOperacion: string; }'.
+src/features/pos/pages/PaymentPage.tsx(3474,31): error TS2339: Property 'notaDireccion' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaFecha: string; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaDias: number; notaFechaPago: string; notaDireccion: null; ... 32 more ...; responsable: string; } | { ...; }'.
+  Property 'notaDireccion' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaSubtotal: number; notaTotal: number; notaPagar: number; notaEntrega: string; ... 11 more ...; nroOperacion: string; }'.
+src/features/pos/pages/PaymentPage.tsx(3475,30): error TS2339: Property 'notaTelefono' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaFecha: string; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaDias: number; notaFechaPago: string; notaDireccion: null; ... 32 more ...; responsable: string; } | { ...; }'.
+  Property 'notaTelefono' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaSubtotal: number; notaTotal: number; notaPagar: number; notaEntrega: string; ... 11 more ...; nroOperacion: string; }'.
+src/features/pos/pages/PaymentPage.tsx(3477,31): error TS2339: Property 'notaMovilidad' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaFecha: string; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaDias: number; notaFechaPago: string; notaDireccion: null; ... 32 more ...; responsable: string; } | { ...; }'.
+  Property 'notaMovilidad' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaSubtotal: number; notaTotal: number; notaPagar: number; notaEntrega: string; ... 11 more ...; nroOperacion: string; }'.
+src/features/pos/pages/PaymentPage.tsx(3478,31): error TS2339: Property 'notaDescuento' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaFecha: string; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaDias: number; notaFechaPago: string; notaDireccion: null; ... 32 more ...; responsable: string; } | { ...; }'.
+  Property 'notaDescuento' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaSubtotal: number; notaTotal: number; notaPagar: number; notaEntrega: string; ... 11 more ...; nroOperacion: string; }'.
+src/features/pos/pages/PaymentPage.tsx(3480,29): error TS2339: Property 'notaAcuenta' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaFecha: string; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaDias: number; notaFechaPago: string; notaDireccion: null; ... 32 more ...; responsable: string; } | { ...; }'.
+  Property 'notaAcuenta' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaSubtotal: number; notaTotal: number; notaPagar: number; notaEntrega: string; ... 11 more ...; nroOperacion: string; }'.
+src/features/pos/pages/PaymentPage.tsx(3481,27): error TS2551: Property 'notaSaldo' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaFecha: string; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaDias: number; notaFechaPago: string; notaDireccion: null; ... 32 more ...; responsable: string; } | { ...; }'. Did you mean 'notaEstado'?
+  Property 'notaSaldo' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaSubtotal: number; notaTotal: number; notaPagar: number; notaEntrega: string; ... 11 more ...; nroOperacion: string; }'.
+src/features/pos/pages/PaymentPage.tsx(3482,31): error TS2339: Property 'notaAdicional' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaFecha: string; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaDias: number; notaFechaPago: string; notaDireccion: null; ... 32 more ...; responsable: string; } | { ...; }'.
+  Property 'notaAdicional' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaSubtotal: number; notaTotal: number; notaPagar: number; notaEntrega: string; ... 11 more ...; nroOperacion: string; }'.
+src/features/pos/pages/PaymentPage.tsx(3483,29): error TS2339: Property 'notaTarjeta' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaFecha: string; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaDias: number; notaFechaPago: string; notaDireccion: null; ... 32 more ...; responsable: string; } | { ...; }'.
+  Property 'notaTarjeta' does not exist on type '{ notaId: number; notaDocu: string; clienteId: number; notaUsuario: string; notaFormaPago: string; notaCondicion: string; notaSubtotal: number; notaTotal: number; notaPagar: number; notaEntrega: string; ... 11 more ...; nroOperacion: string; }'.
+src/features/pos/pages/PaymentPage.tsx(3740,11): error TS6133: 'facturaRegistroBdMessage' is declared but its value is never read.
+src/features/pos/pages/PaymentPage.tsx(3744,11): error TS6133: 'facturaApiMessage' is declared but its value is never read.
+src/features/pos/pages/PaymentPage.tsx(4121,9): error TS6133: 'handleEnableEditing' is declared but its value is never read.
+src/features/pos/pages/PaymentPage.tsx(4902,13): error TS6133: 'resume' is declared but its value is never read.
+src/features/pos/pages/PaymentPage.tsx(4906,13): error TS6133: 'suffix' is declared but its value is never read.
+src/features/pos/pages/POSPage.tsx(251,9): error TS6133: 'captureFileInputRef' is declared but its value is never read.
+src/features/pos/pages/POSPage.tsx(419,9): error TS6133: 'handleCaptureFileChange' is declared but its value is never read.
+src/features/pos/pages/POSPage.tsx(1002,21): error TS2322: Type '((ColumnDefBase<PosCatalogProduct, unknown> & StringHeaderIdentifier) | (ColumnDefBase<PosCatalogProduct, unknown> & IdIdentifier<...>) | (AccessorKeyColumnDefBase<...> & Partial<...>))[]' is not assignable to type 'ColumnDef<PosCatalogProduct, unknown>[]'.
+  Type '(ColumnDefBase<PosCatalogProduct, unknown> & StringHeaderIdentifier) | (ColumnDefBase<PosCatalogProduct, unknown> & IdIdentifier<...>) | (AccessorKeyColumnDefBase<...> & Partial<...>)' is not assignable to type 'ColumnDef<PosCatalogProduct, unknown>'.
+    Type 'AccessorKeyColumnDefBase<PosCatalogProduct, string> & Partial<IdIdentifier<PosCatalogProduct, string>>' is not assignable to type 'ColumnDef<PosCatalogProduct, unknown>'.
+      Type 'AccessorKeyColumnDefBase<PosCatalogProduct, string> & Partial<IdIdentifier<PosCatalogProduct, string>>' is not assignable to type 'AccessorKeyColumnDefBase<PosCatalogProduct, unknown> & Partial<IdIdentifier<PosCatalogProduct, unknown>>'.
+        Type 'AccessorKeyColumnDefBase<PosCatalogProduct, string> & Partial<IdIdentifier<PosCatalogProduct, string>>' is not assignable to type 'AccessorKeyColumnDefBase<PosCatalogProduct, unknown>'.
+          Types of property 'footer' are incompatible.
+            Type 'ColumnDefTemplate<HeaderContext<PosCatalogProduct, string>> | undefined' is not assignable to type 'ColumnDefTemplate<HeaderContext<PosCatalogProduct, unknown>> | undefined'.
+              Type '(props: HeaderContext<PosCatalogProduct, string>) => any' is not assignable to type 'ColumnDefTemplate<HeaderContext<PosCatalogProduct, unknown>> | undefined'.
+                Type '(props: HeaderContext<PosCatalogProduct, string>) => any' is not assignable to type '(props: HeaderContext<PosCatalogProduct, unknown>) => any'.
+                  Types of parameters 'props' and 'props' are incompatible.
+                    Type 'HeaderContext<PosCatalogProduct, unknown>' is not assignable to type 'HeaderContext<PosCatalogProduct, string>'.
+                      The types of 'column.accessorFn' are incompatible between these types.
+                        Type 'AccessorFn<PosCatalogProduct, unknown> | undefined' is not assignable to type 'AccessorFn<PosCatalogProduct, string> | undefined'.
+                          Type 'AccessorFn<PosCatalogProduct, unknown>' is not assignable to type 'AccessorFn<PosCatalogProduct, string>'.
+                            Type 'unknown' is not assignable to type 'string'.
+src/features/products/pages/ProductCreate.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/features/products/pages/ProductEdit.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/features/products/pages/ProductEdit.tsx(31,29): error TS7006: Parameter 'frm' implicitly has an 'any' type.
+src/features/purchanses/pages/purchanseCreate.tsx(24,17): error TS2345: Argument of type 'Omit<{ nombreRazon: string; ruc: string; dni: string; direccionFiscal: string; direccionDespacho: string; telefonoMovil: string; email: string; registradoPor: string; estado: string; }, "id">' is not assignable to parameter of type 'Omit<Purchase, "id">'.
+  Type 'Omit<{ nombreRazon: string; ruc: string; dni: string; direccionFiscal: string; direccionDespacho: string; telefonoMovil: string; email: string; registradoPor: string; estado: string; }, "id">' is missing the following properties from type 'Omit<Purchase, "id">': contacto, celular, direccion
+src/features/purchanses/pages/purchanseCreate.tsx(46,7): error TS2322: Type '{ nombreRazon: string; ruc: string; dni: string; direccionFiscal: string; direccionDespacho: string; telefonoMovil: string; email: string; registradoPor: string; estado: string; }' is not assignable to type 'Partial<PurchaseFormValues>'.
+  Types of property 'estado' are incompatible.
+    Type 'string' is not assignable to type '"ACTIVO" | "INACTIVO" | undefined'.
+src/features/purchanses/pages/purchanseCreate.tsx(47,7): error TS2322: Type '(data: Omit<{ nombreRazon: string; ruc: string; dni: string; direccionFiscal: string; direccionDespacho: string; telefonoMovil: string; email: string; registradoPor: string; estado: string; }, "id">) => void' is not assignable to type '(data: PurchaseFormValues) => void | Promise<void>'.
+  Types of parameters 'data' and 'data' are incompatible.
+    Type 'PurchaseFormValues' is missing the following properties from type 'Omit<{ nombreRazon: string; ruc: string; dni: string; direccionFiscal: string; direccionDespacho: string; telefonoMovil: string; email: string; registradoPor: string; estado: string; }, "id">': dni, direccionFiscal, direccionDespacho, telefonoMovil, registradoPor
+src/features/purchanses/pages/purchanseEdit.tsx(55,15): error TS2367: This comparison appears to be unintentional because the types 'void' and 'boolean' have no overlap.
+src/features/purchanses/pages/purchanseList.tsx(19,7): error TS2322: Type '{ key: string; header: string; }[]' is not assignable to type 'ColumnConfig<Purchase>[]'.
+  Type '{ key: string; header: string; }' is not assignable to type 'ColumnConfig<Purchase>'.
+    Types of property 'key' are incompatible.
+      Type 'string' is not assignable to type 'keyof Purchase | undefined'.
+src/features/reports/api/attendanceReport.ts(40,44): error TS2339: Property 'asistencias' does not exist on type '{}'.
+src/features/reports/api/attendanceReport.ts(43,19): error TS2339: Property 'asistencias' does not exist on type '{}'.
+src/features/reports/api/attendanceReport.ts(56,44): error TS2339: Property 'asistencias' does not exist on type '{}'.
+src/features/reports/api/attendanceReport.ts(59,19): error TS2339: Property 'asistencias' does not exist on type '{}'.
+src/features/reports/api/attendanceReport.ts(66,44): error TS2339: Property 'personas' does not exist on type '{}'.
+src/features/reports/api/attendanceReport.ts(69,19): error TS2339: Property 'personas' does not exist on type '{}'.
+src/features/sales/pages/HtmlCaptureSalePage.tsx(524,46): error TS2345: Argument of type 'Promise<unknown>' is not assignable to parameter of type 'Promise<PagoVariosResponse>'.
+  Type 'unknown' is not assignable to type 'PagoVariosResponse'.
+src/features/sales/pages/HtmlCaptureSalePage.tsx(1237,25): error TS18046: 'machines' is of type 'unknown'.
+src/features/sales/pages/HtmlCaptureSalePage.tsx(1238,12): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/features/sales/pages/HtmlCaptureSalePage.tsx(1350,45): error TS2339: Property 'items' does not exist on type '{}'.
+src/features/sales/pages/HtmlCaptureSalePage.tsx(1350,63): error TS2339: Property 'items' does not exist on type '{}'.
+src/features/sendNote/pages/sendNoteList.tsx(19,7): error TS2322: Type '{ key: string; header: string; }[]' is not assignable to type 'ColumnConfig<SendNote>[]'.
+  Type '{ key: string; header: string; }' is not assignable to type 'ColumnConfig<SendNote>'.
+    Types of property 'key' are incompatible.
+      Type 'string' is not assignable to type 'keyof SendNote | undefined'.
+src/features/shopping/pages/shoppingList.tsx(26,7): error TS2322: Type '({ key: string; header: string; id?: undefined; render?: undefined; } | { header: string; id: string; render: (row: Shopping) => string; key?: undefined; })[]' is not assignable to type 'ColumnConfig<Shopping>[]'.
+  Type '{ key: string; header: string; id?: undefined; render?: undefined; } | { header: string; id: string; render: (row: Shopping) => string; key?: undefined; }' is not assignable to type 'ColumnConfig<Shopping>'.
+    Type '{ key: string; header: string; id?: undefined; render?: undefined; }' is not assignable to type 'ColumnConfig<Shopping>'.
+      Types of property 'key' are incompatible.
+        Type 'string' is not assignable to type 'keyof Shopping | undefined'.
+src/form-engine/FormRenderer.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/form-engine/test/SimpleFormDemo.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/shared/helpers/focusNextInput.ts(18,10): error TS2339: Property 'setSelectionRange' does not exist on type 'HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement'.
+  Property 'setSelectionRange' does not exist on type 'HTMLSelectElement'.
+src/shared/helpers/focusNextInput.ts(33,31): error TS2339: Property 'closest' does not exist on type 'never'.
+src/shared/helpers/focusNextInput.ts(36,27): error TS2339: Property 'ownerDocument' does not exist on type 'never'.
+src/shared/helpers/focusNextInput.ts(39,26): error TS2339: Property 'querySelector' does not exist on type 'never'.
+src/shared/listing/GenericList.tsx(22,6): error TS2322: Type '{ basePath: string; columns: ListColumn<Personal>[]; idKey?: "personalId" | "companiaId" | "personalNombres" | "personalApellidos" | "areaId" | "personalCodigo" | ... 13 more ... | undefined; ... 8 more ...; onEdit: any; } | ... 5 more ... | { ...; }' is not assignable to type 'IntrinsicAttributes & CrudListProps<Personal>'.
+  Type '{ basePath: string; columns: ListColumn<Category>[]; idKey?: "id" | "nombre" | "idSubLinea" | "idLinea" | "nombreSublinea" | "codigoSunat" | "vista" | undefined; ... 8 more ...; onEdit: any; }' is not assignable to type 'CrudListProps<Personal>'.
+    Types of property 'columns' are incompatible.
+      Type 'ListColumn<Category>[]' is not assignable to type 'ColumnConfig<Personal>[]'.
+        Type 'ListColumn<Category>' is not assignable to type 'ColumnConfig<Personal>'.
+          Types of property 'key' are incompatible.
+            Type 'keyof Category | undefined' is not assignable to type 'keyof Personal | undefined'.
+              Type '"id"' is not assignable to type 'keyof Personal | undefined'.
+src/store/cashFlowMovementsWeb/cashFlowMovementsWeb.store.ts(99,31): error TS2339: Property 'total' does not exist on type '{}'.
+src/store/cashFlowMovementsWeb/cashFlowMovementsWeb.store.ts(112,21): error TS2339: Property 'ok' does not exist on type '{}'.
+src/store/cashFlowMovementsWeb/cashFlowMovementsWeb.store.ts(113,26): error TS2339: Property 'mensaje' does not exist on type '{}'.
+src/store/customers/customers.store.ts(73,27): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string | number | Date | null | undefined'.
+src/store/employees/employees.store.ts(161,37): error TS2339: Property 'map' does not exist on type '{}'.
+src/store/employees/employees.store.ts(186,41): error TS2339: Property 'map' does not exist on type '{}'.
+src/store/maintenance/maintenance.store.ts(183,61): error TS2345: Argument of type '(set: { (partial: MaintenanceState | Partial<MaintenanceState> | ((state: MaintenanceState) => MaintenanceState | Partial<...>), replace?: false | undefined): void; (state: MaintenanceState | ((state: MaintenanceState) => MaintenanceState), replace: true): void; }, get: () => MaintenanceState) => { ...; }' is not assignable to parameter of type 'StateCreator<MaintenanceState, [], []>'.
+  Type '(set: { (partial: MaintenanceState | Partial<MaintenanceState> | ((state: MaintenanceState) => MaintenanceState | Partial<...>), replace?: false | undefined): void; (state: MaintenanceState | ((state: MaintenanceState) => MaintenanceState), replace: true): void; }, get: () => MaintenanceState) => { ...; }' is not assignable to type '(setState: { (partial: MaintenanceState | Partial<MaintenanceState> | ((state: MaintenanceState) => MaintenanceState | Partial<...>), replace?: false | undefined): void; (state: MaintenanceState | ((state: MaintenanceState) => MaintenanceState), replace: true): void; }, getState: () => MaintenanceState, store: Store...'.
+    Call signature return types '{ categories: never[]; areas: never[]; computers: never[]; providers: never[]; holidays: never[]; bankEntities: never[]; loading: false; setCategories: (items: Category[]) => void; setAreas: (items: Area[]) => void; ... 29 more ...; fetchProviderAccounts: (providerId: number) => Promise<...>; }' and 'MaintenanceState' are incompatible.
+      The types returned by 'addHoliday(...)' are incompatible between these types.
+        Type 'Promise<boolean>' is not assignable to type 'Promise<void>'.
+          Type 'boolean' is not assignable to type 'void'.
+src/store/maintenance/maintenance.store.ts(660,35): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(name: string, value: string | Blob): void', gave the following error.
+    Argument of type 'string | number' is not assignable to parameter of type 'string | Blob'.
+      Type 'number' is not assignable to type 'string | Blob'.
+  Overload 2 of 3, '(name: string, value: string): void', gave the following error.
+    Argument of type 'string | number' is not assignable to parameter of type 'string'.
+      Type 'number' is not assignable to type 'string'.
+  Overload 3 of 3, '(name: string, blobValue: Blob, filename?: string | undefined): void', gave the following error.
+    Argument of type 'string | number' is not assignable to parameter of type 'Blob'.
+      Type 'string' is not assignable to type 'Blob'.
+src/store/maintenance/maintenance.store.ts(771,35): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(name: string, value: string | Blob): void', gave the following error.
+    Argument of type 'string | number' is not assignable to parameter of type 'string | Blob'.
+      Type 'number' is not assignable to type 'string | Blob'.
+  Overload 2 of 3, '(name: string, value: string): void', gave the following error.
+    Argument of type 'string | number' is not assignable to parameter of type 'string'.
+      Type 'number' is not assignable to type 'string'.
+  Overload 3 of 3, '(name: string, blobValue: Blob, filename?: string | undefined): void', gave the following error.
+    Argument of type 'string | number' is not assignable to parameter of type 'Blob'.
+      Type 'string' is not assignable to type 'Blob'.
+src/store/maintenance/maintenance.store.ts(905,75): error TS2339: Property 'id' does not exist on type 'Holiday | HolidayConflict'.
+  Property 'id' does not exist on type '{ error: "EXISTE_FECHA"; }'.
+src/store/shopping/shopping.store.ts(217,7): error TS6133: 'mockData' is declared but its value is never read.

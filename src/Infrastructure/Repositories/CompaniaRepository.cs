@@ -241,6 +241,7 @@ public class CompaniaRepository : ICompania
                                     COALESCE(Configuracion.DiasMaxDep, Compania.DiasMaxDep, 7) AS DiasMaxDep,
                                     CAST(COALESCE(Configuracion.BoletaPorLote, 1) AS bit) AS BoletaPorLote,
                                     CAST(COALESCE(Configuracion.FlagCaptura, 0) AS bit) AS FlagCaptura,
+                                    CAST(COALESCE(Configuracion.ListaProductosTabla, 0) AS bit) AS ListaProductosTabla,
                                     CAST(COALESCE(Configuracion.FlagCaja, 0) AS bit) AS FlagCaja,
                                     CAST(COALESCE(Configuracion.FlagAsistencia, 1) AS bit) AS FlagAsistencia,
                                     ROW_NUMBER() OVER (ORDER BY CompaniaId DESC) AS RowNum
@@ -258,6 +259,7 @@ public class CompaniaRepository : ICompania
                                      MAX(CASE WHEN Area = 'CONFIGURACION' AND TipoIndicador = 3 AND Descripcion = 'RENOVACION_SOME' THEN ValorTexto1 END) AS RenovacionSome,
                                      MAX(CASE WHEN Area = 'VENTAS' AND TipoIndicador = 1 AND Descripcion = 'BOLETA_POR_LOTE' THEN ValorNum END) AS BoletaPorLote,
                                      MAX(CASE WHEN Area = 'VENTAS' AND TipoIndicador = 1 AND Descripcion = 'CAPTURA_HTML' THEN ValorNum END) AS FlagCaptura,
+                                     MAX(CASE WHEN Area = 'VENTAS' AND TipoIndicador = 1 AND Descripcion = 'ListaProductosTabla' THEN ValorNum END) AS ListaProductosTabla,
                                      MAX(CASE WHEN Area = 'CAJA' AND TipoIndicador = 1 AND Descripcion = 'MULTIPLES_CAJAS' THEN ValorNum END) AS FlagCaja,
                                      MAX(CASE WHEN Area = 'CAJA' AND TipoIndicador = 1 AND Descripcion = 'ASISTENCIA' THEN ValorNum END) AS FlagAsistencia,
                                      MAX(CASE WHEN Area = 'CAJA' AND TipoIndicador = 2 AND Descripcion = 'DIAS_MAX_DEPOSITO' THEN ValorNum END) AS DiasMaxDep
@@ -313,6 +315,7 @@ public class CompaniaRepository : ICompania
                 CorreosAdmin = reader["CorreosAdmin"].ToString(),
                 BoletaPorLote = reader["BoletaPorLote"] != DBNull.Value && Convert.ToBoolean(reader["BoletaPorLote"]),
                 FlagCaptura = reader["FlagCaptura"] != DBNull.Value && Convert.ToBoolean(reader["FlagCaptura"]),
+                ListaProductosTabla = reader["ListaProductosTabla"] != DBNull.Value && Convert.ToBoolean(reader["ListaProductosTabla"]),
                 FlagCaja = reader["FlagCaja"] != DBNull.Value && Convert.ToBoolean(reader["FlagCaja"]),
                 FlagAsistencia = reader["FlagAsistencia"] != DBNull.Value && Convert.ToBoolean(reader["FlagAsistencia"])
             });
