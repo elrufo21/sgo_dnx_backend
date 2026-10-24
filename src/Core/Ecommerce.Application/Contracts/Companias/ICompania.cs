@@ -15,6 +15,7 @@ public interface ICompania
     Task<bool> EditarAsync(int id, Compania compania, CancellationToken cancellationToken = default);
     Task<bool> ActualizarBoletaPorLoteAsync(int id, bool boletaPorLote, CancellationToken cancellationToken = default);
     Task<bool> ActualizarFlagCapturaAsync(int id, bool flagCaptura, CancellationToken cancellationToken = default);
+    Task<bool> ActualizarListaProductosTablaAsync(int id, bool listaProductosTabla, CancellationToken cancellationToken = default);
     Task<ActualizarConfiguracionCajaResult> ActualizarConfiguracionCajaAsync(int id, bool flagCaja, string? correosAdmin, int diasMaxDep, bool? flagAsistencia = null, CancellationToken cancellationToken = default);
     Task<bool> TieneCajasAbiertasAsync(int id, CancellationToken cancellationToken = default);
     Task<bool> EliminarAsync(int id, CancellationToken cancellationToken = default);

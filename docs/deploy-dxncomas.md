@@ -9,7 +9,7 @@ Leer este archivo antes de continuar cualquier trabajo de despliegue para DXNCOM
 | DXN_ICA | `DXN_ICA` | `192.168.1.38` | `http://192.168.1.38:8080/login` | `http://192.168.1.38:8081/api/v1` |
 | DXNCOMAS | `DXNCOMAS` | `SERVER-NEW`, `192.168.18.47` | `http://192.168.18.47:8080` | `http://192.168.18.47:8081/api/v1` |
 
-Estas son instalaciones distintas. No reutilizar entre ellas el ZIP, IP, CORS, `appsettings.json`, conexion de base de datos ni credenciales del otro caso. Los paquetes vigentes son los builds del **2026-10-21** indicados abajo; los del 2026-10-20 quedan como referencia historica. Los nuevos paquetes se prepararon y verificaron localmente, sin subirlos a los servidores ni ejecutar SQL.
+Estas son instalaciones distintas. No reutilizar entre ellas el ZIP, IP, CORS, `appsettings.json`, conexion de base de datos ni credenciales del otro caso. Los paquetes completos verificados más recientes para ICA y COMAS son los builds regenerados del **2026-10-23** indicados al final; los del 2026-10-22 y anteriores quedan como referencia histórica. Los paquetes de frontend independiente se documentan por fecha en su sección correspondiente. Los nuevos paquetes se prepararon y verificaron localmente, sin subirlos a los servidores ni ejecutar SQL.
 
 ## Servidor y alcance de DXNCOMAS
 
@@ -208,3 +208,19 @@ El generador `prepare-server-new.ps1` copia esta carpeta SQL a los paquetes futu
 - COMAS: `artifacts/front-DXNCOMAS-192.168.18.47-20261022-145738-final.zip`; API compilada `http://192.168.18.47:8081/api/v1/`; SHA-256 `BE910FF6F13D384FD19B70C9D6DE40BF798CB937AA3CDB2D200198377AB54D21`.
 - Ambos paquetes contienen solo el frontend compilado bajo `web/` y un README. No incluyen API ni SQL. Se verificó que cada bundle contiene su propia URL de API y no contiene la IP del otro destino.
 - Para publicarlos, copiar el contenido de `web/` a la raíz del sitio web correspondiente. Los paquetes se generaron localmente; no se copiaron a los servidores.
+## Frontend solamente para ICA y COMAS — 2026-10-23
+
+- DXN_ICA: `artifacts/front-DXN_ICA-192.168.1.38-20261023-123909-final.zip`; API compilada `http://192.168.1.38:8081/api/v1/`; SHA-256 `57D91A605DB942FC259B4B22A0D519AA5DFF00583C6BA24A8458332FE813ADA7`.
+- DXNCOMAS: `artifacts/front-DXNCOMAS-192.168.18.47-20261023-123909-final.zip`; API compilada `http://192.168.18.47:8081/api/v1/`; SHA-256 `1E4C2F5DEE9A72825FF24BE4F12F61E375D4C45A2B3E6E95B2B5CD9CC10344CE`.
+- Ambos incluyen únicamente frontend compilado bajo `web/` y README. Copiar el contenido de `web/` a la raíz del sitio web correspondiente. No incluyen API ni SQL; no se desplegaron al servidor.
+- Verificado que cada bundle incluye su propia URL de API, excluye la IP del otro destino, y que ambos ZIP contienen `web/index.html` y README.
+- `npm run build:vercel` completó para ambos. Vite muestra la advertencia preexistente de bundle JavaScript grande (~4.9 MB sin comprimir). El build `build:vercel` no ejecuta TypeScript; el `typecheck` del frontend aún reporta errores preexistentes no relacionados con este empaquetado.
+## Despliegue solicitado y paquetes regenerados — 2026-10-23
+
+- El usuario confirmó que el responsable SQL aplicó los scripts 01, 02 y 03 en DXN_ICA y DXNCOMAS. No se ejecutó ni modificó SQL.
+- Los ZIP completos con sufijo `20261023-140516-final` no son archivos ZIP válidos. No usarlos. La carpeta COMAS de esa salida también tiene `Ecommerce.Api.runtimeconfig.json` vacío/corrupto; no usar esa carpeta ni el ZIP `20261023-140516-repacked`.
+- Se reconstruyeron desde el árbol de trabajo actual con `scripts/deploy/prepare-server-new.ps1`, y ambos pasaron `verify-package.ps1` para URLs, CORS, .NET 7, Windows x64, IIS, configuración separada e impresión:
+  - ICA: `artifacts/deploy-192.168.1.38-20261023-rebuild2-final.zip`. SHA-256: `E5E4667758376F3E2C8FBF50AD925915192AFA179EDC40E6940E7B1E95F114DC`.
+  - COMAS: `artifacts/deploy-192.168.18.47-20261023-rebuild2-final.zip`. SHA-256: `8DC90545059F230BC34CBF83D58CCC63D834486F98C5191798590CE6798E123C`.
+- Los paquetes nuevos aún no se copiaron a los servidores. Desde este equipo no hubo conexión a los puertos 445, 5985, 5986, 22, 21, 3389, 8080 ni 8081 de `192.168.1.38` o `192.168.18.47`; reanudar cuando el equipo tenga ruta de red/VPN y canal autorizado hacia ambos destinos.
+- En COMAS, el `ConnectionStrings:DefaultConnection` del `appsettings.json` del servidor figuraba vacío en la última revisión. El paquete conserva ese archivo. La API puede publicarse cuando haya conectividad, pero el inicio de sesión seguirá dependiendo de que el responsable SQL entregue la cadena y cuenta autorizadas y de configurarlas en el servidor.

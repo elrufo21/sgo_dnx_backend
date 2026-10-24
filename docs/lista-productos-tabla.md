@@ -31,6 +31,8 @@ El usuario confirmó que la vista anterior debe conservarse tal como estaba: los
 
 `CompaniaRepository` devuelve `ListaProductosTabla` en `GET /api/v1/Compania/list`, leyéndolo por compañía, área, tipo, descripción y raíz. El store de configuración consume esa propiedad. La ausencia del indicador equivale a 0 y conserva el autocomplete. No se usa el Id físico ni se modifica el indicador al editar una compañía.
 
+El valor se administra en **Configuración > Ventas y boletas > Lista de productos en captura HTML**. El frontend consulta el estado de la compañía y guarda el cambio mediante `PATCH /api/v1/Compania/{id}/lista-productos-tabla`; el backend actualiza o crea únicamente la raíz `VENTAS/ListaProductosTabla` de esa compañía. No requiere cambios de esquema ni un script SQL. El nuevo modo se aplica al volver a abrir la captura de venta.
+
 Con el modo tabla activo se vuelve a consultar el catálogo al entrar al registro de venta; no se reutiliza indefinidamente una lista cargada antes de agregar nuevos códigos. La fuente sigue siendo `GET /api/v1/Productos/list` y sus reglas de estado actuales. Este cambio no garantiza mostrar un producto que la API o el procedimiento instalado en COMAS no devuelvan; ese caso requiere revisar el catálogo del servidor.
 
 El buscador compartido `SearchInput` se extrajo del control existente de DataTable conservando su presentación y callbacks. La captura lo mantiene fuera de las dos vistas para que siga disponible al pulsar Escape; el catálogo filtra mediante un índice local y DataTable conserva la paginación. La navegación se aplica solo con el flag activo. La recarga depende de la entrada de ruta, no de cada tecla ni de cada edición de cantidad.
@@ -49,7 +51,7 @@ La prueba de navegador usó la pantalla real con 10.000 productos simulados: esc
 
 ## Instalación y activación
 
-Actualizar backend y frontend juntos. El responsable SQL debe ejecutar el script con la base correcta seleccionada; crea el indicador en 0 sin alterar los valores existentes de Indicador. Para usar la tabla, configurar `ValorNum = 1` en la fila de la compañía correspondiente y volver a cargar la aplicación. Para volver al autocomplete, usar 0 y recargar.
+Actualizar backend y frontend juntos. El script de inicialización se puede usar para crear el indicador en 0 para las compañías que aún no lo tengan, conservando los valores existentes. También se crea automáticamente si se guarda desde **Configuración > Ventas y boletas**: activado guarda `ValorNum = 1` y desactivado guarda `ValorNum = 0`. Reabrir la captura para aplicar la selección. No se debe ejecutar manualmente el script local de activación en servidores.
 
 El 22/10/2026, por solicitud expresa del usuario para visualizar la funcionalidad, se cambió de 0 a 1 el indicador existente de la compañía 1 (LINO ESPIRITU WILDER) en la base local `localhost\SQLEXPRESS01 / DXNCOMAS2210`. Se verificó el valor 1 tras ejecutar [20261022_activar_lista_productos_tabla_local.sql](../scripts/sql/20261022_activar_lista_productos_tabla_local.sql). Esta activación no corresponde a un despliegue en el servidor remoto de COMAS.
 

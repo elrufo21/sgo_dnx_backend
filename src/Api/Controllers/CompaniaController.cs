@@ -110,6 +110,37 @@ public class CompaniaController : ControllerBase
     }
 
     [Authorize]
+    [HttpPatch("{id}/lista-productos-tabla", Name = "ActualizarListaProductosTabla")]
+    [ProducesResponseType((int)HttpStatusCode.OK)]
+    [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+    [ProducesResponseType((int)HttpStatusCode.NotFound)]
+    public async Task<IActionResult> ActualizarListaProductosTabla(
+        int id,
+        [FromBody] ActualizarListaProductosTablaRequest? request,
+        CancellationToken cancellationToken)
+    {
+        if (id <= 0) return BadRequest("Id inválido.");
+        if (request is null) return BadRequest("Payload requerido.");
+
+        var actualizado = await _mediator.ActualizarListaProductosTablaAsync(id, request.ListaProductosTabla, cancellationToken);
+        if (!actualizado)
+        {
+            return NotFound(new
+            {
+                ok = false,
+                mensaje = $"No se encontró la compañía con id {id}."
+            });
+        }
+
+        return Ok(new
+        {
+            ok = true,
+            companiaId = id,
+            listaProductosTabla = request.ListaProductosTabla
+        });
+    }
+
+    [Authorize]
     [HttpGet("{id}/caja-configuracion/estado", Name = "ObtenerEstadoCajasConfiguracion")]
     [ProducesResponseType((int)HttpStatusCode.OK)]
     public async Task<IActionResult> ObtenerEstadoCajasConfiguracion(int id, CancellationToken cancellationToken)
@@ -201,6 +232,11 @@ public class ActualizarBoletaPorLoteRequest
 public class ActualizarFlagCapturaRequest
 {
     public bool FlagCaptura { get; set; }
+}
+
+public class ActualizarListaProductosTablaRequest
+{
+    public bool ListaProductosTabla { get; set; }
 }
 
 public class ActualizarConfiguracionCajaRequest

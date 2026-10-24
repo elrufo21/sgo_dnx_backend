@@ -124,6 +124,13 @@ public class CompaniaRepository : ICompania
         return await GuardarIndicadorAsync(con, null, id, "VENTAS", "CAPTURA_HTML", 1, null, flagCaptura ? 1 : 0, null, cancellationToken);
     }
 
+    public async Task<bool> ActualizarListaProductosTablaAsync(int id, bool listaProductosTabla, CancellationToken cancellationToken = default)
+    {
+        await using var con = new SqlConnection(_connectionString);
+        await con.OpenAsync(cancellationToken);
+        return await GuardarIndicadorAsync(con, null, id, "VENTAS", "ListaProductosTabla", 1, null, listaProductosTabla ? 1 : 0, null, cancellationToken);
+    }
+
     public async Task<ActualizarConfiguracionCajaResult> ActualizarConfiguracionCajaAsync(
         int id,
         bool flagCaja,
