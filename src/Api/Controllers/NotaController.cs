@@ -2017,6 +2017,9 @@ public class NotaController : ControllerBase
 
         var total = request.Detalles.Sum(x => x.Monto);
         var formaPago = (request.FormaPago ?? "EFECTIVO").Trim().ToUpperInvariant();
+        var entidad = formaPago is "YAPE" or "YAPE/EFECTIVO" or "TARJETA"
+            ? "BCP"
+            : (request.Entidad ?? "-").Trim();
         var efectivo = formaPago == "EFECTIVO" ? total : Math.Max(0, request.Efectivo);
         var deposito = formaPago == "EFECTIVO" ? 0 : Math.Max(0, request.Deposito);
         if (formaPago != "EFECTIVO" && deposito <= 0)
@@ -2029,7 +2032,7 @@ public class NotaController : ControllerBase
             "0",
             DateTime.Now.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             formaPago,
-            (request.Entidad ?? "-").Trim(),
+            entidad,
             efectivo.ToString("0.00", CultureInfo.InvariantCulture),
             deposito.ToString("0.00", CultureInfo.InvariantCulture),
             (request.NroOperacion ?? string.Empty).Trim(),

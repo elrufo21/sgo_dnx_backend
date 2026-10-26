@@ -19,6 +19,7 @@ Los pagos de venta se registran en `CajaDetalle` de la caja activa del usuario y
 - Una venta OBS (`ConceptoOBS = VENTA`) no se suma como ingreso en el listado ni en el cierre de caja. Su importe se obtiene desde OBS para formar `TOTAL EFECTIVO`, descontando todas las salidas, igual que el escritorio. `VENTA LIBRE` y los ingresos manuales sí permanecen como ingresos de caja.
 - En el listado, un pago en efectivo se muestra solo como `EFECTIVO`; el valor técnico `-` de entidad no se presenta.
 - Los pagos de documentos pendientes se conservan en `uspInsertarPagoVarios`, que ya usa la lógica del escritorio.
+- En **Pago Varios**, `YAPE`, `YAPE/EFECTIVO` y `TARJETA` asignan automáticamente la entidad `BCP`. La API fuerza `BCP` para esos medios aunque la solicitud enviada incluya otra entidad.
 - Una venta con condición `PAGO/VARIOS` se crea pendiente con depósito cero y no exige número de operación. La operación se registra posteriormente en `uspInsertarPagoVarios` cuando se realiza el pago.
 - El historial de pagos realizados se consulta directamente desde `PagoVarios` por rango de fechas, como el panel histórico del escritorio.
 - Eliminar un pago realizado requiere la clave de un administrador y ejecuta `uspEliminarPagoV`, igual que el escritorio: elimina el pago, sus detalles y movimientos de caja, y devuelve los documentos a pendiente.

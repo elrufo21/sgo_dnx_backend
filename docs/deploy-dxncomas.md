@@ -242,3 +242,12 @@ El generador `prepare-server-new.ps1` copia esta carpeta SQL a los paquetes futu
 - Incluyen `sql/20261026_listaNotaPedido_web.sql` para que el responsable SQL lo revise y aplique por separado en `DXN_ICA` o `DXNCOMAS`, según el paquete. Actualiza `dbo.listaNotaPedidoWEB` para devolver `ConceptoOBS` y conserva el procedimiento del escritorio. También se conserva `sql/20261020_optimizacion_listados/` con sus instrucciones y reversión.
 - No se ejecutó SQL, no se modificaron bases de datos ni se desplegaron los ZIP. El paquete contiene el token compartido de impresión; transferirlo solo por canales autorizados. COMAS continúa dependiendo de que el responsable SQL entregue y configure la conexión válida del servidor.
 - Compilaciones completadas. Vite mantiene la advertencia existente por el tamaño del bundle; la publicación de API termina con advertencias de análisis ya presentes.
+
+## Builds completos con actualización Pago Varios — 2026-10-26
+
+Estos paquetes reemplazan los builds `20261026-final-final` anteriores e incluyen el cambio para que `YAPE/EFECTIVO` y `YAPE` usen BCP por defecto en Pago Varios.
+
+- ICA: `artifacts/deploy-192.168.1.38-20261026-pago-varios-final-final.zip`. SHA-256: `8B4010560360F5D30BAC3D0D6104EE88FBF63D311F3187CFD83434D64633F70E`.
+- COMAS: `artifacts/deploy-192.168.18.47-20261026-pago-varios-final-final.zip`. SHA-256: `584D90FBCD89960BD2B0316DC045138B6497E84FFB8442D01D787FE1F4192061`.
+- Incluyen frontend, API .NET 7 para Windows x64, extensión, agente y los scripts SQL informativos: `20261026_listaNotaPedido_web.sql` y la carpeta `20261020_optimizacion_listados/`. Ambos ZIP pasaron `verify-package.ps1` para sus destinos respectivos.
+- Se generaron localmente; no se desplegaron ni se ejecutó SQL. Los paquetes contienen el token compartido de impresión: transferirlos solo por canales autorizados.
