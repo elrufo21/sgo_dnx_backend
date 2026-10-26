@@ -424,7 +424,7 @@ END;
 
 GO
 
-CREATE OR ALTER PROCEDURE dbo.listaNotaPedido
+CREATE OR ALTER PROCEDURE dbo.listaNotaPedidoWEB
     @FechaInicio DATE,
     @FechaFin DATE
 AS
@@ -485,7 +485,8 @@ BEGIN
                       AND d.TipoCodigo IN ('01', '03')
                     ORDER BY d.DocuId DESC
                 ), 'PENDIENTE') + '|' +
-                ISNULL(c.ClienteCodigo, '')
+                ISNULL(c.ClienteCodigo, '') + '|' +
+                ISNULL(n.ConceptoOBS, '')
             FROM NotaPedido n WITH (NOLOCK)
             LEFT JOIN Cliente c WITH (NOLOCK) ON c.ClienteId = n.ClienteId
             WHERE n.NotaFecha >= @FechaInicio
@@ -6509,7 +6510,7 @@ WHERE schema_id = SCHEMA_ID(N'dbo')
   AND name IN
   (
       N'anularDocumentoWEB', N'editarCompaniaWEB', N'editarProductoWEB', N'ingresarProductoWEB',
-      N'LDdocumentosweb', N'listaNotaPedido', N'listarCajaWEB', N'listarCajaFechaWEB',
+      N'LDdocumentosweb', N'listaNotaPedidoWEB', N'listarCajaWEB', N'listarCajaFechaWEB',
       N'listarDetaCajaWEB', N'usp_Area', N'usp_Feriado', N'usp_Maquina', N'usp_Personal',
       N'usp_Usuario', N'uspCajaInsertaCsvWeb', N'uspEditarConteoCajaWEB',
       N'uspEditarNotaPedido', N'uspEditarRBweb', N'uspEliminarCajaDetalleWEB',

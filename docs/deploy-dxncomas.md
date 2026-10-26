@@ -9,7 +9,7 @@ Leer este archivo antes de continuar cualquier trabajo de despliegue para DXNCOM
 | DXN_ICA | `DXN_ICA` | `192.168.1.38` | `http://192.168.1.38:8080/login` | `http://192.168.1.38:8081/api/v1` |
 | DXNCOMAS | `DXNCOMAS` | `SERVER-NEW`, `192.168.18.47` | `http://192.168.18.47:8080` | `http://192.168.18.47:8081/api/v1` |
 
-Estas son instalaciones distintas. No reutilizar entre ellas el ZIP, IP, CORS, `appsettings.json`, conexion de base de datos ni credenciales del otro caso. Los paquetes completos verificados más recientes para ICA y COMAS son los builds regenerados del **2026-10-23** indicados al final; los del 2026-10-22 y anteriores quedan como referencia histórica. Los paquetes de frontend independiente se documentan por fecha en su sección correspondiente. Los nuevos paquetes se prepararon y verificaron localmente, sin subirlos a los servidores ni ejecutar SQL.
+Estas son instalaciones distintas. No reutilizar entre ellas el ZIP, IP, CORS, `appsettings.json`, conexion de base de datos ni credenciales del otro caso. Los paquetes completos verificados más recientes para ICA y COMAS son los builds regenerados del **2026-10-23**; los del 2026-10-22 y anteriores quedan como referencia histórica. Los paquetes de frontend independiente más recientes son los del **2026-10-24**, con la corrección responsive de Pago Varios documentada al final. Los nuevos paquetes se prepararon y verificaron localmente, sin subirlos a los servidores ni ejecutar SQL.
 
 ## Servidor y alcance de DXNCOMAS
 
@@ -224,3 +224,12 @@ El generador `prepare-server-new.ps1` copia esta carpeta SQL a los paquetes futu
   - COMAS: `artifacts/deploy-192.168.18.47-20261023-rebuild2-final.zip`. SHA-256: `8DC90545059F230BC34CBF83D58CCC63D834486F98C5191798590CE6798E123C`.
 - Los paquetes nuevos aún no se copiaron a los servidores. Desde este equipo no hubo conexión a los puertos 445, 5985, 5986, 22, 21, 3389, 8080 ni 8081 de `192.168.1.38` o `192.168.18.47`; reanudar cuando el equipo tenga ruta de red/VPN y canal autorizado hacia ambos destinos.
 - En COMAS, el `ConnectionStrings:DefaultConnection` del `appsettings.json` del servidor figuraba vacío en la última revisión. El paquete conserva ese archivo. La API puede publicarse cuando haya conectividad, pero el inicio de sesión seguirá dependiendo de que el responsable SQL entregue la cadena y cuenta autorizadas y de configurarlas en el servidor.
+
+## Frontend Pago Varios para COMAS e ICA — 2026-10-24
+
+- COMAS: `artifacts/front-DXNCOMAS-192.168.18.47-20261024-135051-final.zip`. API compilada `http://192.168.18.47:8081/api/v1/`. SHA-256: `82FE8C81E5D488476D51307044AEDA4228D1B015A4CCFDC244AB6837669F68CA`.
+- ICA: `artifacts/front-DXN_ICA-192.168.1.38-20261024-135051-final.zip`. API compilada `http://192.168.1.38:8081/api/v1/`. SHA-256: `ECB5CA366504D4A9BAD9950FF60D06882163E6A9416DB4E830E1D80A2D34615C`.
+- Incluyen el frontend actual con el formulario desplazable y las acciones de Pago Varios fuera de la zona de desplazamiento en escritorio; en móvil el contenido se apila y permite desplazarse. El modal se verificó previamente con datos simulados en 1366×600, 1280×500, 1024×400 y 390×640.
+- Ambos ZIP contienen únicamente `web/` y README. Respaldar la web actual y copiar el contenido de `web/` a la raíz del sitio correspondiente; recargar con Ctrl+F5. No requieren actualizar API, SQL, extensión ni agente por esta corrección.
+- `npm run build:vercel` pasó para ambos con la advertencia existente de bundle grande. La API activa de cada bundle coincide con su destino y no aparece la IP del otro; se comprobaron assets del index, `web.config` de IIS, la corrección compilada y la consistencia del token de impresión. Los 10 archivos de cada ZIP se leyeron y sus SHA-256 coincidieron con los originales. Registro: `artifacts/front-pago-varios-20261024-135051-verification.json`.
+- El build completo conserva los 272 errores TypeScript preexistentes comprobados en el trabajo del modal. No se repitió el typecheck al empaquetar el mismo código. Los paquetes se generaron localmente; no se desplegaron ni se ejecutó SQL. Contienen el token de impresión del frontend: transferir solo a destinos autorizados.

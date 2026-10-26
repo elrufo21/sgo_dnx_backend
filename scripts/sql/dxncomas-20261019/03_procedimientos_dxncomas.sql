@@ -397,15 +397,15 @@ BEGIN
 END;
 GO
 
-/* dbo.listaNotaPedido */
+/* dbo.listaNotaPedidoWEB: version usada exclusivamente por la API web */
 SET ANSI_NULLS ON;
 GO
 SET QUOTED_IDENTIFIER ON;
 GO
-IF OBJECT_ID(N'dbo.listaNotaPedido', N'P') IS NULL
-    EXEC(N'CREATE PROCEDURE [dbo].[listaNotaPedido] AS BEGIN SET NOCOUNT ON; END');
+IF OBJECT_ID(N'dbo.listaNotaPedidoWEB', N'P') IS NULL
+    EXEC(N'CREATE PROCEDURE [dbo].[listaNotaPedidoWEB] AS BEGIN SET NOCOUNT ON; END');
 GO
-ALTER PROCEDURE dbo.[listaNotaPedido]
+ALTER PROCEDURE dbo.[listaNotaPedidoWEB]
     @FechaInicio DATE,
     @FechaFin DATE
 AS
@@ -466,7 +466,8 @@ BEGIN
                       AND d.TipoCodigo IN ('01', '03')
                     ORDER BY d.DocuId DESC
                 ), 'PENDIENTE') + '|' +
-                ISNULL(c.ClienteCodigo, '')
+                ISNULL(c.ClienteCodigo, '') + '|' +
+                ISNULL(n.ConceptoOBS, '')
             FROM NotaPedido n WITH (NOLOCK)
             LEFT JOIN Cliente c WITH (NOLOCK) ON c.ClienteId = n.ClienteId
             WHERE n.NotaFecha >= @FechaInicio

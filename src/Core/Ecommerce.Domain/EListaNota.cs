@@ -13,7 +13,7 @@ public class EListaNota
     public string? Usuario { get; set; }
     public string? Estado { get; set; }
 
-    // Campos completos devueltos por dbo.listaNotaPedido
+    // Campos completos devueltos por dbo.listaNotaPedidoWEB
     public string? ClienteId { get; set; }
     public string? ClienteRazon { get; set; }
     public string? ClienteRuc { get; set; }
@@ -57,4 +57,5 @@ public class EListaNota
     public string? Efectivo { get; set; }
     public string? Deposito { get; set; }
     public string? EstadoSunat { get; set; }
+    public string? ConceptoOBS { get; set; }
 }

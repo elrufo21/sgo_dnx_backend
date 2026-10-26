@@ -30,7 +30,7 @@ VALUES
     (N'editarProducto', N'editarProducto'),
     (N'ingresarProducto', N'ingresarProducto'),
     (N'LDdocumentosweb', N'LDdocumentosweb'),
-    (N'listaNotaPedido', N'listaNotaPedido'),
+    (N'listaNotaPedido', N'listaNotaPedidoWEB'),
     (N'listarCaja', N'listarCaja'),
     (N'listarCajaFecha', N'listarCajaFecha'),
     (N'listarDetaCaja', N'listarDetaCaja'),
@@ -169,7 +169,7 @@ WHERE schema_id = SCHEMA_ID(N'dbo')
   AND name IN
   (
       N'anularDocumento', N'editarCompania', N'editarProducto', N'ingresarProducto',
-      N'LDdocumentosweb', N'listaNotaPedido', N'listarCaja', N'listarCajaFecha',
+      N'LDdocumentosweb', N'listaNotaPedidoWEB', N'listarCaja', N'listarCajaFecha',
       N'listarDetaCaja', N'usp_Area', N'usp_Feriado', N'usp_Maquina', N'usp_Personal',
       N'usp_Usuario', N'uspCajaInsertaCsvWeb', N'uspEditarConteoCajaWEB',
       N'uspEditarNotaPedido', N'uspEditarRBweb', N'uspEliminarCajaDetalleWEB',

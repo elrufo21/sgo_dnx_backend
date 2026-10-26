@@ -1,0 +1,18 @@
+[
+  {
+    "Target": "DXNCOMAS",
+    "IP": "192.168.18.47",
+    "Zip": "C:\\Users\\User\\Desktop\\desarrollo_dnx\\sgo_dnx_backend\\artifacts\\front-DXNCOMAS-192.168.18.47-20261024-135051-final.zip",
+    "SHA256": "82FE8C81E5D488476D51307044AEDA4228D1B015A4CCFDC244AB6837669F68CA",
+    "Bytes": 3242251,
+    "Files": 10
+  },
+  {
+    "Target": "DXN_ICA",
+    "IP": "192.168.1.38",
+    "Zip": "C:\\Users\\User\\Desktop\\desarrollo_dnx\\sgo_dnx_backend\\artifacts\\front-DXN_ICA-192.168.1.38-20261024-135051-final.zip",
+    "SHA256": "ECB5CA366504D4A9BAD9950FF60D06882163E6A9416DB4E830E1D80A2D34615C",
+    "Bytes": 3242249,
+    "Files": 10
+  }
+]

@@ -833,7 +833,7 @@ public class NotaPedidoRepository : INotaPedido
 
     public async Task<string> ListarCadenaAsync(DateTime fechaInicio, DateTime fechaFin, CancellationToken cancellationToken = default)
     {
-        const string sp = "listaNotaPedido";
+        const string sp = "listaNotaPedidoWEB";
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sp, con)
         {

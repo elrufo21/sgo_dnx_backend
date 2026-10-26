@@ -90,8 +90,8 @@ public static class Cadena
             campos = registros[i].Split('|');
             if (campos.Length == 0 || campos[0] == "~") break;
 
-            // Formato completo actual de dbo.listaNotaPedido:
-            // 0..43 (44 campos) + 44 EstadoSunat + 45 ClienteCodigo
+            // Formato completo actual de dbo.listaNotaPedidoWEB:
+            // 0..43 (44 campos) + 44 EstadoSunat + 45 ClienteCodigo + 46 ConceptoOBS
             if (campos.Length >= 44)
             {
                 lista.Add(new EListaNota
@@ -149,7 +149,8 @@ public static class Cadena
                     NroOperacion = GetCampo(campos, 41),
                     Efectivo = GetCampo(campos, 42),
                     Deposito = GetCampo(campos, 43),
-                    EstadoSunat = GetCampo(campos, 44)
+                    EstadoSunat = GetCampo(campos, 44),
+                    ConceptoOBS = GetCampo(campos, 46)
                 });
                 continue;
             }
