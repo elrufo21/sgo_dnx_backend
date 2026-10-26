@@ -135,6 +135,7 @@ try {
     $listadosSqlOutput = Join-Path $OutputDirectory "sql\20261020_optimizacion_listados"
     New-Item -ItemType Directory -Path $listadosSqlOutput -Force | Out-Null
     Copy-Item (Join-Path $listadosSqlRoot "*") $listadosSqlOutput -Force
+    Copy-Item (Join-Path $backendRoot "scripts\sql\20261026_listaNotaPedido_web.sql") (Join-Path $OutputDirectory "sql\20261026_listaNotaPedido_web.sql") -Force
 
     $readme = @"
 # Despliegue DNX para $ServerName
@@ -149,6 +150,8 @@ try {
 El paquete no contiene ``api/appsettings.json``: no reemplaza conexión, claves ni credenciales existentes. ``configuration/appsettings.template.json`` es solo una plantilla sin secretos para instalaciones nuevas; completarla antes de iniciar IIS. Conservar también las carpetas ``media`` y ``keys`` del servidor. Este paquete no ejecuta scripts SQL ni restaura bases de datos.
 
 Antes de publicar esta API, el responsable SQL debe aplicar en la base destino los archivos 01, 02 y 03 de ``sql/20261020_optimizacion_listados/``, en ese orden. La carpeta incluye instrucciones y reversión; el archivo 04 es solo para revertir y no debe ejecutarse durante la actualización.
+
+Para que el listado Nota Pedido muestre ConceptoOBS, el responsable SQL debe revisar y aplicar ``sql/20261026_listaNotaPedido_web.sql`` en $databaseName antes de publicar esta API. El script crea o actualiza únicamente ``dbo.listaNotaPedidoWEB``; conserva ``dbo.listaNotaPedido`` para el aplicativo de escritorio. Este paquete solo entrega el SQL, no lo ejecuta.
 
 En el servidor instalar IIS, URL Rewrite y el .NET 7 Hosting Bundle. La IP estática de LAN usada en este paquete es $ServerName. La regla de firewall debe limitar los puertos de la aplicación a la subred local.
 

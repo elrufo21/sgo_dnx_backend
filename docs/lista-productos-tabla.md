@@ -19,12 +19,12 @@ El usuario confirmó que la vista anterior debe conservarse tal como estaba: los
 - Productos utiliza el componente compartido DataTable, con búsqueda por código/nombre, paginación y columnas Código, Descripción, Cantidad, Precio, Stock y PV. No se limita a las 20 sugerencias del autocomplete. El stock en cero se destaca, conservando las reglas existentes de venta.
 - Las pestañas no se muestran. Al entrar a una venta manual se abre Productos con todo el catálogo disponible, paginado; el catálogo se carga desde la API aunque ya exista en memoria. La búsqueda permanece visible tanto en Productos como en Detalle.
 - Escribir una búsqueda no vacía cambia a Productos y muestra las coincidencias por código/nombre, con las mismas reglas del filtro de DataTable. Una búsqueda parcial puede devolver varias coincidencias. Una búsqueda vacía muestra todo el catálogo disponible y una búsqueda sin coincidencias muestra un mensaje específico.
-- Escape cambia a Detalle, limpia la búsqueda y devuelve el foco al buscador para buscar otro producto. Al borrar todo el texto del buscador también vuelve a Detalle y conserva el foco. Escape funciona desde el buscador, las cantidades o los demás campos de la pantalla; no interfiere con diálogos abiertos. Las cantidades y productos seleccionados se conservan.
-- Con coincidencias, Enter o flecha abajo desde el buscador enfoca la cantidad de la primera coincidencia visible. Si no hay resultados, el foco permanece en el buscador.
+- Escape cambia a Detalle, limpia la búsqueda y devuelve el foco al buscador para buscar otro producto. Al borrar todo el texto del buscador también vuelve a Detalle y conserva el foco. Escape funciona desde el buscador, las cantidades o los demás campos de la pantalla; no interfiere con diálogos abiertos. Al pulsar Shift sin combinarlo con otra tecla desde un campo editable de Productos o Detalle, el foco vuelve al buscador y se conserva el texto. En otras secciones, Shift+Tab y escribir mayúsculas mantienen su comportamiento normal.
+- Con coincidencias, Enter o flecha abajo desde el buscador enfoca la cantidad de la primera coincidencia visible. Con el buscador vacío en Detalle, enfoca la primera cantidad del detalle. Si no hay coincidencias o filas, el foco permanece en el buscador.
 - La cantidad de cada producto es absoluta: escribir 3 deja tres unidades, no agrega tres adicionales. Desde el 26/10/2026 solo se admiten enteros al escribir o pegar en Productos y Detalle; el guardado rechaza cantidades fraccionarias de borradores o capturas anteriores sin redondearlas. Los precios conservan sus decimales. Poner 0 o vaciar una cantidad en Productos quita esa fila del detalle.
 - Productos y Detalle usan las mismas filas de venta. Cambiar cantidades o quitar un producto desde Detalle actualiza su cantidad en Productos; una cantidad vacía o cero en Detalle se quita al salir del campo. Cambiar de vista, buscar o paginar no descarta selecciones.
 - El primer producto conserva la pregunta de motivo de venta sin OBS. Aceptar aplica la cantidad indicada; Ignorar no agrega el producto.
-- La edición de cantidad conserva el precio editado del detalle y los datos de PV/SV. Los totales, borrador y guardado siguen usando el detalle existente.
+- El precio del producto se muestra en Detalle sin permitir editarlo; cantidades, totales, borrador y guardado siguen usando las filas de venta existentes y los datos PV/SV.
 - Ventas capturadas de OBS y ventas ya registradas conservan su bloqueo de edición. Se abre Detalle automáticamente para consultar esos documentos.
 - Nuevo registro y Limpiar vacían las selecciones; no hay un carrito paralelo al detalle.
 
@@ -48,7 +48,7 @@ El buscador compartido `SearchInput` se extrajo del control existente de DataTab
 
 Verificación: `node --experimental-strip-types scripts/verify-product-catalog-search.mjs` comprueba equivalencia con el filtro anterior, catálogo completo, acentos, términos múltiples, códigos nuevos, inactivos e índice reutilizado. En la ejecución local con 10.000 productos y 30 búsquedas, el filtrado anterior tomó 258.0 ms y el indexado 7.0 ms; es una medición del filtro en Node, excluye renderizado, red y carga inicial y no garantiza la misma latencia en otras computadoras.
 
-La prueba de navegador usó la pantalla real con 10.000 productos simulados: escritura continua hasta un código exacto, motivo OBS, selección de dos productos, Escape, precio editado conservado al cambiar cantidades (total 1.184,00), paginación, búsqueda desde página 2 y Limpiar con catálogo completo. Las búsquedas y cantidades mantuvieron una sola carga del catálogo. No se guardaron ventas ni se utilizó SQL o impresión. El build Vite y las pruebas de búsqueda/cantidades pasaron; TypeScript conserva los cinco errores existentes en la página y no reportó errores en los nuevos componentes o helper.
+La prueba de navegador usó la pantalla real con 10.000 productos simulados: escritura continua hasta un código exacto, motivo OBS, selección de dos productos, Escape, precio existente conservado al cambiar cantidades (total 1.184,00), paginación, búsqueda desde página 2 y Limpiar con catálogo completo. Las búsquedas y cantidades mantuvieron una sola carga del catálogo. No se guardaron ventas ni se utilizó SQL o impresión. El build Vite y las pruebas de búsqueda/cantidades pasaron; TypeScript conserva los cinco errores existentes en la página y no reportó errores en los nuevos componentes o helper.
 
 ## Instalación y activación
 
@@ -58,7 +58,7 @@ El 22/10/2026, por solicitud expresa del usuario para visualizar la funcionalida
 
 ## Comprobación local
 
-`node --experimental-strip-types scripts/verify-sale-product-quantities.mjs` en el frontend comprueba selección, cantidades enteras absolutas, rechazo de decimales y valores inválidos, eliminación, conservación de precios editados y totales, sin consultar SQL ni guardar ventas.
+`node --experimental-strip-types scripts/verify-sale-product-quantities.mjs` en el frontend comprueba selección, cantidades enteras absolutas, rechazo de decimales y valores inválidos, eliminación, conservación del precio existente al cambiar cantidades y totales, sin consultar SQL ni guardar ventas.
 
 La prueba de navegador utilizó 105 productos simulados y la pantalla real de captura con las peticiones interceptadas por una fixture local. Se comprobaron flag activo, desactivado y ausente; motivo OBS aceptado/cancelado; edición continua sin perder foco; Enter a la siguiente cantidad; sincronización con Detalle; búsqueda, paginación, decimales, eliminación y Limpiar. No se guardaron ventas, no se imprimió y no se accedió a SQL. La fixture temporal y su servidor se retiraron al terminar. Captura de referencia: `artifacts/lista-productos-tabla-20261022.png`.
 

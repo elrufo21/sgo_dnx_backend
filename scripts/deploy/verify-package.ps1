@@ -77,6 +77,9 @@ try {
         $source = [System.IO.File]::ReadAllText($file.FullName)
         Assert-Package ($packaged -ceq $source) "Un SQL o su README no coincide con el archivo revisado."
     }
+    $notaPedidoSql = Read-PackageEntry 'sql/20261026_listaNotaPedido_web.sql'
+    $notaPedidoSqlSource = [System.IO.File]::ReadAllText((Join-Path $backendRoot 'scripts/sql/20261026_listaNotaPedido_web.sql'))
+    Assert-Package ($notaPedidoSql -ceq $notaPedidoSqlSource) "El SQL de Nota Pedido no coincide con el archivo revisado."
     $readme = Read-PackageEntry 'README.md'
     Assert-Package ($readme.Contains($webOrigin) -and $readme.Contains($apiUrl)) "README con URLs incorrectas."
     Write-Host "OK: URLs, CORS, .NET 7, IIS, impresion, SQL y configuracion conservada ($ServerName)."
