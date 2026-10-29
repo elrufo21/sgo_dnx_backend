@@ -9,7 +9,7 @@ Leer este archivo antes de continuar cualquier trabajo de despliegue para DXNCOM
 | DXN_ICA | `DXN_ICA` | `192.168.1.38` | `http://192.168.1.38:8080/login` | `http://192.168.1.38:8081/api/v1` |
 | DXNCOMAS | `DXNCOMAS` | `SERVER-NEW`, `192.168.18.47` | `http://192.168.18.47:8080` | `http://192.168.18.47:8081/api/v1` |
 
-Estas son instalaciones distintas. No reutilizar entre ellas el ZIP, IP, CORS, `appsettings.json`, conexion de base de datos ni credenciales del otro caso. Los paquetes completos verificados más recientes para ICA y COMAS son los builds regenerados del **2026-10-23**; los del 2026-10-22 y anteriores quedan como referencia histórica. Los paquetes de frontend independiente más recientes son los del **2026-10-24**, con la corrección responsive de Pago Varios documentada al final. Los nuevos paquetes se prepararon y verificaron localmente, sin subirlos a los servidores ni ejecutar SQL.
+Estas son instalaciones distintas. No reutilizar entre ellas el ZIP, IP, CORS, `appsettings.json`, conexion de base de datos ni credenciales del otro caso. Los paquetes completos verificados más recientes para ICA y COMAS son los builds del **2026-10-29**, documentados al final. Los paquetes de frontend independiente más recientes son los del **2026-10-24**. Los nuevos paquetes se prepararon y verificaron localmente, sin subirlos a los servidores ni ejecutar SQL.
 
 ## Servidor y alcance de DXNCOMAS
 
@@ -251,3 +251,24 @@ Estos paquetes reemplazan los builds `20261026-final-final` anteriores e incluye
 - COMAS: `artifacts/deploy-192.168.18.47-20261026-pago-varios-final-final.zip`. SHA-256: `584D90FBCD89960BD2B0316DC045138B6497E84FFB8442D01D787FE1F4192061`.
 - Incluyen frontend, API .NET 7 para Windows x64, extensión, agente y los scripts SQL informativos: `20261026_listaNotaPedido_web.sql` y la carpeta `20261020_optimizacion_listados/`. Ambos ZIP pasaron `verify-package.ps1` para sus destinos respectivos.
 - Se generaron localmente; no se desplegaron ni se ejecutó SQL. Los paquetes contienen el token compartido de impresión: transferirlos solo por canales autorizados.
+
+## Builds completos con cantidad IOC — 2026-10-29
+
+- ICA: `artifacts/deploy-192.168.1.38-20261029-ioc-final.zip`. SHA-256: `CD44251737961DE7D8D9942AD4B7B50AF2C862ACB0F5862FC2ED4E7EFCB608E8`.
+- COMAS: `artifacts/deploy-192.168.18.47-20261029-ioc-final.zip`. SHA-256: `556F89A379158379BD8784AF7B632B7EB8E9A6B176DB38A75C0F71FBAC9ACCF2`.
+- Incluyen el frontend actual, API .NET 7 para Windows x64, extensión, agente de impresión y scripts SQL informativos. Los paquetes pasaron `verify-package.ps1` para su destino y se verificó el contenido de sus 113 archivos contra las carpetas de origen.
+- Vite compiló con la advertencia existente de tamaño de bundle. El frontend se compiló con `build:vercel`, que no ejecuta el typecheck; este registra errores preexistentes. No se desplegaron paquetes ni se ejecutó SQL. Contienen el token compartido de impresión y deben transferirse solo a destinos autorizados.
+
+## Backend solamente para ICA y COMAS — 2026-10-29
+
+- ICA: `artifacts/backend-ICA-20261029-133026.zip`. SHA-256: `CEEBF381D652FC0EF68D7C12244D0DCF7657F1C5F3BCBCD71264D51B2AB07D84`.
+- COMAS: `artifacts/backend-COMAS-20261029-133026.zip`. SHA-256: `05DB8E65473FA4F753409DE62BB8005AB1455829BA7969A0D6EBDB012F13905D`.
+- Ambos contienen la misma API actual publicada con SDK 7.0.410 para .NET 7 y win-x64, junto con instrucciones específicas por sede; no incluyen archivos `appsettings*.json`. Se verificaron los 69 archivos de cada ZIP contra su carpeta de origen. Conservar la configuración existente del servidor al instalar.
+- No se modificó la consulta de proveedores, no se desplegó ni se ejecutó SQL. El HTTP 500 requiere el detalle de la excepción en producción; volver a compilar no garantiza corregirlo.
+
+## Backend proveedores compatible con SQL Server 2008 — 2026-10-29
+
+- ICA: `artifacts/backend-ICA-20261029-proveedor-sql2008.zip`. SHA-256: `49A5FA6321B5E14EA124211B2A220ACA349D06A01F38D032AC4A9607BF08C5BD`.
+- COMAS: `artifacts/backend-COMAS-20261029-proveedor-sql2008.zip`. SHA-256: `A6B21F8D1DB5E61C64D21B93C8BFF83C4045B8E7FBB869D1C5C3F852F4AF77D6`.
+- Sustituyen los paquetes de backend `20261029-133026`: el listado de proveedores usa `ROW_NUMBER()` en lugar de `OFFSET/FETCH`. La consulta y su script de referencia pasaron el analizador de sintaxis SQL Server 2008; no se probaron contra el servidor de produccion.
+- Backend .NET 7 para win-x64; cada ZIP paso verificacion de contenido, 69 archivos y exclusion de appsettings. Publicar el contenido de `api/` conservando la configuracion del servidor. No requiere modificar SQL; no se ejecuto SQL ni se desplego.

@@ -65,16 +65,21 @@ public class ProveedorRepository : IProveedor
         const string sql = """
             SELECT ProveedorId, ProveedorRazon, ProveedorRuc, ProveedorContacto, ProveedorCelular,
                    ProveedorTelefono, ProveedorCorreo, ProveedorDireccion, ProveedorEstado
-            FROM Proveedor
-            WHERE (@Estado IS NULL OR ProveedorEstado = @Estado)
-            ORDER BY ProveedorId DESC
-            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;
+            FROM (
+                SELECT ProveedorId, ProveedorRazon, ProveedorRuc, ProveedorContacto, ProveedorCelular,
+                       ProveedorTelefono, ProveedorCorreo, ProveedorDireccion, ProveedorEstado,
+                       ROW_NUMBER() OVER (ORDER BY ProveedorId DESC) AS NumeroFila
+                FROM Proveedor
+                WHERE (@Estado IS NULL OR ProveedorEstado = @Estado)
+            ) AS proveedores
+            WHERE NumeroFila > @Offset AND NumeroFila <= @Offset + @PageSize
+            ORDER BY NumeroFila;
             """;
 
         await using var con = new SqlConnection(_connectionString);
         await using var cmd = new SqlCommand(sql, con);
         cmd.Parameters.AddWithValue("@Estado", (object?)estado ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@Offset", (page - 1) * pageSize);
+        cmd.Parameters.AddWithValue("@Offset", ((long)page - 1) * pageSize);
         cmd.Parameters.AddWithValue("@PageSize", pageSize);
         await con.OpenAsync(cancellationToken);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);

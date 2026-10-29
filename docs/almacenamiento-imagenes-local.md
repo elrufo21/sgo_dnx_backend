@@ -19,4 +19,4 @@ El sitio web resuelve las rutas `/media/...` de Caja Chica contra la URL de la A
 
 ## Movimiento de Caja Chica
 
-`POST /api/v1/PettyCashMovement/{id}/image` permite adjuntar una imagen a un movimiento manual existente. Requiere `usuarioId` e `imagen` en `multipart/form-data`, valida JPG/PNG/WEBP hasta 5 MB y solo actualiza `CajaDetalle.RutaImagen` cuando aún está vacía. El registro y sus datos no se editan desde este flujo; la imagen existente tampoco se reemplaza ni se borra. Usa la columna existente y no requiere cambios SQL.
+`POST /api/v1/PettyCashMovement/{id}/image` permite adjuntar una imagen a un movimiento manual o automático listado en la caja activa. Requiere `usuarioId` e `imagen` en `multipart/form-data`, valida JPG/PNG/WEBP hasta 5 MB y solo actualiza `CajaDetalle.RutaImagen` cuando aún está vacía. El registro y sus datos no se editan desde este flujo; la imagen existente tampoco se reemplaza ni se borra. Usa la columna existente y no requiere instalar objetos SQL; la consulta de referencia está en `scripts/sql/20261029_adjuntar_imagen_caja_chica.sql`.

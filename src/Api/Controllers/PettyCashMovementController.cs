@@ -228,8 +228,7 @@ public sealed class PettyCashMovementController : ControllerBase
         await using (var movimientoCmd = new SqlCommand("""
             SELECT ISNULL(RutaImagen, '') FROM CajaDetalle WITH (UPDLOCK, HOLDLOCK)
              WHERE DetalleId = @DetalleId AND CajaId = @CajaId
-               AND ISNULL(NotaId, 0) = 0 AND ISNULL(Vista, '') = ''
-               AND ISNULL(NotaIdB, 0) = -1;
+               AND ISNULL(NotaId, 0) = 0 AND ISNULL(Vista, '') = '';
             """, con, tx))
         {
             var detalleId = movimientoCmd.Parameters.Add("@DetalleId", SqlDbType.Decimal);
@@ -239,7 +238,7 @@ public sealed class PettyCashMovementController : ControllerBase
             AddCajaId(movimientoCmd, cajaId.Value);
             var rutaActual = await movimientoCmd.ExecuteScalarAsync(cancellationToken);
             if (rutaActual is null)
-                return NotFound(new { ok = false, mensaje = "No se encontró el movimiento manual de caja chica." });
+                return NotFound(new { ok = false, mensaje = "No se encontró el movimiento de caja chica." });
             if (!string.IsNullOrWhiteSpace(rutaActual.ToString()))
                 return Conflict(new { ok = false, mensaje = "Este movimiento ya tiene una imagen adjunta." });
         }
@@ -260,7 +259,7 @@ public sealed class PettyCashMovementController : ControllerBase
                 UPDATE CajaDetalle SET RutaImagen = @RutaImagen
                  WHERE DetalleId = @DetalleId AND CajaId = @CajaId
                    AND ISNULL(NotaId, 0) = 0 AND ISNULL(Vista, '') = ''
-                   AND ISNULL(NotaIdB, 0) = -1 AND ISNULL(RutaImagen, '') = '';
+                   AND ISNULL(RutaImagen, '') = '';
                 """, con, tx);
             var detalleId = updateCmd.Parameters.Add("@DetalleId", SqlDbType.Decimal);
             detalleId.Precision = 38;
