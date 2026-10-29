@@ -55,8 +55,9 @@ public sealed class CierreCajaFinalController : ControllerBase
     private async Task<IActionResult> Persistir(GuardarCierre request, long conteoId, CancellationToken ct)
     {
         if (request.TotalObs is null) return BadRequest(new { mensaje = "Ingrese el monto total del OBS." });
-        if (request.UsuarioId <= 0 || request.Fecha == default || request.Ingresos.Any(x => x.Importe < 0) || request.Gastos.Any(x => x.Importe < 0) || request.Monedas.Any(x => x.Cantidad < 0 || x.Denominacion <= 0)) return BadRequest(new { mensaje = "Revise los datos del informe." });
-        var gastos = request.Gastos.Sum(x => x.Importe); var total = request.Ingresos.Sum(x => x.Importe); var contado = request.Monedas.Sum(x => x.Cantidad * x.Denominacion); var diferencia = contado - total;
+        var gastos = request.Gastos.Sum(x => x.Importe);
+        if (request.UsuarioId <= 0 || request.Fecha == default || request.Ingresos.Any(x => x.Importe < 0 && !(string.Equals(x.Descripcion?.Trim(), "TOTAL EFECTIVO", StringComparison.OrdinalIgnoreCase) && x.Importe == request.TotalObs.Value - gastos)) || request.Gastos.Any(x => x.Importe < 0) || request.Monedas.Any(x => x.Cantidad < 0 || x.Denominacion <= 0)) return BadRequest(new { mensaje = "Revise los datos del informe." });
+        var total = request.Ingresos.Sum(x => x.Importe); var contado = request.Monedas.Sum(x => x.Cantidad * x.Denominacion); var diferencia = contado - total;
         if (diferencia != 0 && string.IsNullOrWhiteSpace(request.Observaciones)) return BadRequest(new { mensaje = "Ingrese observaciones para justificar la diferencia." });
         var header = string.Join("|", conteoId, request.Fecha.ToString("MM/dd/yyyy", CultureInfo.InvariantCulture), request.UsuarioId, Limpio(request.Usuario), Limpio(request.Cajeros), Dinero(request.TotalObs.Value), Dinero(gastos), Dinero(diferencia), Dinero(total), "", Limpio(request.Observaciones), "0");
         var movimientos = conteoId == 0

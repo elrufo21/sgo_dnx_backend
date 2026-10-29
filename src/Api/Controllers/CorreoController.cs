@@ -531,6 +531,9 @@ public class CorreoController : ControllerBase
         var compania = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(request.NombreCompania)
             ? "Comprobante electrónico"
             : request.NombreCompania.Trim());
+        var nombreSede = string.IsNullOrWhiteSpace(request.NombreSede)
+            ? compania
+            : WebUtility.HtmlEncode(request.NombreSede.Trim());
         var tipoComprobante = WebUtility.HtmlEncode(string.IsNullOrWhiteSpace(request.TipoComprobante)
             ? "Comprobante electrónico"
             : request.TipoComprobante.Trim());
@@ -549,7 +552,7 @@ public class CorreoController : ControllerBase
                 <tr><td align="center">
                   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,.10);">
                     <tr><td style="padding:26px 32px;background:#9f3028;color:#ffffff;text-align:center;">
-                      <div style="font-size:20px;font-weight:700;letter-spacing:.2px;">{compania}</div>
+                      <div style="font-size:20px;font-weight:700;letter-spacing:.2px;">{nombreSede}</div>
                       <div style="margin-top:7px;font-size:13px;opacity:.9;">Documento electrónico</div>
                     </td></tr>
                     <tr><td style="padding:34px 32px 26px;">
@@ -680,6 +683,7 @@ public class EnviarCorreoComprobanteRequest
     public string? RucEmisor { get; set; }
     public string? NroComprobante { get; set; }
     public string? NombreCompania { get; set; }
+    public string? NombreSede { get; set; }
     public string? TipoComprobante { get; set; }
     public IFormFile? Pdf { get; set; }
     public IFormFile? Xml { get; set; }
