@@ -240,11 +240,44 @@ public class UsuariosCrudRepository : IUsuariosCrud
                 StringComparison.OrdinalIgnoreCase));
         }
 
-        return rows
+        var usuarios = rows
             .OrderByDescending(usuario => usuario.UsuarioID)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToList();
+        var personalIds = usuarios.Where(usuario => usuario.PersonalId.HasValue)
+            .Select(usuario => usuario.PersonalId!.Value).Distinct().ToArray();
+        if (personalIds.Length == 0) return usuarios;
+
+        var parameterNames = personalIds.Select((_, index) => $"@Personal{index}").ToArray();
+        var sql = $"""
+            SELECT p.PersonalId,
+                   LTRIM(RTRIM(ISNULL(p.PersonalNombres, '') + ' ' + ISNULL(p.PersonalApellidos, ''))) AS Nombre,
+                   a.AreaNombre AS Area
+            FROM dbo.Personal p
+            LEFT JOIN dbo.Area a ON a.AreaId = p.AreaId
+            WHERE p.PersonalId IN ({string.Join(", ", parameterNames)});
+            """;
+        await using var con = new SqlConnection(_connectionString);
+        await using var cmd = new SqlCommand(sql, con);
+        for (var i = 0; i < personalIds.Length; i++) cmd.Parameters.AddWithValue(parameterNames[i], personalIds[i]);
+        await con.OpenAsync(cancellationToken);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        var personal = new Dictionary<int, (string Nombre, string? Area)>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            personal[Convert.ToInt32(reader["PersonalId"])] =
+                (reader["Nombre"]?.ToString() ?? string.Empty, reader["Area"] == DBNull.Value ? null : reader["Area"].ToString());
+        }
+        foreach (var usuario in usuarios)
+        {
+            if (usuario.PersonalId.HasValue && personal.TryGetValue(usuario.PersonalId.Value, out var datos))
+            {
+                usuario.Nombre = datos.Nombre;
+                usuario.Area = datos.Area;
+            }
+        }
+        return usuarios;
     }
 
     private static UsuarioBd Map(SqlDataReader reader)

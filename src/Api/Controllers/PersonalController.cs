@@ -24,11 +24,13 @@ public class PersonalController : ControllerBase
 
     private readonly IPersonal _mediator;
     private readonly IManageImageService _imageService;
+    private readonly ILogger<PersonalController> _logger;
 
-    public PersonalController(IPersonal mediator, IManageImageService imageService)
+    public PersonalController(IPersonal mediator, IManageImageService imageService, ILogger<PersonalController> logger)
     {
         _mediator = mediator;
         _imageService = imageService;
+        _logger = logger;
     }
 
     [Authorize]
@@ -163,12 +165,20 @@ public class PersonalController : ControllerBase
     public async Task<IActionResult> EliminarMaintenancePersonal(long id, CancellationToken cancellationToken)
     {
         var existente = await _mediator.ObtenerPorIdAsync(id, cancellationToken);
-        if (existente is not null && !string.IsNullOrWhiteSpace(existente.PersonalImagen))
+        var eliminado = await _mediator.EliminarMantenimientoAsync(id, cancellationToken);
+        if (eliminado && existente is not null && !string.IsNullOrWhiteSpace(existente.PersonalImagen))
         {
-            await _imageService.DeleteImage(existente.PersonalImagen);
+            try
+            {
+                await _imageService.DeleteImage(existente.PersonalImagen);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "El personal {PersonalId} fue eliminado, pero no se pudo eliminar su imagen.", id);
+            }
         }
 
-        return Ok(await _mediator.EliminarMantenimientoAsync(id, cancellationToken));
+        return Ok(eliminado);
     }
 
     [AllowAnonymous]
