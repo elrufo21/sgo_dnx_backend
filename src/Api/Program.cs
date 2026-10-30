@@ -101,6 +101,7 @@ builder.Services.AddDbContext<EcommerceDbContext>(options =>
 
 builder.Services.AddScoped<IManageImageService, ManageImageService>();
 builder.Services.AddScoped<LocalImageStorageService>();
+builder.Services.AddScoped<LocalCpeStorageService>();
 builder.Services.AddTransient<IArea, AreaRepository>();
 builder.Services.AddTransient<IPersonal, PersonalRepository>();
 builder.Services.AddTransient<IMaquina, MaquinaRepository>();

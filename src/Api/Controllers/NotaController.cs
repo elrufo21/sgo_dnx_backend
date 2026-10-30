@@ -22,6 +22,7 @@ using System.Linq;
 using System.Security.Claims;
 using BusinessEntities;
 using Ecommerce.Api.Security;
+using Ecommerce.Infrastructure.ImageLocal;
 
 namespace Ecommerce.Api.Controllers;
 
@@ -99,7 +100,7 @@ public class NotaController : ControllerBase
     private readonly ILinea _lineas;
     private readonly IConfiguration _configuration;
     private readonly ICpeGateway _cpeGateway;
-    private readonly IManageImageService _imageService;
+    private readonly LocalCpeStorageService _cpeStorage;
     private readonly ILogger<NotaController> _logger;
 
     public NotaController(
@@ -110,7 +111,7 @@ public class NotaController : ControllerBase
         ILinea lineas,
         IConfiguration configuration,
         ICpeGateway cpeGateway,
-        IManageImageService imageService,
+        LocalCpeStorageService cpeStorage,
         ILogger<NotaController> logger)
     {
         _mediator = mediador;
@@ -120,7 +121,7 @@ public class NotaController : ControllerBase
         _lineas = lineas;
         _configuration = configuration;
         _cpeGateway = cpeGateway;
-        _imageService = imageService;
+        _cpeStorage = cpeStorage;
         _logger = logger;
     }
 
@@ -2898,6 +2899,73 @@ public class NotaController : ControllerBase
             cdrUrl = request.DOCU_CDR_URL ?? request.CdrUrl ?? string.Empty,
             mensaje = "URLs de archivos actualizadas."
         });
+    }
+
+    [HttpPost("documentos/{docuId:long}/recuperar-cdr")]
+    public async Task<IActionResult> RecuperarCdrFactura(long docuId, CancellationToken cancellationToken)
+    {
+        if (!int.TryParse(User.FindFirstValue("companiaId"), out var companiaId) || companiaId <= 0) return Forbid();
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString)) return StatusCode(500, new { mensaje = "No está configurada la conexión a la base de datos." });
+        await using var con = new SqlConnection(connectionString);
+        await con.OpenAsync(cancellationToken);
+        const string sql = """
+            SELECT d.DocuSerie, d.DocuNumero, c.CompaniaRUC, w.DocuCdrUrl
+            FROM DocumentoVenta d
+            INNER JOIN Compania c ON c.CompaniaId = d.CompaniaId
+            LEFT JOIN DocumentoVentaCpeWeb w ON w.DocuId = d.DocuId
+            WHERE d.DocuId = @DocuId AND d.CompaniaId = @CompaniaId AND d.TipoCodigo = '01'
+            """;
+        string serie, numero, ruc, existing;
+        await using (var cmd = new SqlCommand(sql, con))
+        {
+            cmd.Parameters.AddWithValue("@DocuId", docuId);
+            cmd.Parameters.AddWithValue("@CompaniaId", companiaId);
+            await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+            if (!await reader.ReadAsync(cancellationToken)) return NotFound(new { mensaje = "Factura no encontrada." });
+            serie = reader["DocuSerie"]?.ToString()?.Trim() ?? "";
+            numero = reader["DocuNumero"]?.ToString()?.Trim() ?? "";
+            ruc = reader["CompaniaRUC"]?.ToString()?.Trim() ?? "";
+            existing = reader["DocuCdrUrl"]?.ToString()?.Trim() ?? "";
+        }
+        if (!string.IsNullOrWhiteSpace(existing)) return Ok(new { ok = true, cdrUrl = existing, mensaje = "La factura ya tiene un CDR registrado." });
+        if (!Regex.IsMatch(ruc, @"^\d{11}$") || !Regex.IsMatch(serie, @"^[A-Za-z0-9]{4}$") || !Regex.IsMatch(numero, @"^\d{1,8}$"))
+            return BadRequest(new { mensaje = "La factura no tiene RUC, serie o número válidos." });
+        var credenciales = AplicarFallbackCredencialesSunat(await _mediator.ObtenerCredencialesSunatAsync(companiaId, cancellationToken));
+        if (string.IsNullOrWhiteSpace(credenciales?.UsuarioSOL) || string.IsNullOrWhiteSpace(credenciales.ClaveSOL))
+            return BadRequest(new { mensaje = "La compañía no tiene credenciales OSE configuradas." });
+        var proceso = ResolverTipoProcesoDesdeCredenciales(credenciales);
+        if (proceso is < 1 or > 3) return BadRequest(new { mensaje = "El ambiente CPE configurado no es válido." });
+        byte[] cdr;
+        try
+        {
+            cdr = await _cpeGateway.ConsultarCdrAsync(ruc, credenciales.UsuarioSOL.Trim(), credenciales.ClaveSOL.Trim(), proceso, serie, numero, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "No se pudo recuperar el CDR de la factura {DocuId}.", docuId);
+            var detalle = ex switch
+            {
+                CdrConsultaException cpeError => cpeError.Message,
+                HttpRequestException => "No se pudo conectar al OSE desde el servidor.",
+                InvalidOperationException error when error.Message is "El XML recibido no es un CDR." or "El CDR recibido corresponde a otro comprobante." or "El CDR recibido no contiene un XML válido." => error.Message,
+                _ => "No se pudo procesar la respuesta del OSE."
+            };
+            return StatusCode(502, new { mensaje = detalle });
+        }
+        await using var stream = new MemoryStream(cdr);
+        var url = await _cpeStorage.SaveAsync(stream, "cdr.xml", cancellationToken);
+        const string guardar = """
+            UPDATE DocumentoVentaCpeWeb SET DocuCdrUrl = @Url WHERE DocuId = @DocuId AND NULLIF(LTRIM(RTRIM(DocuCdrUrl)), '') IS NULL;
+            IF NOT EXISTS (SELECT 1 FROM DocumentoVentaCpeWeb WHERE DocuId = @DocuId)
+                INSERT INTO DocumentoVentaCpeWeb (DocuId, DocuCdrUrl) VALUES (@DocuId, @Url);
+            SELECT DocuCdrUrl FROM DocumentoVentaCpeWeb WHERE DocuId = @DocuId;
+            """;
+        await using var save = new SqlCommand(guardar, con);
+        save.Parameters.AddWithValue("@DocuId", docuId);
+        save.Parameters.AddWithValue("@Url", url);
+        var saved = (await save.ExecuteScalarAsync(cancellationToken))?.ToString() ?? url;
+        return Ok(new { ok = true, cdrUrl = saved, mensaje = "CDR recuperado y guardado." });
     }
 
     [AllowAnonymous]
@@ -8781,14 +8849,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
 
     private async Task<string> SubirStreamCpeAsync(Stream stream, string nombreArchivoFisico, string nombreArchivo, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
-        var carpeta = $"cpe/facturas-servicio/{SanitizarNombreArchivo(nombreArchivo)}";
-        var resultado = await _imageService.UploadFile(new ImageData
-        {
-            ImageStream = stream,
-            Nombre = nombreArchivoFisico
-        }, carpeta);
-        return resultado.Url ?? string.Empty;
+        return await _cpeStorage.SaveAsync(stream, nombreArchivoFisico, cancellationToken);
     }
 
     private static string ObtenerNombreArchivoCpe(EnviarFacturaRequest request)
@@ -8873,10 +8934,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         }
 
         var servidorIp = Environment.GetEnvironmentVariable("CPE_SERVIDOR_IP");
-        if (!string.IsNullOrWhiteSpace(servidorIp))
-        {
-            yield return $@"\\{servidorIp.Trim()}\ArchivoSistema\CPE\{carpeta}";
-        }
+        yield return $@"\\{(string.IsNullOrWhiteSpace(servidorIp) ? "127.0.0.1" : servidorIp.Trim())}\ArchivoSistema\CPE\{carpeta}";
     }
 
     private static bool TryDecodeBase64(string? base64, out byte[] bytes)

@@ -1,0 +1,6 @@
+ACTUALIZACION BACKEND COMAS: 192.168.18.47, base DXNCOMAS
+API .NET 7 win-x64; contiene el almacenamiento local de XML y CDR.
+Respaldar la API actual. Copiar el contenido de api a la carpeta existente de la API de esta sede conservando appsettings*.json y configuracion del servidor.
+Conservar la carpeta indicada por LocalMedia:RootPath y dar lectura/escritura al grupo de aplicaciones de la API. En COMAS la ruta documentada es C:\SGO\media.
+Incluir la carpeta media en las copias de seguridad. No se necesitan cambios SQL para esta funcionalidad.
+Despues de instalar, verificar con una factura nueva los archivos XML/CDR y el correo. La prueba real de OSE, correo y permisos no se realizo al generar este paquete.

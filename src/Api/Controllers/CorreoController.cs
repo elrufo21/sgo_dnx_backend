@@ -6,6 +6,7 @@ using Ecommerce.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
+using Ecommerce.Infrastructure.ImageLocal;
 
 namespace Ecommerce.Api.Controllers;
 
@@ -28,9 +29,13 @@ public class CorreoController : ControllerBase
     };
 
     private readonly EmailSenderConfigurationService _emailSenderConfiguration;
+    private readonly LocalCpeStorageService _cpeStorage;
 
-    public CorreoController(EmailSenderConfigurationService emailSenderConfiguration) =>
+    public CorreoController(EmailSenderConfigurationService emailSenderConfiguration, LocalCpeStorageService cpeStorage)
+    {
         _emailSenderConfiguration = emailSenderConfiguration;
+        _cpeStorage = cpeStorage;
+    }
 
     [AllowAnonymous]
     [HttpPost("enviar-comprobante", Name = "EnviarCorreoComprobante")]
@@ -341,7 +346,7 @@ public class CorreoController : ControllerBase
         catch (Exception ex) { return StatusCode(500, new { ok = false, mensaje = "No se pudo enviar el correo del informe final.", detalle = ex.Message }); }
     }
 
-    private static List<string> ValidarRequest(EnviarCorreoComprobanteRequest request)
+    private List<string> ValidarRequest(EnviarCorreoComprobanteRequest request)
     {
         var errores = new List<string>();
         if (string.IsNullOrWhiteSpace(request.Para))
@@ -407,6 +412,7 @@ public class CorreoController : ControllerBase
 
         foreach (var url in urls)
         {
+            if (_cpeStorage.TryResolve(url.Url, out _)) continue;
             if (!Uri.TryCreate(url.Url, UriKind.Absolute, out var uri) ||
                 (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
             {
@@ -424,13 +430,23 @@ public class CorreoController : ControllerBase
         return errores;
     }
 
-    private static async Task<IReadOnlyList<AdjuntoDescargado>> DescargarAdjuntosUrlAsync(
+    private async Task<IReadOnlyList<AdjuntoDescargado>> DescargarAdjuntosUrlAsync(
         EnviarCorreoComprobanteRequest request,
         CancellationToken cancellationToken)
     {
         var archivos = new List<AdjuntoDescargado>();
         foreach (var url in ObtenerUrlsAdjuntos(request))
         {
+            if (_cpeStorage.TryResolve(url.Url, out var localPath))
+            {
+                var info = new FileInfo(localPath);
+                if (!info.Exists || info.Length <= 0 || info.Length > MaxArchivoBytes)
+                    throw new InvalidOperationException($"{url.Campo} no existe, está vacío o supera {FormatearMb(MaxArchivoBytes)} MB.");
+                var localBytes = await System.IO.File.ReadAllBytesAsync(localPath, cancellationToken);
+                var nombreLocal = Path.ChangeExtension(url.NombreFallback, Path.GetExtension(localPath));
+                archivos.Add(new AdjuntoDescargado(nombreLocal, "application/octet-stream", localBytes.Length, new MemoryStream(localBytes)));
+                continue;
+            }
             using var response = await DescargaHttpClient.GetAsync(url.Url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {

@@ -272,3 +272,11 @@ Estos paquetes reemplazan los builds `20261026-final-final` anteriores e incluye
 - COMAS: `artifacts/backend-COMAS-20261029-proveedor-sql2008.zip`. SHA-256: `A6B21F8D1DB5E61C64D21B93C8BFF83C4045B8E7FBB869D1C5C3F852F4AF77D6`.
 - Sustituyen los paquetes de backend `20261029-133026`: el listado de proveedores usa `ROW_NUMBER()` en lugar de `OFFSET/FETCH`. La consulta y su script de referencia pasaron el analizador de sintaxis SQL Server 2008; no se probaron contra el servidor de produccion.
 - Backend .NET 7 para win-x64; cada ZIP paso verificacion de contenido, 69 archivos y exclusion de appsettings. Publicar el contenido de `api/` conservando la configuracion del servidor. No requiere modificar SQL; no se ejecuto SQL ni se desplego.
+
+## Backend XML y CDR local — 2026-10-30
+
+- COMAS: `artifacts/backend-COMAS-20261030-cpe-local.zip`, SHA-256 `A7199DF7E0D6B2D53D41F0B93206707806ABC877E54DB7CC785FBA3A4D55A8CC`.
+- ICA: `artifacts/backend-ICA-20261030-cpe-local.zip`, SHA-256 `5DD275BE59FBE656642521482C992907FB0BC5503B3DA2850A1B8A1202C188BB`.
+- API .NET 7, win-x64, mismo backend para ambas sedes. Se verificaron los 70 archivos de cada ZIP contra sus carpetas mediante SHA-256, la presencia de web.config y la ausencia de appsettings. Se conserva la configuración existente de cada servidor.
+- Incluyen almacenamiento local de XML/CDR y correo compatible con referencias locales y enlaces anteriores. La prueba local de almacenamiento y lectura de adjuntos pasó; no se probó una emisión o correo real. Detalles en `docs/cpe-almacenamiento-local.md`.
+- El paquete se preparó localmente; no se desplegó ni se ejecutó SQL. Cada sede debe mantener y respaldar su carpeta `LocalMedia:RootPath` y conceder permisos a la identidad IIS de su API. Después de instalar verificar con una factura nueva y su correo.

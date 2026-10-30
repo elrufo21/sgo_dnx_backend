@@ -194,7 +194,7 @@ namespace MegaRosita.Capa.Aplicacion
             return Path.Combine(@"D:\CPE\FIRMABETA", valor);
         }
 
-        private static string ResolverUrlOce(int? tipoProceso)
+        public static string ResolverUrlOce(int? tipoProceso)
         {
             var urlGlobal = ObtenerVariable(
                 "CPE_WS_URL",

@@ -9,4 +9,5 @@ public interface ICpeGateway
     Dictionary<string, string> EnvioResumen(CPE_RESUMEN_BOLETA resumen);
     Dictionary<string, string> EnvioBaja(CPE_BAJA baja);
     Dictionary<string, string> ConsultaTicket(CONSULTA_TICKET consultaTicket);
+    Task<byte[]> ConsultarCdrAsync(string ruc, string usuarioSol, string claveSol, int tipoProceso, string serie, string numero, CancellationToken cancellationToken);
 }
