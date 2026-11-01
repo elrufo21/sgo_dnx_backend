@@ -38,7 +38,7 @@ public class LineaRepository : ILinea
     {
         var data = $"{linea.IdSubLinea}|{linea.NombreSublinea?.Trim()}|{linea.CodigoSunat?.Trim()}";
         var result = await _accesoDatos.EjecutarComandoAsync(
-            "uspInsertarCategoria",
+            "dbo.uspInsertarCategoriaWeb",
             "@Data",
             data,
             cancellationToken);
