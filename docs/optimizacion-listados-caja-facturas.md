@@ -22,6 +22,10 @@ Tras materializar #Pagina, se cuentan detalles solo para esos IDs. Las referenci
 
 La fecha final incluye el dia completo. El JSON agrega totalRows. Despacho OSE sigue consumiendo el mismo endpoint y exportando su conjunto completo; una pagina fallida no se trata como una pagina vacia correcta.
 
+### Corrección de identidad en pendientes OSE
+
+El 2026-11-02 se detectó que `SELECT INTO #Candidatas` heredaba `IDENTITY` de `DocumentoVenta.DocuId`; al insertar IDs existentes en el modo `@PendientesOse = 1`, SQL Server rechazaba la consulta. El procedimiento del paquete se corrigió convirtiendo el ID a `numeric(38,0)` al crear la temporal, conservando su valor sin heredar la propiedad. El [script completo de corrección](../scripts/sql/20261102_corregir_identidad_facturas_servicio.sql) altera solo `dbo.uspListarFacturasServicioWeb`; antes de aplicarlo, comparar la versión instalada y confirmar la base de destino. La definición instalada en `DXNCOMAS2610` fue revisada y contiene la versión afectada. El script está preparado, pero no se ha ejecutado ni se han probado escrituras en SQL.
+
 ## Frontend compartido
 
 Se reutiliza DataTable con su paginacion remota existente y una propiedad opcional manualFiltering, desactivada por defecto. Asi una busqueda remota no desactiva la paginacion ni vuelve a filtrar solo las filas descargadas. Las tablas existentes conservan su comportamiento local.

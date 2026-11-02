@@ -38,7 +38,7 @@ BEGIN
     END;
 
     /* Los modos se separan antes de la clasificacion de servicios y los joins de presentacion. */
-    SELECT d.DocuId, d.DocuEmision INTO #Candidatas
+    SELECT CONVERT(numeric(38,0), d.DocuId) AS DocuId, d.DocuEmision INTO #Candidatas
     FROM dbo.DocumentoVenta d
     WHERE @PendientesOse = 0 AND d.TipoCodigo = '01'
       AND LTRIM(RTRIM(ISNULL(d.DocuDocumento, ''))) = 'FACTURA'

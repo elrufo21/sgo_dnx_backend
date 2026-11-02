@@ -10,11 +10,33 @@ using System.Net;
 using System.Net.Sockets;
 using Ecommerce.Api.Legacy;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
+using BusinessEntities;
 
 var root = Path.Combine(Path.GetTempPath(), "dnx-cpe-test-" + Guid.NewGuid().ToString("N"));
 try
 {
     var storage = new LocalCpeStorageService(Options.Create(new LocalMediaSettings { RootPath = root, RequestPath = "/media" }));
+    var fakeGateway = new FakeCreditGateway();
+    var notaController = new NotaController(null!, null!, null!, null!, null!, new ConfigurationBuilder().Build(), fakeGateway, storage, NullLogger<NotaController>.Instance);
+    var validateSeries = typeof(NotaController).GetMethod("EsSerieNotaCreditoValida", BindingFlags.Static | BindingFlags.NonPublic)!;
+    foreach (var value in new[] { "FB01", "FZ01" })
+    {
+        if (!(bool)validateSeries.Invoke(null, new object[] { value })!) throw new Exception("Serie rechazada: " + value);
+        var requestNc = new EnviarFacturaRequest { NRO_COMPROBANTE = value + "-00000012" };
+        var cpe = (CPE)typeof(NotaController).GetMethod("MapearNotaCreditoLegacy", BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null, new object[] { requestNc, 3, "" })!;
+        if (cpe.NRO_COMPROBANTE != requestNc.NRO_COMPROBANTE) throw new Exception("La serie cambió al preparar el CPE.");
+    }
+    foreach (var value in new[] { "", "BN01", "FZ1", "FZ 1" })
+        if ((bool)validateSeries.Invoke(null, new object[] { value })!) throw new Exception("Serie inválida aceptada: " + value);
+    var withoutMachine = new EnviarFacturaRequest { TIPO_PROCESO = JsonSerializer.SerializeToElement(3), NRO_COMPROBANTE = "" };
+    if (await notaController.EnviarNotaCreditoFacturaServicioOse(withoutMachine, CancellationToken.None) is not BadRequestObjectResult)
+        throw new Exception("La nota de crédito de servicio no bloqueó la máquina ausente.");
+    if (await notaController.EnviarNotaCreditoElectronica(withoutMachine, CancellationToken.None) is not BadRequestObjectResult)
+        throw new Exception("La nota de crédito no bloqueó la máquina ausente.");
+    if (fakeGateway.Calls != 0) throw new Exception("Se intentó enviar una nota sin máquina.");
     foreach (var file in new[] { "factura.XML", "R-factura.ZIP" })
     {
         var contents = Encoding.UTF8.GetBytes(file);
@@ -108,4 +130,14 @@ try
 finally
 {
     if (Directory.Exists(root)) Directory.Delete(root, true);
+}
+
+sealed class FakeCreditGateway : ICpeGateway
+{
+    public int Calls { get; private set; }
+    public Dictionary<string, string> Envio(CPE cpe) { Calls++; throw new Exception("No debe enviarse un CPE."); }
+    public Dictionary<string, string> EnvioResumen(CPE_RESUMEN_BOLETA resumen) => throw new NotSupportedException();
+    public Dictionary<string, string> EnvioBaja(CPE_BAJA baja) => throw new NotSupportedException();
+    public Dictionary<string, string> ConsultaTicket(CONSULTA_TICKET consultaTicket) => throw new NotSupportedException();
+    public Task<byte[]> ConsultarCdrAsync(string ruc, string usuarioSol, string claveSol, int tipoProceso, string serie, string numero, CancellationToken cancellationToken) => throw new NotSupportedException();
 }

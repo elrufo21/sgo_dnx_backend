@@ -846,7 +846,7 @@ public class NotaController : ControllerBase
             return BadRequest(new { ok = false, mensaje = "DOCU_ID/NRO_DOCUMENTO_MODIFICA y NRO_COMPROBANTE son requeridos." });
         }
 
-        var (notaCredito, statusCode, mensaje) = await ConstruirRequestAnulacionDocumentoIndividualAsync(request, "01", cancellationToken);
+        var (notaCredito, statusCode, mensaje) = await ConstruirRequestAnulacionDocumentoIndividualAsync(request, "01", cancellationToken, true);
         if (notaCredito is null)
         {
             return StatusCode(statusCode, new { ok = false, mensaje });
@@ -3160,19 +3160,9 @@ public class NotaController : ControllerBase
 
     private async Task<string> ObtenerCorrelativoNotaCreditoServicioAsync(
         EnviarFacturaRequest request,
+        string serieNc,
         CancellationToken cancellationToken)
     {
-        var tipoProceso = ParseTipoProceso(request.TIPO_PROCESO) ?? TipoProcesoPruebas;
-        return await ObtenerCorrelativoNotaCreditoServicioAsync(request, tipoProceso, cancellationToken);
-    }
-
-    private async Task<string> ObtenerCorrelativoNotaCreditoServicioAsync(
-        EnviarFacturaRequest request,
-        int tipoProceso,
-        CancellationToken cancellationToken)
-    {
-        var serieNc = ResolverSerieNotaCreditoServicio(request.NRO_DOCUMENTO_MODIFICA);
-
         var connectionString = _configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -3207,18 +3197,6 @@ public class NotaController : ControllerBase
         var next = maxBd + 1;
 
         return $"{serieNc}-{next:00000000}";
-    }
-
-    private static string ResolverSerieNotaCreditoServicio(string? nroDocumentoModifica)
-    {
-        var serieFactura = (nroDocumentoModifica ?? string.Empty)
-            .Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .FirstOrDefault()?
-            .ToUpperInvariant() ?? string.Empty;
-
-        return serieFactura.StartsWith("FA", StringComparison.Ordinal)
-            ? "FN" + serieFactura[2..]
-            : "FN01";
     }
 
     private static int ObtenerMaximoCorrelativoArchivosCpe(
@@ -3292,10 +3270,17 @@ public class NotaController : ControllerBase
       
         var requestNotaCredito = NormalizarRequestNotaCredito(request);
         AplicarFechaActualNotaCredito(requestNotaCredito);
-          if (string.IsNullOrWhiteSpace(requestNotaCredito.NRO_COMPROBANTE))
+        var esReenvio = !string.IsNullOrWhiteSpace(requestNotaCredito.NRO_COMPROBANTE)
+            && requestNotaCredito.DOCU_ID is > 0
+            && await EsDocumentoVentaTipoAsync(requestNotaCredito.DOCU_ID.Value, "07", cancellationToken);
+        if (!esReenvio)
         {
+            var serieNc = await ObtenerSerieNotaCreditoMaquinaAsync(requestNotaCredito.MachineName, cancellationToken);
+            if (string.IsNullOrWhiteSpace(serieNc))
+                return BadRequest(new { ok = false, mensaje = "La computadora no tiene una serie de nota de crédito válida en MAQUINAS." });
             requestNotaCredito.NRO_COMPROBANTE = await ObtenerCorrelativoNotaCreditoServicioAsync(
                 requestNotaCredito,
+                serieNc,
                 cancellationToken
             );
         }
@@ -3383,10 +3368,14 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         });
     }
 
+    var serieNc = await ObtenerSerieNotaCreditoMaquinaAsync(requestNotaCredito.MachineName, cancellationToken);
+    if (string.IsNullOrWhiteSpace(serieNc))
+        return BadRequest(new { ok = false, mensaje = "La computadora no tiene una serie de nota de crédito válida en MAQUINAS." });
+
     requestNotaCredito.NRO_COMPROBANTE =
         await ObtenerCorrelativoNotaCreditoServicioAsync(
             requestNotaCredito,
-            tipoProceso.Value,
+            serieNc,
             cancellationToken);
 
     var itemsSinCodigoSunat = AplicarCodigoSunatFallback(
@@ -8016,7 +8005,8 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
     private async Task<(EnviarFacturaRequest? Request, int StatusCode, string Mensaje)> ConstruirRequestAnulacionDocumentoIndividualAsync(
         AnularBoletaIndividualRequest payload,
         string tipoDocumento,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool registrarAceptada = false)
     {
         var requestBusqueda = new EnviarFacturaRequest
         {
@@ -8072,14 +8062,14 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         var credencialesCpe = credenciales!;
 
         var esFactura = tipoDocumento == "01";
-        var seriePreferidaNc = esFactura
-            ? ResolverSerieNotaCreditoServicio($"{origen.Serie}-{origen.Numero}")
-            : ResolverSerieNcParaBoleta(origen.Serie);
-        var (serieNc, numeroNc) = await ObtenerSerieNumeroNotaCreditoAsync(
-            origen.CompaniaId,
-            seriePreferidaNc,
-            esFactura ? "FN" : "BN",
-            cancellationToken);
+        var seriePreferidaNc = registrarAceptada
+            ? SepararSerieNumeroComprobante(payload.NRO_COMPROBANTE).Item1
+            : await ObtenerSerieNotaCreditoMaquinaAsync(payload.MachineName, cancellationToken);
+        if (string.IsNullOrWhiteSpace(seriePreferidaNc))
+            return (null, (int)HttpStatusCode.BadRequest, "La computadora no tiene una serie de nota de crédito válida en MAQUINAS.");
+        var (serieNc, numeroNc) = registrarAceptada
+            ? SepararSerieNumeroComprobante(payload.NRO_COMPROBANTE)
+            : await ObtenerSerieNumeroNotaCreditoAsync(origen.CompaniaId, seriePreferidaNc, cancellationToken);
         if (string.IsNullOrWhiteSpace(serieNc) || string.IsNullOrWhiteSpace(numeroNc))
         {
             return (null, (int)HttpStatusCode.BadRequest, "No se pudo generar el correlativo de nota de crédito. Verifique SerieNC en MAQUINAS.");
@@ -8237,8 +8227,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
 
     private async Task<(string Serie, string Numero)> ObtenerSerieNumeroNotaCreditoAsync(
         int companiaId,
-        string? seriePreferida,
-        string seriePrefijo,
+        string seriePreferida,
         CancellationToken cancellationToken)
     {
         if (companiaId <= 0)
@@ -8253,48 +8242,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         }
 
         const string sql = """
-            DECLARE @SerieNC NVARCHAR(10) = NULLIF(LTRIM(RTRIM(@SeriePreferida)), '');
-
-            IF @SerieNC IS NULL
-            BEGIN
-                SELECT TOP (1)
-                    @SerieNC = NULLIF(LTRIM(RTRIM(d.DocuSerie)), '')
-                FROM DocumentoVenta d
-                WHERE d.CompaniaId = @CompaniaId
-                  AND d.TipoCodigo = '07'
-                  AND LEFT(ISNULL(d.DocuSerie, ''), LEN(@SeriePrefijo)) = @SeriePrefijo
-                  AND NULLIF(LTRIM(RTRIM(d.DocuSerie)), '') IS NOT NULL
-                ORDER BY d.DocuId DESC;
-            END;
-
-            IF @SerieNC IS NULL
-            BEGIN
-                SELECT TOP (1)
-                    @SerieNC = NULLIF(LTRIM(RTRIM(SerieNC)), '')
-                FROM MAQUINAS
-                ORDER BY IdMaquina DESC;
-            END;
-
-            IF @SerieNC IS NULL
-            BEGIN
-                SELECT TOP (1)
-                    @SerieNC = NULLIF(LTRIM(RTRIM(d.DocuSerie)), '')
-                FROM DocumentoVenta d
-                WHERE d.CompaniaId = @CompaniaId
-                  AND d.TipoCodigo = '07'
-                  AND NULLIF(LTRIM(RTRIM(d.DocuSerie)), '') IS NOT NULL
-                ORDER BY d.DocuId DESC;
-            END;
-
-            IF @SerieNC IS NULL
-            BEGIN
-                SET @SerieNC = @SeriePrefijo + '01';
-            END;
-
-            IF LEFT(@SerieNC, LEN(@SeriePrefijo)) <> @SeriePrefijo
-            BEGIN
-                SET @SerieNC = @SeriePrefijo + CASE WHEN LEN(@SerieNC) > 2 THEN RIGHT(@SerieNC, LEN(@SerieNC) - 2) ELSE '01' END;
-            END;
+            DECLARE @SerieNC NVARCHAR(10) = @SeriePreferida;
 
             DECLARE @NumeroNC NVARCHAR(20);
             BEGIN TRY
@@ -8336,7 +8284,6 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         await using var cmd = new SqlCommand(sql, con);
         cmd.Parameters.AddWithValue("@CompaniaId", companiaId);
         cmd.Parameters.AddWithValue("@SeriePreferida", (object?)seriePreferida ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@SeriePrefijo", seriePrefijo);
 
         await con.OpenAsync(cancellationToken);
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
@@ -9081,14 +9028,38 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
         string.Equals((documento ?? string.Empty).Trim(), "BOLETA", StringComparison.OrdinalIgnoreCase) ||
         string.Equals((documento ?? string.Empty).Trim(), "FACTURA", StringComparison.OrdinalIgnoreCase);
 
+    private async Task<string> ObtenerSerieNotaCreditoMaquinaAsync(string? maquina, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(maquina)) return string.Empty;
+        var connectionString = _configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(connectionString)) return string.Empty;
+        await using var con = new SqlConnection(connectionString);
+        await using var cmd = new SqlCommand("""
+            SELECT COUNT(*) AS Cantidad, MIN(NULLIF(UPPER(LTRIM(RTRIM(SerieNC))), '')) AS SerieNC
+            FROM dbo.MAQUINAS
+            WHERE UPPER(LTRIM(RTRIM(Maquina))) = UPPER(@Maquina);
+            """, con);
+        cmd.Parameters.Add("@Maquina", SqlDbType.NVarChar, 140).Value = maquina.Trim();
+        await con.OpenAsync(cancellationToken);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken) || reader.GetInt32(0) != 1) return string.Empty;
+        var serie = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+        return EsSerieNotaCreditoValida(serie) ? serie : string.Empty;
+    }
+
+    private static bool EsSerieNotaCreditoValida(string serie) =>
+        Regex.IsMatch(serie, "^F[A-Z0-9]{3}$", RegexOptions.CultureInvariant);
+
     private async Task<string> ObtenerSerieMaquinaAsync(
         string maquina,
         string documento,
         CancellationToken cancellationToken)
     {
-        var columnaSerie = string.Equals(documento.Trim(), "BOLETA", StringComparison.OrdinalIgnoreCase)
-            ? "SerieBoleta"
-            : "SerieFactura";
+        var columnaSerie = documento.Trim().ToUpperInvariant() switch
+        {
+            "BOLETA" => "SerieBoleta",
+            _ => "SerieFactura"
+        };
         var connectionString = _configuration.GetConnectionString("DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString)) return string.Empty;
 
@@ -11421,6 +11392,7 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
 
 public class EnviarFacturaRequest
 {
+    public string? MachineName { get; set; }
     public long? NOTA_ID { get; set; }
     public long? DOCU_ID { get; set; }
     public int? COMPANIA_ID { get; set; }
@@ -11553,6 +11525,7 @@ public class AnularDocumentoRequest
 
 public class AnularBoletaIndividualRequest
 {
+    public string? MachineName { get; set; }
     public long? DOCU_ID { get; set; }
     public string? NRO_DOCUMENTO_MODIFICA { get; set; }
     public string? NRO_COMPROBANTE { get; set; }
