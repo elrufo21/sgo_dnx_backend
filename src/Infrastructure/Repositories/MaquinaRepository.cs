@@ -15,12 +15,46 @@ public class MaquinaRepository : IMaquina
             ?? throw new InvalidOperationException("Missing connection string: DefaultConnection");
     }
 
-    public Task<string> InsertarAsync(Maquina maquina, CancellationToken cancellationToken = default)
+    public async Task<string> InsertarAsync(Maquina maquina, CancellationToken cancellationToken = default)
     {
+        var nombre = maquina.NombreMaquina?.Trim() ?? string.Empty;
+        var serie = maquina.SerieFactura?.Trim() ?? string.Empty;
+        if (nombre.Length == 0) return "ERROR|Debe ingresar el nombre de la máquina.";
+        if (serie.Length == 0) return "ERROR|Debe ingresar la serie de factura.";
+        if (nombre.Length > 140 || serie.Length > 4) return "ERROR|El nombre o la serie de factura excede la longitud permitida.";
+
         var data = maquina.IdMaquina > 0
-            ? $"ACTUALIZAR|{maquina.IdMaquina}|{maquina.NombreMaquina?.Trim()}|{maquina.SerieFactura?.Trim()}|{maquina.SerieNC?.Trim()}|{maquina.SerieBoleta?.Trim()}|{maquina.Tiketera?.Trim()}"
-            : $"CREAR|{maquina.NombreMaquina?.Trim()}|{maquina.SerieFactura?.Trim()}|{maquina.SerieNC?.Trim()}|{maquina.SerieBoleta?.Trim()}|{maquina.Tiketera?.Trim()}";
-        return EjecutarAsync(data, cancellationToken);
+            ? $"ACTUALIZAR|{maquina.IdMaquina}|{nombre}|{serie}|{maquina.SerieNC?.Trim()}|{maquina.SerieBoleta?.Trim()}|{maquina.Tiketera?.Trim()}"
+            : $"CREAR|{nombre}|{serie}|{maquina.SerieNC?.Trim()}|{maquina.SerieBoleta?.Trim()}|{maquina.Tiketera?.Trim()}";
+
+        await using var con = new SqlConnection(_connectionString);
+        await con.OpenAsync(cancellationToken);
+        await using var transaction = (SqlTransaction)await con.BeginTransactionAsync(IsolationLevel.Serializable, cancellationToken);
+        await using var check = new SqlCommand("""
+            SELECT CASE
+                WHEN EXISTS (SELECT 1 FROM dbo.MAQUINAS WITH (UPDLOCK, HOLDLOCK)
+                    WHERE IdMaquina <> @Id AND UPPER(LTRIM(RTRIM(Maquina))) = UPPER(@Nombre)) THEN 1
+                WHEN EXISTS (SELECT 1 FROM dbo.MAQUINAS WITH (UPDLOCK, HOLDLOCK)
+                    WHERE IdMaquina <> @Id AND UPPER(LTRIM(RTRIM(SerieFactura))) = UPPER(@Serie)) THEN 2
+                ELSE 0 END
+            """, con, transaction);
+        check.Parameters.Add("@Id", SqlDbType.Int).Value = maquina.IdMaquina;
+        check.Parameters.Add("@Nombre", SqlDbType.NVarChar, 140).Value = nombre;
+        check.Parameters.Add("@Serie", SqlDbType.NVarChar, 4).Value = serie;
+        var duplicate = Convert.ToInt32(await check.ExecuteScalarAsync(cancellationToken));
+        if (duplicate != 0)
+        {
+            await transaction.RollbackAsync(cancellationToken);
+            return duplicate == 1
+                ? "ERROR|Ya existe una máquina registrada con ese nombre."
+                : "ERROR|La serie de factura ya está asignada a otra máquina.";
+        }
+
+        await using var cmd = CrearComando(con, data);
+        cmd.Transaction = transaction;
+        var result = (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString()?.Trim() ?? string.Empty;
+        await transaction.CommitAsync(cancellationToken);
+        return result;
     }
 
     public async Task<bool> EliminarAsync(int id, CancellationToken cancellationToken = default)
@@ -45,7 +79,8 @@ public class MaquinaRepository : IMaquina
             if (maquina is not null) maquinas.Add(maquina);
         }
 
-        return maquinas.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return maquinas.OrderByDescending(maquina => maquina.IdMaquina)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToList();
     }
 
     private async Task<string> EjecutarAsync(string data, CancellationToken cancellationToken)

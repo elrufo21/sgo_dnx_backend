@@ -14,4 +14,4 @@ Las boletas y facturas creadas desde la web usan la serie configurada para la co
 
 ## Operación
 
-Registrar cada PC en Mantenimiento > Máquinas con el mismo nombre que devuelve el agente. El nombre de máquina debe ser único; las series pueden repetirse. Si falta el agente o la configuración, la emisión se bloquea deliberadamente para evitar utilizar una serie equivocada.
+Registrar cada PC en Mantenimiento > Máquinas con el mismo nombre que devuelve el agente. El nombre y la serie de factura deben ser únicos para las operaciones de la web; las series de boleta y nota de crédito pueden repetirse. Las series de factura duplicadas anteriores deben revisarse antes de modificar esas máquinas. Si falta el agente o la configuración, la emisión se bloquea deliberadamente para evitar utilizar una serie equivocada.
