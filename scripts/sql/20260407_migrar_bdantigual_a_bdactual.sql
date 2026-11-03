@@ -256,7 +256,7 @@ SELECT
 ISNULL((
 SELECT STUFF((
 SELECT
-'Â¬'+
+'¬'+
 CONVERT(VARCHAR,n.NotaId)+'|'+
 ISNULL(n.NotaDocu,'')+'|'+
 
@@ -339,7 +339,7 @@ BEGIN CATCH
     --DECLARE @ErrorMsg NVARCHAR(200) = ERROR_MESSAGE();
     DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
     --DECLARE @ErrorState INT = ERROR_STATE();
-	--PRINT 'Se encontrÃ³ un error: ' + @ErrorMsg + ' (NÃºmero: ' + CAST(@ErrorNum AS VARCHAR) + ', Severidad: ' + CAST(@ErrorSeverity AS VARCHAR) + ')';
+	--PRINT 'Se encontró un error: ' + @ErrorMsg + ' (Número: ' + CAST(@ErrorNum AS VARCHAR) + ', Severidad: ' + CAST(@ErrorSeverity AS VARCHAR) + ')';
 
 	 if(@ErrorNum=547 and @ErrorSeverity=16)
 		begin 
@@ -366,7 +366,7 @@ BEGIN CATCH
     --DECLARE @ErrorMsg NVARCHAR(200) = ERROR_MESSAGE();
     DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
     --DECLARE @ErrorState INT = ERROR_STATE();
-	--PRINT 'Se encontrÃ³ un error: ' + @ErrorMsg + ' (NÃºmero: ' + CAST(@ErrorNum AS VARCHAR) + ', Severidad: ' + CAST(@ErrorSeverity AS VARCHAR) + ')';
+	--PRINT 'Se encontró un error: ' + @ErrorMsg + ' (Número: ' + CAST(@ErrorNum AS VARCHAR) + ', Severidad: ' + CAST(@ErrorSeverity AS VARCHAR) + ')';
 
 	 if(@ErrorNum=547 and @ErrorSeverity=16)
 		begin 
@@ -393,7 +393,7 @@ BEGIN CATCH
     --DECLARE @ErrorMsg NVARCHAR(200) = ERROR_MESSAGE();
     DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
     --DECLARE @ErrorState INT = ERROR_STATE();
-	--PRINT 'Se encontrÃ³ un error: ' + @ErrorMsg + ' (NÃºmero: ' + CAST(@ErrorNum AS VARCHAR) + ', Severidad: ' + CAST(@ErrorSeverity AS VARCHAR) + ')';
+	--PRINT 'Se encontró un error: ' + @ErrorMsg + ' (Número: ' + CAST(@ErrorNum AS VARCHAR) + ', Severidad: ' + CAST(@ErrorSeverity AS VARCHAR) + ')';
 
 	 if(@ErrorNum=547 and @ErrorSeverity=16)
 		begin 
@@ -432,7 +432,7 @@ BEGIN CATCH
     --DECLARE @ErrorMsg NVARCHAR(200) = ERROR_MESSAGE();
     DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
     --DECLARE @ErrorState INT = ERROR_STATE();
-	--PRINT 'Se encontrÃ³ un error: ' + @ErrorMsg + ' (NÃºmero: ' + CAST(@ErrorNum AS VARCHAR) + ', Severidad: ' + CAST(@ErrorSeverity AS VARCHAR) + ')';
+	--PRINT 'Se encontró un error: ' + @ErrorMsg + ' (Número: ' + CAST(@ErrorNum AS VARCHAR) + ', Severidad: ' + CAST(@ErrorSeverity AS VARCHAR) + ')';
 
 	 if(@ErrorNum=547 and @ErrorSeverity=16)
 		begin 
@@ -1364,7 +1364,7 @@ BEGIN
     SELECT  
       p.IdProducto AS SortId,  
       1 AS SortTipo,  
-      'Â¬' +  
+      '¬' +  
       ISNULL(CONVERT(VARCHAR(20), p.IdProducto), '0') + '|' +  
       ISNULL(CONVERT(VARCHAR(20), p.IdSubLinea), '0') + '|' +  
       ISNULL(p.ProductoCodigo, '') + '|' +  
@@ -1389,7 +1389,7 @@ BEGIN
     SELECT  
       p.IdProducto AS SortId,  
       2 AS SortTipo,  
-      'Â¬' +  
+      '¬' +  
       ISNULL(CONVERT(VARCHAR(20), p.IdProducto), '0') + '|' +  
       ISNULL(CONVERT(VARCHAR(20), p.IdSubLinea), '0') + '|' +  
       ISNULL(p.ProductoCodigo, '') + '|' +  
@@ -1557,7 +1557,7 @@ SET QUOTED_IDENTIFIER ON
 GO
 CREATE OR ALTER PROCEDURE [dbo].[uspTraerFeriados] AS 
 BEGIN SET NOCOUNT ON; 
-SELECT ISNULL((SELECT STUFF((SELECT 'Â¬' + CONVERT(VARCHAR, f.IdFeriado) + '|' +
+SELECT ISNULL((SELECT STUFF((SELECT '¬' + CONVERT(VARCHAR, f.IdFeriado) + '|' +
 CONVERT(VARCHAR(20), f.Fecha, 23) + '|' + 
 ISNULL(f.Motivo, '') 
 FROM dbo.Feriados f 
@@ -2060,22 +2060,22 @@ begin
     -- if(@Movimiento='INGRESO')                    
     -- BEGIN                    
     -- insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@Movimiento,'',                                  
-    -- 'TransacciÃ³n con '+@NotaFormaPago,@Efectivo,@Efectivo,0,'','T','',@NotaUsuario,'','')                                  
+    -- 'Transacción con '+@NotaFormaPago,@Efectivo,@Efectivo,0,'','T','',@NotaUsuario,'','')                                  
     -- END                    
     -- else                  
     -- begin                    
     -- insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@Movimiento,'',                                  
-    -- 'TransacciÃ³n con '+@NotaFormaPago,@Deposito,@Deposito,0,'','T','',@NotaUsuario,'','')                     
+    -- 'Transacción con '+@NotaFormaPago,@Deposito,@Deposito,0,'','T','',@NotaUsuario,'','')                     
     -- end                    
     -- if(@MovimientoB='INGRESO')                    
     -- BEGIN                    
     -- insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@MovimientoB,'',                                  
-    -- 'TransacciÃ³n con '+@NotaFormaPago,@Efectivo,@Efectivo,0,'','T','',@NotaUsuario,'','')                     
+    -- 'Transacción con '+@NotaFormaPago,@Efectivo,@Efectivo,0,'','T','',@NotaUsuario,'','')                     
     -- END                    
     -- ELSE                
     -- BEGIN                    
     -- insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@MovimientoB,'',                                  
-    -- 'TransacciÃ³n con '+@NotaFormaPago,@Deposito,@Deposito,0,'','T','',@NotaUsuario,'','')                     
+    -- 'Transacción con '+@NotaFormaPago,@Deposito,@Deposito,0,'','T','',@NotaUsuario,'','')                     
     -- END                    
     SET @KARDEX='S'  -- se mantiene activo                              
 END                  
@@ -2083,7 +2083,7 @@ ELSE
 BEGIN                    
     -- CAJA DESHABILITADA TEMPORALMENTE
     -- insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@Movimiento,'',                                  
-    -- 'TransacciÃ³n con '+@NotaFormaPago,@NotaPagar,@NotaPagar,0,'','T','',@NotaUsuario,'','')                         
+    -- 'Transacción con '+@NotaFormaPago,@NotaPagar,@NotaPagar,0,'','T','',@NotaUsuario,'','')                         
     SET @KARDEX='S'  -- se mantiene activo                     
 END                    
 END                                
@@ -2111,22 +2111,22 @@ begin
     -- if(@Movimiento='INGRESO')                    
     -- BEGIN                    
     -- insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@Movimiento,'',                                  
-    -- 'TransacciÃ³n con '+@NotaFormaPago,@Efectivo,@Efectivo,0,'','T','',@NotaUsuario,'','')                                  
+    -- 'Transacción con '+@NotaFormaPago,@Efectivo,@Efectivo,0,'','T','',@NotaUsuario,'','')                                  
     -- END                    
     -- else                    
     -- begin                    
     -- insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@Movimiento,'',                                  
-    -- 'TransacciÃ³n con '+@NotaFormaPago,@Deposito,@Deposito,0,'','T','',@NotaUsuario,'','')            
+    -- 'Transacción con '+@NotaFormaPago,@Deposito,@Deposito,0,'','T','',@NotaUsuario,'','')            
     -- end                    
     -- if(@MovimientoB='INGRESO')                    
     -- BEGIN                    
     -- insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@MovimientoB,'',                                  
-    -- 'TransacciÃ³n con '+@NotaFormaPago,@Efectivo,@Efectivo,0,'','T','',@NotaUsuario,'','')                     
+    -- 'Transacción con '+@NotaFormaPago,@Efectivo,@Efectivo,0,'','T','',@NotaUsuario,'','')                     
     -- END                    
     -- ELSE                    
     -- BEGIN                    
     -- insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@MovimientoB,'',                                  
-    -- 'TransacciÃ³n con '+@NotaFormaPago,@Deposito,@Deposito,0,'','T','',@NotaUsuario,'','')                   
+    -- 'Transacción con '+@NotaFormaPago,@Deposito,@Deposito,0,'','T','',@NotaUsuario,'','')                   
     -- END                    
     SET @KARDEX='S'                       
 END                    
@@ -2279,12 +2279,12 @@ end
     Close TablaB;                
     Deallocate TablaB;                
     Commit Transaction;                
-    select convert(varchar,@NotaId)+'Â¬'+@cod                
+    select convert(varchar,@NotaId)+'¬'+@cod                
 end                
 else                
 begin                
     Commit Transaction;                
-    select convert(varchar,@NotaId)+'Â¬'+@cod                
+    select convert(varchar,@NotaId)+'¬'+@cod                
 end                
                                 
 
@@ -2305,8 +2305,8 @@ Declare @CompaniaId int
 Set @Data = LTRIM(RTrim(@Data))  
 set @CompaniaId=@Data  
 select  
-'DocuId|Compania|NotaId|FechaEmision|Documento|Numero|RazonSocial|DNI|SubTotal|IGV|ICBPER|Total|Usuario|EstadoÂ¬100|80|100|115|95|130|350|90|115|115|100|115|160|125Â¬String|String|String|String|String|String|String|String|String|String|String|String|String|String|StringÂ¬'+  
-isnull((select STUFF((select 'Â¬'+convert(varchar,d.DocuId)+'|'+convert(varchar,d.CompaniaId)+'|'+convert(varchar,d.NotaId)+'|'+  
+'DocuId|Compania|NotaId|FechaEmision|Documento|Numero|RazonSocial|DNI|SubTotal|IGV|ICBPER|Total|Usuario|Estado¬100|80|100|115|95|130|350|90|115|115|100|115|160|125¬String|String|String|String|String|String|String|String|String|String|String|String|String|String|String¬'+  
+isnull((select STUFF((select '¬'+convert(varchar,d.DocuId)+'|'+convert(varchar,d.CompaniaId)+'|'+convert(varchar,d.NotaId)+'|'+  
 (Convert(char(10),d.DocuEmision,103))+'|'+d.DocuDocumento+'|'+d.docuSerie+'-'+d.DocuNumero+'|'+  
 c.ClienteRazon+'|'+c.ClienteDni+'|'+  
 (convert(varchar(50), CAST(d.DocuSubTotal as money), -1))+'|'+  
@@ -2366,7 +2366,7 @@ BEGIN
     SELECT
         @detalle = STUFF((
             SELECT TOP (450)
-                'Â¬'
+                '¬'
                 + CONVERT(varchar(20), ISNULL(d.DocuId, 0)) + '|'
                 + CONVERT(varchar(20), ISNULL(d.CompaniaId, 0)) + '|'
                 + CONVERT(varchar(20), ISNULL(d.NotaId, 0)) + '|'
@@ -2393,7 +2393,7 @@ BEGIN
 
     SELECT
         CONVERT(varchar(10), @fechaReferencia, 103)
-        + 'Â§'
+        + '§'
         + ISNULL(NULLIF(@detalle, ''), '~') AS Resultado;
 END
 GO
@@ -2453,7 +2453,7 @@ BEGIN
     ISNULL((    
         SELECT STUFF((    
             SELECT TOP 1      
-                'Â¬' + CONVERT(VARCHAR, U.UsuarioID) + '|' +                    
+                '¬' + CONVERT(VARCHAR, U.UsuarioID) + '|' +                    
                 CONVERT(VARCHAR, p.PersonalId) + '|' +      
                 a.AreaNombre + '|' +                        
                 (    

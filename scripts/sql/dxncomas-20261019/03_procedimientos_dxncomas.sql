@@ -1,4 +1,4 @@
-/*
+﻿/*
   DXNCOMAS - esquema requerido por los flujos llamados desde el frontend web
   Destino de sintaxis: SQL Server 2008.
   Fuente de definiciones: DXN_ICA15102026, comparada con el alcance frontend confirmado.
@@ -4928,13 +4928,13 @@ BEGIN
 
     IF EXISTS (SELECT 1 FROM @Filas WHERE Codigo = '' OR Nombre = '')
     BEGIN
-        RAISERROR('Cada producto debe tener cÃ³digo y nombre.', 16, 1);
+        RAISERROR('Cada producto debe tener código y nombre.', 16, 1);
         RETURN;
     END;
 
     IF EXISTS (SELECT Codigo FROM @Filas GROUP BY Codigo HAVING COUNT(*) > 1)
     BEGIN
-        RAISERROR('La lista contiene cÃ³digos repetidos.', 16, 1);
+        RAISERROR('La lista contiene códigos repetidos.', 16, 1);
         RETURN;
     END;
 
@@ -6399,11 +6399,11 @@ BEGIN
     );
 
     SELECT
-        'DocuId|Compania|NotaId|FechaEmision|Documento|Numero|RazonSocial|DNI|SubTotal|IGV|ICBPER|Total|Usuario|EstadoÂ¬100|80|100|115|95|130|350|90|115|115|100|115|160|125Â¬String|String|String|String|String|String|String|String|String|String|String|String|String|String|StringÂ¬'
+        'DocuId|Compania|NotaId|FechaEmision|Documento|Numero|RazonSocial|DNI|SubTotal|IGV|ICBPER|Total|Usuario|Estado¬100|80|100|115|95|130|350|90|115|115|100|115|160|125¬String|String|String|String|String|String|String|String|String|String|String|String|String|String|String¬'
         + ISNULL((
             SELECT STUFF((
                 SELECT
-                    'Â¬' + CONVERT(varchar, d.DocuId)
+                    '¬' + CONVERT(varchar, d.DocuId)
                     + '|' + CONVERT(varchar, d.CompaniaId)
                     + '|' + CONVERT(varchar, d.NotaId)
                     + '|' + CONVERT(char(10), d.DocuEmision, 103)

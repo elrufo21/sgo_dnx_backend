@@ -8,6 +8,10 @@ Revisado contra ambas bases y el código actual el **19/10/2026**. Los SQL se en
 
 Los originales están en `scripts/sql/dxncomas-20261019/`. Para entregarlos separados y con nombres claros, están copiados en `artifacts/entregas/DXNCOMAS_SQL_separados_20261019/`. Ejecuta cada archivo manualmente, en este orden, sobre `DXNCOMAS`:
 
+El 02/11/2026 se corrigió la codificación de `03_procedimientos_dxncomas.sql`: dos mensajes mostraban `cÃ³digo` y cuatro separadores de `uspListaDocumentosWEB` mostraban `Â¬`. El separador correcto `¬` se conserva porque forma parte del formato de respuesta. El archivo está en UTF-8 con BOM para facilitar su reconocimiento por los editores. Esta corrección no se ejecutó en SQL; los ZIP y copias históricos no se actualizaron. No reinstalar los 44 procedimientos para corregir una pantalla sin comparar las versiones de la base y revisar con el responsable SQL.
+
+En la misma revisión se corrigieron secuencias de codificación dañada en cuatro scripts históricos de `scripts/sql`: `20260407_migrar_bdantigual_a_bdactual.sql`, `20260922_migrar_dxn_ica2209_a_dxn_ica_completo.sql`, `20260922_procedimientos_web_produccion.sql` y `ALTER_PROCEDURES_DOCUMENTOVENTA_PRODUCCION.sql`. Se recuperaron los acentos de mensajes y descripciones y los separadores `¬` y `§`; este último coincide con el formato de resumen de boletas que interpreta la web. Los archivos se guardaron en UTF-8 con BOM. No se aplicaron en ninguna base ni se regeneraron entregas históricas. Antes de reutilizar esos scripts de migración o producción, comparar las definiciones vigentes y evaluar su alcance completo.
+
 1. `01_compatibilidad_procedimientos_existentes.sql`: explicita las columnas originales en seis procedimientos propios de COMAS. Va primero para que agregar columnas no altere sus inserciones. Conserva cálculos y valores y aborta si las definiciones cambiaron.
 2. `02_tablas.sql`: crea `dbo.Indicador` y `dbo.DocumentoVentaCpeWeb`, con claves, relaciones e índices.
 3. `03_columnas.sql`: agrega 14 columnas faltantes a tablas existentes. `NotaPedido.Hora` y `NotaPedido.Almacen` son complementarias.

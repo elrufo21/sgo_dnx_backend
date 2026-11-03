@@ -1,0 +1,14 @@
+SQL posteriores al build completo COMAS del 29/10/2026
+
+Seleccionar y verificar la base de destino con el responsable de SQL; no se ha confirmado qué scripts están instalados en COMAS. El build sirve como referencia temporal, no acredita que se haya desplegado.
+
+1. 20261101_instalar_usp_insertar_categoria_web.sql: crea el procedimiento para crear/editar categorías solo si no existe.
+2. 20261102_instalar_usp_eliminar_categoria.sql: crea el procedimiento para eliminar categorías solo si no existe.
+3. 20261102_instalar_usp_eliminar_proveedor.sql: crea el procedimiento para eliminar proveedores solo si no existe.
+   Estos tres ya se aplicaron en la base local DXNCOMAS2610, no consta su aplicación en COMAS. El comentario del primer archivo sobre no haberse ejecutado es anterior a la instalación local.
+4. 20261031_obs_listado_indices.sql: índices para extraer ventas OBS; aplicados el 31/10 en DXNCOMAS2610 local. Antes de instalarlos en otra base revisar índices equivalentes, capacidad y posibles bloqueos. El encabezado de no ejecutado es histórico.
+5. 20261102_corregir_identidad_facturas_servicio.sql: corrige el error IDENTITY de pendientes OSE. Altera dbo.uspListarFacturasServicioWeb; requiere que exista y debe compararse la definición instalada antes de ejecutarlo. Pendiente en DXNCOMAS2610 local según documentación.
+
+La actualización de 03_procedimiento_facturas_servicio.sql contiene la misma corrección del punto 5, de modo que no se incluye una segunda vez. Si falta el procedimiento completo, revisar el paquete original de optimizaciones y su versión actualizada.
+
+Otros SQL agregados en el periodo son diagnósticos o consultas usadas por la aplicación y no se instalan como objetos. La posible dependencia previa de proveedores y otros scripts incluidos en el build anterior no forman parte de este corte; verificar por separado si faltan.

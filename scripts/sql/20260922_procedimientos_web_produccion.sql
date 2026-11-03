@@ -1,4 +1,4 @@
-/*
+﻿/*
   Paquete de procedimientos web para DXN_ICA2409.
   Preserva los procedimientos del escritorio: los contratos distintos usan WEB.
 */
@@ -4197,13 +4197,13 @@ BEGIN
 
     IF EXISTS (SELECT 1 FROM @Filas WHERE Codigo = '' OR Nombre = '')
     BEGIN
-        RAISERROR('Cada producto debe tener cÃ³digo y nombre.', 16, 1);
+        RAISERROR('Cada producto debe tener código y nombre.', 16, 1);
         RETURN;
     END;
 
     IF EXISTS (SELECT Codigo FROM @Filas GROUP BY Codigo HAVING COUNT(*) > 1)
     BEGIN
-        RAISERROR('La lista contiene cÃ³digos repetidos.', 16, 1);
+        RAISERROR('La lista contiene códigos repetidos.', 16, 1);
         RETURN;
     END;
 

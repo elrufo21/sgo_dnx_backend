@@ -9,7 +9,7 @@ Leer este archivo antes de continuar cualquier trabajo de despliegue para DXNCOM
 | DXN_ICA | `DXN_ICA` | `192.168.1.38` | `http://192.168.1.38:8080/login` | `http://192.168.1.38:8081/api/v1` |
 | DXNCOMAS | `DXNCOMAS` | `SERVER-NEW`, `192.168.18.47` | `http://192.168.18.47:8080` | `http://192.168.18.47:8081/api/v1` |
 
-Estas son instalaciones distintas. No reutilizar entre ellas el ZIP, IP, CORS, `appsettings.json`, conexion de base de datos ni credenciales del otro caso. Los paquetes completos verificados más recientes para ICA y COMAS son los builds del **2026-10-29**, documentados al final. Los paquetes de frontend independiente más recientes son los del **2026-10-24**. Los nuevos paquetes se prepararon y verificaron localmente, sin subirlos a los servidores ni ejecutar SQL.
+Estas son instalaciones distintas. No reutilizar entre ellas el ZIP, IP, CORS, `appsettings.json`, conexion de base de datos ni credenciales del otro caso. Los paquetes completos verificados más recientes para ICA y COMAS son los builds del **2026-11-02**, documentados al final. Los paquetes de frontend independiente más recientes son los del **2026-10-24**. Los nuevos paquetes se prepararon y verificaron localmente, sin subirlos a los servidores ni ejecutar SQL.
 
 ## Servidor y alcance de DXNCOMAS
 
@@ -280,3 +280,28 @@ Estos paquetes reemplazan los builds `20261026-final-final` anteriores e incluye
 - API .NET 7, win-x64, mismo backend para ambas sedes. Se verificaron los 70 archivos de cada ZIP contra sus carpetas mediante SHA-256, la presencia de web.config y la ausencia de appsettings. Se conserva la configuración existente de cada servidor.
 - Incluyen almacenamiento local de XML/CDR y correo compatible con referencias locales y enlaces anteriores. La prueba local de almacenamiento y lectura de adjuntos pasó; no se probó una emisión o correo real. Detalles en `docs/cpe-almacenamiento-local.md`.
 - El paquete se preparó localmente; no se desplegó ni se ejecutó SQL. Cada sede debe mantener y respaldar su carpeta `LocalMedia:RootPath` y conceder permisos a la identidad IIS de su API. Después de instalar verificar con una factura nueva y su correo.
+
+## Builds completos ICA y COMAS — 2026-11-02
+
+- ICA: `artifacts/deploy-192.168.1.38-20261102-actualizado-con-sql-final.zip`. SHA-256: `BC510635B321A0E968DDC4477FA1D2F4F5159257DBC25B04351AB15DA7C3AB09`.
+- COMAS: `artifacts/deploy-192.168.18.47-20261102-actualizado-con-sql-final.zip`. SHA-256: `22C5B2A7DE531A82CC810A90E0BD345C485160400C9B6FD72546BD6935E561A4`.
+- Incluyen frontend, API .NET 7 para Windows x64, extensión y agente, con los cambios presentes en los directorios de trabajo, incluidos cambios de productos, resumen PVS y extensión aún no confirmados en Git. El frontend se compiló con `build:vercel`, sin ejecutar el typecheck completo; persisten errores TypeScript anteriores y advertencias de tamaño de bundle. La publicación de la API presentó advertencias preexistentes. La verificación de guardado de productos pasó.
+- Cada paquete pasó `verify-package.ps1` y se compararon sus 119 archivos con la carpeta de origen por SHA-256. Se verificaron destinos, CORS, .NET 7, impresión y exclusión de `api/appsettings*.json`, medios y llaves. Conservar la configuración, medios y llaves propios de cada servidor. Los ZIP contienen el token compartido de impresión y deben circular solo entre destinos autorizados.
+- La carpeta `sql/posterior-build-20261029/` contiene los cinco scripts posteriores al build del 29/10 y sus indicaciones. El responsable SQL debe comprobar el estado de cada base y aplicar únicamente lo necesario. El parche de facturas y el procedimiento completo corregido son alternativas. Se conservan también los SQL anteriores de optimización y ConceptoOBS; `04_reversion.sql` no se ejecuta durante la instalación.
+- Preparados localmente; no se desplegaron paquetes ni se ejecutó SQL. Se desconoce la versión realmente instalada en cada sede. Verificar procedimientos y configuración en cada destino antes de publicar y probar las funciones en su entorno.
+
+## Frontend informe final por HTTP — 2026-11-03
+
+- ICA: `artifacts/front-ICA-20261103-095914-informe-final.zip`, SHA-256 `F0F060F58152A53EA508E83DDC566BEA91A3BEB1FABE4E56C625EB84B4C0DA2D`; API `http://192.168.1.38:8081/api/v1`.
+- COMAS: `artifacts/front-COMAS-20261103-095914-informe-final.zip`, SHA-256 `0CF3C7B77FC40BBC1F9AB962418FC398C353DB8904F276D6D0F3E178499C4198`; API `http://192.168.18.47:8081/api/v1`.
+- Sustituyen el uso de `crypto.randomUUID()` al abrir ingresos adicionales y agregar movimientos del informe final por identificadores temporales locales. Incluyen el frontend completo presente en el workspace, incluidos cambios preexistentes sin confirmar; verificar compatibilidad con API y SQL instalados antes de publicarlos.
+- Ambos builds Vite terminaron correctamente, con la advertencia existente de tamaño. Pasaron las comprobaciones existentes del informe y se verificaron integridad ZIP, assets, URL y token del agente; no se ejecutó typecheck completo ni una prueba del informe en el navegador de producción.
+- Cada ZIP contiene `web/` y un README. Respaldar la web del destino, copiar el contenido de `web/` a su raíz IIS, recargar con Ctrl+F5 y probar apertura del informe con ingresos adicionales y agregar un movimiento. No se desplegó ni se ejecutó SQL. Los ZIP contienen el token del agente y deben compartirse únicamente con personal autorizado.
+
+## Descargas mediante agente — 2026-11-03
+
+- ICA: `artifacts/descargas-agente-ICA-20261103-103717.zip`, SHA-256 `7DB06BB35D529AC667A947AD4315472A541CA9873081951FC353B90377B70D45`.
+- COMAS: `artifacts/descargas-agente-COMAS-20261103-103717.zip`, SHA-256 `8A429501808961A515A0FF5E8FB0F7AC9143B6FB81CFBEC483F2763057DEC7BC`.
+- Incluyen frontend completo del workspace y código `agente/src` para actualizar un agente existente, conservando su configuración y token. Actualizar primero el agente en cada PC, verificar que `/health` indique `fileSaving: true` y luego publicar la web respaldando ambas versiones. Los paquetes contienen token y se deben transferir solo a personal autorizado.
+- Archivos guardados en `C:\DNX\Descargas`, sujetos al límite `maxPdfBytes`, sin sobrescribir; carpeta compartida según permisos locales. Cubren comprobantes, reportes, exportaciones y guías; las descargas desde controles del visor de Chrome no pasan por el agente. Ver `sgo_dnx_frontend/docs/descargas-agente.md` y el README del agente.
+- Doce pruebas del agente pasaron (incluidas autenticación, origen y guardado real HTTP en carpeta temporal), junto con validaciones del informe final y XML GRE. Vite compiló ambos destinos; se verificaron integridad de ZIP, archivos, URLs, token y código de agente. Typecheck reporta errores preexistentes y no se verificaron los flujos en navegador de producción. Builds no desplegados y SQL sin cambios; probar primero en una PC y comprobar permisos e impresión.

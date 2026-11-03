@@ -1,0 +1,8 @@
+Sede: ICA, web http://192.168.1.38:8080, API http://192.168.1.38:8081/api/v1.
+Incluye frontend completo y codigo de actualizacion de agente existente. Contiene token en frontend; distribuir solo a personal autorizado.
+ANTES DE PUBLICAR: probar primero en una PC; confirmar compatibilidad del frontend completo con la API y SQL instalados.
+AGENTE EN CADA PC (administrador): identificar ruta existente de DNXPrintAgent, respaldar su carpeta src y agent.config.json, detener servicio DNXPrintAgent, copiar contenido de agente/src sobre src existente conservando config y dependencias, iniciar servicio y comprobar que http://127.0.0.1:5174/health devuelva fileSaving: true. No instalar ni modificar configuracion, token o cuenta de servicio. Si falla, restaurar src respaldada y reiniciar.
+WEB: despues de actualizar agentes, respaldar la web IIS, copiar contenido de web/ a la raiz del sitio de esta sede y recargar Ctrl+F5.
+Verificar PDF en ventas, otro tipo de archivo y que aparezcan en C:\DNX\Descargas con permisos de lectura para el usuario; comprobar impresion. Duplicados reciben un numero. El visor de Chrome mantiene sus propios controles de descarga.
+Archivos hasta el limite maxPdfBytes de agent.config.json (10 MB por defecto). La carpeta es compartida segun permisos Windows. No incluye ni modifica SQL ni API.
+

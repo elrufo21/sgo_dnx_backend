@@ -224,28 +224,28 @@ begin
     if(@Movimiento='INGRESO')        
     BEGIN        
     insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@Movimiento,'',                      
-    'TransacciÃ³n con '+@NotaFormaPago,@Efectivo,@Efectivo,0,'','T','',@DocuUsuario,'','')                      
+    'Transacción con '+@NotaFormaPago,@Efectivo,@Efectivo,0,'','T','',@DocuUsuario,'','')                      
     END        
     else        
     begin        
     insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@Movimiento,'',                      
-    'TransacciÃ³n con '+@NotaFormaPago,@Deposito,@Deposito,0,'','T','',@DocuUsuario,'','')         
+    'Transacción con '+@NotaFormaPago,@Deposito,@Deposito,0,'','T','',@DocuUsuario,'','')         
     end        
     if(@MovimientoB='INGRESO')        
     BEGIN        
     insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@MovimientoB,'',                      
-    'TransacciÃ³n con '+@NotaFormaPago,@Efectivo,@Efectivo,0,'','T','',@DocuUsuario,'','')         
+    'Transacción con '+@NotaFormaPago,@Efectivo,@Efectivo,0,'','T','',@DocuUsuario,'','')         
     END        
     ELSE        
     BEGIN        
     insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@MovimientoB,'',                      
-    'TransacciÃ³n con '+@NotaFormaPago,@Deposito,@Deposito,0,'','T','',@DocuUsuario,'','')         
+    'Transacción con '+@NotaFormaPago,@Deposito,@Deposito,0,'','T','',@DocuUsuario,'','')         
     END                
 END      
 ELSE         
 BEGIN       
     insert into CajaDetalle values(@CajaId,GETDATE(),@NotaId,@Movimiento,'',                      
-    'TransacciÃ³n con '+@NotaFormaPago,@DocuTotal,@DocuTotal,0,'','T','',@DocuUsuario,'','')              
+    'Transacción con '+@NotaFormaPago,@DocuTotal,@DocuTotal,0,'','T','',@DocuUsuario,'','')              
 END      
            
    update NotaPedido               
