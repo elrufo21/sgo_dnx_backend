@@ -19,7 +19,9 @@ public class ClienteRepository : ICliente
     public async Task<string> InsertarAsync(Cliente cliente, CancellationToken cancellationToken = default)
     {
         var id = cliente.ClienteId;
-        var razon = cliente.ClienteRazon?.Trim() ?? string.Empty;
+        var razon = ClienteRazonNormalizer.Normalize(cliente.ClienteRazon);
+        if (string.IsNullOrWhiteSpace(razon))
+            throw new ArgumentException("El nombre o razón social es obligatorio.");
         var ruc = cliente.ClienteRuc?.Trim() ?? string.Empty;
         var dni = cliente.ClienteDni?.Trim() ?? string.Empty;
 

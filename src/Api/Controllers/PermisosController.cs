@@ -3,6 +3,7 @@ using Ecommerce.Application.Contracts.Permisos;
 using Ecommerce.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 
 namespace Ecommerce.Api.Controllers;
 
@@ -12,8 +13,49 @@ namespace Ecommerce.Api.Controllers;
 public sealed class PermisosController : ControllerBase
 {
     private readonly IPermisosIndicador _permisos;
+    private readonly IConfiguration _configuration;
 
-    public PermisosController(IPermisosIndicador permisos) => _permisos = permisos;
+    public PermisosController(IPermisosIndicador permisos, IConfiguration configuration)
+    {
+        _permisos = permisos;
+        _configuration = configuration;
+    }
+
+    [HttpGet("areas")]
+    public async Task<IActionResult> Areas(CancellationToken cancellationToken)
+    {
+        if (!await PuedeAdministrarPermisosAsync(cancellationToken)) return Forbid();
+        await using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await using var command = new SqlCommand("SELECT AreaId, AreaNombre FROM dbo.Area ORDER BY AreaNombre, AreaId", connection);
+        await connection.OpenAsync(cancellationToken);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var areas = new List<object>();
+        while (await reader.ReadAsync(cancellationToken))
+            areas.Add(new { id = Convert.ToInt32(reader["AreaId"]), area = reader["AreaNombre"].ToString() });
+        return Ok(areas);
+    }
+
+    [HttpGet("usuarios")]
+    public async Task<IActionResult> Usuarios(CancellationToken cancellationToken)
+    {
+        if (!await PuedeAdministrarPermisosAsync(cancellationToken)) return Forbid();
+        const string sql = @"SELECT U.UsuarioID, U.UsuarioAlias, ISNULL(U.Administrador, 0) AS Administrador,
+            P.AreaId, LTRIM(RTRIM(ISNULL(P.PersonalNombres, '') + ' ' + ISNULL(P.PersonalApellidos, ''))) AS Nombre
+            FROM dbo.Usuarios U INNER JOIN dbo.Personal P ON P.PersonalId = U.PersonalId
+            WHERE P.CompaniaId = @companiaId AND P.AreaId > 0 AND U.UsuarioEstado = 'ACTIVO'
+            ORDER BY Nombre, U.UsuarioID";
+        await using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@companiaId", CompaniaId());
+        await connection.OpenAsync(cancellationToken);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var users = new List<object>();
+        while (await reader.ReadAsync(cancellationToken))
+            users.Add(new { id = Convert.ToInt32(reader["UsuarioID"]), areaId = Convert.ToInt32(reader["AreaId"]),
+                alias = reader["UsuarioAlias"].ToString(), nombre = reader["Nombre"].ToString(),
+                administrador = Convert.ToBoolean(reader["Administrador"]) });
+        return Ok(users);
+    }
 
     [HttpGet("perfil")]
     public async Task<ActionResult<PermisoPerfil>> ObtenerPerfil([FromQuery] int areaId, [FromQuery] int? usuarioId, CancellationToken cancellationToken)
@@ -28,7 +70,7 @@ public sealed class PermisosController : ControllerBase
         if (!await PuedeAdministrarPermisosAsync(cancellationToken)) return Forbid();
         if (request.AreaId <= 0 || request.Permisos.Count == 0) return BadRequest("Debe indicar el área y los permisos.");
         await _permisos.GuardarPerfilAsync(CompaniaId(), request, cancellationToken);
-        return NoContent();
+        return Ok(new { ok = true });
     }
 
     [HttpGet("mis-permisos")]

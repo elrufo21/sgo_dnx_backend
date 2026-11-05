@@ -21,6 +21,9 @@ public class ClienteController: ControllerBase
     [ProducesResponseType((int)HttpStatusCode.OK)]
     public async Task<IActionResult> RegisterCliente([FromBody] Cliente cliente, CancellationToken cancellationToken)
     {
+        var nombre = ClienteRazonNormalizer.Normalize(cliente.ClienteRazon);
+        if (string.IsNullOrWhiteSpace(nombre))
+            return BadRequest("El nombre o razón social es obligatorio.");
         return Ok(await _mediator.InsertarAsync(cliente, cancellationToken));
     }
     

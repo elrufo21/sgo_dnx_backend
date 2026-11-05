@@ -33,7 +33,7 @@ public sealed class PermisosIndicadorRepository : IPermisosIndicador
         await using var connection = new SqlConnection(_connectionString);
         await using var command = CrearComando(connection, "GUARDAR", companiaId, request.AreaId, request.UsuarioId);
         command.Parameters.Add("@Permisos", SqlDbType.VarChar, -1).Value = string.Join("|", request.Permisos
-            .Select(x => $"{x.Codigo.Trim().ToUpperInvariant()}={(x.Permitido ? 1 : 0)}"));
+            .Select(x => $"{x.Codigo.Trim().ToUpperInvariant()}={(x.Heredar ? "H" : x.Permitido ? "1" : "0")}"));
         await connection.OpenAsync(cancellationToken);
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
@@ -50,7 +50,10 @@ public sealed class PermisosIndicadorRepository : IPermisosIndicador
             permisos.Add(new PermisoEstado
             {
                 Codigo = reader.GetString(reader.GetOrdinal("Codigo")),
-                Permitido = reader.GetBoolean(reader.GetOrdinal("Permitido"))
+                Permitido = reader.GetBoolean(reader.GetOrdinal("Permitido")),
+                PermisoArea = operacion == "OBTENER" && reader.GetBoolean(reader.GetOrdinal("PermisoArea")),
+                ExcepcionUsuario = operacion != "OBTENER" || reader.IsDBNull(reader.GetOrdinal("ExcepcionUsuario"))
+                    ? null : reader.GetBoolean(reader.GetOrdinal("ExcepcionUsuario"))
             });
         }
         return permisos;

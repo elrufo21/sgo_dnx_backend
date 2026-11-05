@@ -4,6 +4,9 @@ public sealed class PermisoEstado
 {
     public string Codigo { get; set; } = string.Empty;
     public bool Permitido { get; set; }
+    public bool Heredar { get; set; }
+    public bool PermisoArea { get; set; }
+    public bool? ExcepcionUsuario { get; set; }
 }
 
 public sealed class PermisoPerfil

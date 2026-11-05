@@ -1,0 +1,1 @@
+Frontend ICA, API http://192.168.1.38:8081/api/v1. Incluye frontend completo del workspace. Respaldar web actual, verificar compatibilidad API y SQL instalados, copiar contenido de web a la raiz IIS y recargar Ctrl+F5. El agente de descargas debe estar actualizado. Contiene token del agente; distribuir solo a personal autorizado.

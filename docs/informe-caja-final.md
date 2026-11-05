@@ -10,6 +10,8 @@ La preparación del informe usa `usptraerCajerosWEB`: el primer bloque proporcio
 
 `GET /api/v1/CierreCajaFinal` recibe `fechaInicio` y `fechaFin` (`YYYY-MM-DD`) para listar informes dentro de ese rango inclusivo. Rechaza rangos donde la fecha inicial sea posterior a la final.
 
+En el listado, la columna **Diferencia** muestra los importes negativos en rojo, los positivos en azul y el cero en negro. El formato conserva dos decimales y no altera el importe registrado.
+
 Al registrar un informe nuevo, el API comprueba con `usplistaConteoWEB` que no exista otro informe para esa fecha y valida los PAGO/VARIOS pendientes de esa fecha con `uspValidarPagoVariosCajaFinalWEB`. Esta validación web no bloquea por documentos pendientes de otros días y no modifica `uspValidarAperturaWEB`. El API también comprueba que `uspTraerGastosWEB` entregue un monto OBS numérico. Tanto al crear como al editar se exige que el monto OBS esté presente; cero es válido. La edición no repite las validaciones de duplicidad ni PAGO/VARIOS.
 
 Antes de usar esta validación, ejecutar [20261009_validar_pago_varios_informe_caja_web.sql](../scripts/sql/20261009_validar_pago_varios_informe_caja_web.sql).

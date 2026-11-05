@@ -1,4 +1,6 @@
 using System.Data;
+using System.Globalization;
+using System.Security.Claims;
 using Ecommerce.Api.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -15,6 +17,32 @@ public sealed class SalesReportController : ControllerBase
     public SalesReportController(IConfiguration configuration)
     {
         _configuration = configuration;
+    }
+
+    [HttpGet("sales-vs-purchases")]
+    public async Task<IActionResult> SalesVsPurchases([FromQuery] int year, [FromQuery] int month, CancellationToken cancellationToken)
+    {
+        if (year < 1753 || year > DateTime.Today.Year || month < 1 || month > 12)
+            return BadRequest(new { mensaje = "Selecciona un mes y año válidos." });
+        if (!int.TryParse(User.FindFirstValue("companiaId"), out var companyId) || companyId <= 0)
+            return Forbid();
+
+        var rows = new List<object>();
+        await using var connection = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await using var command = new SqlCommand("dbo.reporteVentaCompania", connection) { CommandType = CommandType.StoredProcedure };
+        command.Parameters.Add("@Mes", SqlDbType.Int).Value = month;
+        command.Parameters.Add("@Anno", SqlDbType.Int).Value = year;
+        await connection.OpenAsync(cancellationToken);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (reader["CompaniaId"] == DBNull.Value || Convert.ToInt32(reader["CompaniaId"], CultureInfo.InvariantCulture) != companyId) continue;
+            if (!decimal.TryParse(Convert.ToString(reader["Ventas"], CultureInfo.InvariantCulture), NumberStyles.Number | NumberStyles.AllowParentheses, CultureInfo.InvariantCulture, out var sales) ||
+                !decimal.TryParse(Convert.ToString(reader["Compras"], CultureInfo.InvariantCulture), NumberStyles.Number | NumberStyles.AllowParentheses, CultureInfo.InvariantCulture, out var purchases))
+                throw new InvalidOperationException("El procedimiento devolvió importes inválidos.");
+            rows.Add(new { companyId, companyName = reader["RazonSocial"].ToString(), sales, purchases });
+        }
+        return Ok(new { year, month, rows });
     }
 
     [HttpGet("monthly")]

@@ -205,6 +205,13 @@ public class UsuariosCrudRepository : IUsuariosCrud
 
     public async Task<string> EditarMantenimientoAsync(int id, UsuarioBd usuario, CancellationToken cancellationToken = default)
     {
+        await using var connection = new SqlConnection(_connectionString);
+        await using var adminCommand = new SqlCommand("SELECT Administrador FROM dbo.Usuarios WHERE UsuarioID = @id", connection);
+        adminCommand.Parameters.AddWithValue("@id", id);
+        await connection.OpenAsync(cancellationToken);
+        var currentAdmin = await adminCommand.ExecuteScalarAsync(cancellationToken);
+        if (currentAdmin is null) return "ERROR|Usuario no encontrado.";
+        usuario.Administrador = currentAdmin == DBNull.Value ? 0 : Convert.ToInt32(currentAdmin);
         var result = await EjecutarMantenimientoAsync(
             BuildMaintenanceData("ACTUALIZAR", usuario, id),
             usuario.UsuarioClave,
@@ -416,7 +423,7 @@ public class UsuariosCrudRepository : IUsuariosCrud
             "1",
             usuario.UserRuta?.Trim() ?? string.Empty,
             usuario.UserRutaOBS?.Trim() ?? string.Empty,
-            "1",
+            action == "CREAR" ? "0" : usuario.Administrador.ToString(CultureInfo.InvariantCulture),
             usuario.RutaVentaOBS?.Trim() ?? string.Empty,
             usuario.RutaIOC?.Trim() ?? string.Empty,
             usuario.RutaApertura?.Trim() ?? string.Empty,

@@ -1,0 +1,9 @@
+Sede ICA, API http://192.168.1.38:8081/api/v1.
+Incluye frontend completo del workspace. Verificar compatibilidad con API y SQL instalados. Contiene token del agente y debe transferirse solo a personal autorizado.
+1. En cada PC, iniciar sesion con cada usuario que use DNX. Extraer el ZIP, abrir PowerShell en la carpeta instalador y ejecutar:
+   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\instalar-ver-carpeta.ps1
+   No requiere administrador y se ejecuta una vez por usuario de Windows. Chrome puede pedir permiso al usar el boton.
+2. Conservar el agente de descargas existente activo; esta actualizacion no lo reemplaza ni necesita reiniciarlo.
+3. Respaldar la web del sitio IIS de la sede y copiar el contenido de web/ a su raiz. Recargar con Ctrl+F5.
+4. Guardar un archivo y pulsar Ver carpeta; debe abrir C:\DNX\Descargas en la PC. Los archivos se guardan por el agente existente.
+Solo se registra el protocolo dnxdescargas en el perfil actual, abriendo exclusivamente la carpeta DNX local. No se modifica SQL ni API. No se desplego el paquete.
