@@ -80,9 +80,9 @@ public class UsuarioRepository : IUsuario
             ? contexto.CompaniaId
             : int.TryParse(GetPayloadValue(payload, 4), out var parsedCompaniaId) ? parsedCompaniaId : 0;
         var renovaciones = await ObtenerRenovacionesAsync(companiaId, cancellationToken);
-        var permisos = contexto.Administrador || contexto.AreaId <= 0 || companiaId <= 0
+        var permisos = contexto.AreaId <= 0 || companiaId <= 0
             ? Array.Empty<string>()
-            : await _permisos.ObtenerEfectivosAsync(companiaId, contexto.AreaId, usuarioId, cancellationToken);
+            : await _permisos.ObtenerEfectivosAsync(companiaId, contexto.AreaId, usuarioId, cancellationToken, contexto.Administrador);
         return new AuthResponseA
         {
             Id = GetPayloadValue(payload, 0),

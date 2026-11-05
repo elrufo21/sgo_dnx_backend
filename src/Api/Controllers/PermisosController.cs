@@ -76,18 +76,19 @@ public sealed class PermisosController : ControllerBase
     [HttpGet("mis-permisos")]
     public async Task<IActionResult> MisPermisos(CancellationToken cancellationToken)
     {
-        if (EsAdministrador()) return Ok(new { administrador = true, permisos = Array.Empty<string>() });
+        if (EsAdministradorIdentity()) return Ok(new { administrador = true, gestionIndividual = false, permisos = Array.Empty<string>() });
         var usuarioId = ClaimInt("userId");
         var areaId = ClaimInt("areaId");
-        return Ok(new { administrador = false, permisos = await _permisos.ObtenerEfectivosAsync(CompaniaId(), areaId, usuarioId, cancellationToken) });
+        return Ok(new { administrador = EsAdministrador(), gestionIndividual = true, permisos = await _permisos.ObtenerEfectivosAsync(CompaniaId(), areaId, usuarioId, cancellationToken, EsAdministrador()) });
     }
 
     private bool EsAdministrador() => User.HasClaim("isAdmin", "1");
+    private bool EsAdministradorIdentity() => EsAdministrador() && User.HasClaim(c => c.Type == "identityUserId");
 
     private async Task<bool> PuedeAdministrarPermisosAsync(CancellationToken cancellationToken)
     {
-        if (EsAdministrador()) return true;
-        var permisos = await _permisos.ObtenerEfectivosAsync(CompaniaId(), ClaimInt("areaId"), ClaimInt("userId"), cancellationToken);
+        if (EsAdministradorIdentity()) return true;
+        var permisos = await _permisos.ObtenerEfectivosAsync(CompaniaId(), ClaimInt("areaId"), ClaimInt("userId"), cancellationToken, EsAdministrador());
         return permisos.Contains("CONFIGURACION.PERMISOS", StringComparer.OrdinalIgnoreCase);
     }
     private int CompaniaId() => ClaimInt("companiaId");

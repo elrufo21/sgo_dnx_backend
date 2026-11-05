@@ -32,7 +32,7 @@ public sealed class RequirePermissionFilter : IAsyncAuthorizationFilter
             return;
         }
 
-        if (user.HasClaim("isAdmin", "1")) return;
+        if (user.HasClaim("isAdmin", "1") && user.HasClaim(c => c.Type == "identityUserId")) return;
 
         if (!TryClaim(user, "userId", out var usuarioId) ||
             !TryClaim(user, "companiaId", out var companiaId) ||
@@ -42,7 +42,7 @@ public sealed class RequirePermissionFilter : IAsyncAuthorizationFilter
             return;
         }
 
-        var permisos = await _permisos.ObtenerEfectivosAsync(companiaId, areaId, usuarioId, context.HttpContext.RequestAborted);
+        var permisos = await _permisos.ObtenerEfectivosAsync(companiaId, areaId, usuarioId, context.HttpContext.RequestAborted, user.HasClaim("isAdmin", "1"));
         if (!permisos.Contains(_codigo, StringComparer.OrdinalIgnoreCase))
             context.Result = new ForbidResult();
     }

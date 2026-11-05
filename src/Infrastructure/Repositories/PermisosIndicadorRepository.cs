@@ -22,10 +22,10 @@ public sealed class PermisosIndicadorRepository : IPermisosIndicador
         return new PermisoPerfil { AreaId = areaId, UsuarioId = usuarioId, Permisos = permisos };
     }
 
-    public async Task<IReadOnlyList<string>> ObtenerEfectivosAsync(int companiaId, int areaId, int usuarioId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<string>> ObtenerEfectivosAsync(int companiaId, int areaId, int usuarioId, CancellationToken cancellationToken = default, bool administrador = false)
     {
-        var permisos = await EjecutarLecturaAsync("EFECTIVOS", companiaId, areaId, usuarioId, cancellationToken);
-        return permisos.Where(x => x.Permitido).Select(x => x.Codigo).ToArray();
+        var permisos = await EjecutarLecturaAsync(administrador ? "OBTENER" : "EFECTIVOS", companiaId, areaId, usuarioId, cancellationToken);
+        return permisos.Where(x => administrador ? x.ExcepcionUsuario != false : x.Permitido).Select(x => x.Codigo).ToArray();
     }
 
     public async Task GuardarPerfilAsync(int companiaId, GuardarPermisoPerfilRequest request, CancellationToken cancellationToken = default)
