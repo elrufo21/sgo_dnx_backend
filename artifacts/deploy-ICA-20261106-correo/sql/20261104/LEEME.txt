@@ -1,0 +1,6 @@
+SQL PARA REVISIÓN DEL RESPONSABLE DE BASE DE DATOS
+
+1. Antes de actualizar el backend, revisar y aplicar 20261104/20261104_permisos_herencia.sql. Cambia dbo.usp_PermisoIndicador; respaldar su definición y dbo.Indicador, comprobar duplicados por usuario y perfiles existentes. Las excepciones anteriores se conservan y deberán ponerse en Heredar cuando corresponda. No cambia Administrador de usuarios existentes.
+2. Para Reportes > Ventas vs. Compras, verificar dbo.reporteVentaCompania y permiso EXECUTE de la API. El SQL 20261104_instalar_reporte_venta_compania_si_falta.sql instala la versión de referencia solo si falta; no sobrescribe la existente. Comparar sus reglas y TOP 2 sin orden con la sede antes de usarlo.
+3. Verificar dependencias-20261102/LEEME.txt y los scripts históricos incluidos; aplicar únicamente lo que falte en esta base. No ejecutar reversiones en una instalación normal. No se conoce el estado de cada sede.
+4. Seleccionar y verificar expresamente la base correcta en SSMS. Estos archivos no se ejecutaron ni se probaron en las bases de destino; validar los flujos después de publicar API y frontend conjuntamente.

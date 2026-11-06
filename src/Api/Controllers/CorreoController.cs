@@ -72,7 +72,7 @@ public class CorreoController : ControllerBase
         {
             using var mail = new MailMessage
             {
-                From = new MailAddress(emisor, string.IsNullOrWhiteSpace(emailSettings.DisplayName) ? null : emailSettings.DisplayName.Trim()),
+                From = new MailAddress(emisor, ObtenerPrimerValor(request.NombreSede, emailSettings.DisplayName)),
                 Subject = request.Asunto!.Trim(),
                 Body = ConstruirCuerpoComprobante(request),
                 IsBodyHtml = true

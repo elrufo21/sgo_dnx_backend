@@ -1,0 +1,22 @@
+SQL para revisar desde el último build completo documentado (29/10/2026)
+
+Los paquetes del 29/10 y el backend del 30/10 se prepararon localmente; no consta que se hayan desplegado. Seleccionar y verificar la base de cada sede antes de cualquier ejecución. El estado de ICA y COMAS no está confirmado.
+
+POST-BUILD:
+- 20261101_instalar_usp_insertar_categoria_web.sql: crear o editar categorías; crea el procedimiento únicamente si falta.
+- 20261102_instalar_usp_eliminar_categoria.sql: eliminar categorías; crea el procedimiento únicamente si falta.
+- 20261102_instalar_usp_eliminar_proveedor.sql: eliminar proveedores; crea el procedimiento únicamente si falta.
+  Los tres se instalaron localmente el 02/11/2026 en DXNCOMAS2610. No consta su instalación en las demás bases.
+- 20261031_obs_listado_indices.sql: índices para Extraer ventas OBS. Aplicado el 31/10/2026 solo en DXNCOMAS2610 local. Antes de aplicarlo en otra base, revisar índices equivalentes, espacio y bloqueos. El comentario original de no ejecutado es anterior a la ejecución local.
+- 20261102_corregir_identidad_facturas_servicio.sql: corrige error de IDENTITY en #Candidatas. Contiene ALTER y requiere que dbo.uspListarFacturasServicioWeb ya exista; comparar la definición actual antes de ejecutar. En DXNCOMAS2610 se documentó como pendiente de aplicación el 02/11/2026.
+
+DEPENDENCIAS ANTERIORES (solo si hace falta, revisar cada base):
+- 20261028_instalar_usp_insertar_proveedor.sql: crear/editar proveedores; solo crea el procedimiento si falta. No consta su ejecución.
+- 20261026_listaNotaPedido_web.sql: procedimiento web para ConceptoOBS; estaba incluido en el build, pero no se confirmó su instalación en cada base. Comparar la versión instalada.
+- 03_procedimiento_facturas_servicio.sql: definición completa corregida del procedimiento de facturas. Si ya existe, usar el parche de post-build tras comparar; no ejecutar ambos por rutina. Revisar también los requisitos de la carpeta de optimización original.
+
+Informe final de caja: el 23/10/2026 se registró confirmación del usuario de que los scripts originales 01, 02 y 03 se aplicaron en DXN_ICA y DXNCOMAS. Verificar la versión y destino antes de volver a ejecutarlos. El cambio de IDENTITY posterior se entrega por separado.
+
+Resumen PVS y SerieNC usan SQL ya existente o consultas de la API; no requieren instalar un script SQL adicional. Los archivos de diagnóstico o referencia no se incluyen como cambios de despliegue.
+
+Los scripts son originales; algunos encabezados reflejan el estado antes de su aplicación local. Este paquete no ejecuta SQL ni acredita el estado de otras bases.

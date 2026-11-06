@@ -24,6 +24,8 @@ La contraseña se protege con ASP.NET Data Protection antes de guardarla. El API
 
 El host Gmail, puerto, SSL y nombre del remitente siguen usando los valores de `EmailSettings` del servidor. El nombre de empresa mostrado en el correo continúa saliendo de los datos de la compañía.
 
+En los correos de comprobantes enviados desde ventas o POS, el nombre visible del remitente usa la sede enviada por la pantalla (por ejemplo, `DXN COMAS` o `DXN ICA`). Si no se dispone de la sede, se usa `EmailSettings:DisplayName`. La dirección y las credenciales SMTP no cambian. Este comportamiento requiere publicar el backend actualizado y, para POS, también el frontend actualizado; no modifica correos ya enviados.
+
 En producción, configurar `DataProtection__KeysPath` con una ruta persistente fuera de la publicación (por ejemplo, `C:\SGO\keys`) y conceder lectura/escritura a la identidad del Application Pool del API. Conservar esa carpeta al publicar y respaldarla: sin el mismo anillo de claves, el API no podrá descifrar la contraseña guardada. No incluir credenciales SMTP en el frontend ni en el paquete de publicación.
 
 ## Entorno CPE
