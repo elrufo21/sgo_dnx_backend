@@ -1,5 +1,6 @@
 using System.Data;
 using System.Globalization;
+using System.Net;
 using Ecommerce.Api.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -23,6 +24,7 @@ public sealed class CierreCajaFinalController : ControllerBase
         var cajerosRaw = await Scalar(con, "usptraerCajerosWEB", "@Fecha", f, ct);
         var resumenCajeros = cajerosRaw.Split('[');
         var p = gastosRaw.Split('['); var gastos = Rows(p.ElementAtOrDefault(0));
+        if (gastos.Count > 0) gastos = await AgregarFechasGastos(con, fecha, gastos, ct);
         var totalObsDisponible = TryMoney(p.ElementAtOrDefault(3), out var totalObs);
         var ingresos = new List<Movimiento> { new("VITRINA", Money(p.ElementAtOrDefault(7))), new("IOC", Money(p.ElementAtOrDefault(4), 1)), new("REVISTAS", Money(p.ElementAtOrDefault(5))), new("COPIAS Y OTROS", Money(p.ElementAtOrDefault(6))) };
         ingresos.AddRange(Rows(p.ElementAtOrDefault(1)));
@@ -105,8 +107,33 @@ public sealed class CierreCajaFinalController : ControllerBase
     }
 
     private async Task<SqlConnection> Abrir(CancellationToken ct) { var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")); await con.OpenAsync(ct); return con; }
+    private static async Task<List<Movimiento>> AgregarFechasGastos(SqlConnection con, DateOnly fecha, List<Movimiento> gastos, CancellationToken ct)
+    {
+        await using var cmd = new SqlCommand("""
+            SELECT DetalleConcepto, DetalleMonto, DetalleFecha
+              FROM CajaDetalle
+             WHERE CONVERT(date, DetalleFecha) = @Fecha AND NotaId = 0
+               AND DetalleMovimiento = 'SALIDA' AND Vista = ''
+            """, con);
+        cmd.Parameters.Add("@Fecha", SqlDbType.Date).Value = fecha.ToDateTime(TimeOnly.MinValue);
+        var origen = new List<Movimiento>();
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        while (await reader.ReadAsync(ct))
+            origen.Add(new Movimiento(reader.GetString(0), Convert.ToDecimal(reader.GetValue(1), CultureInfo.InvariantCulture),
+                FechaMovimiento: reader.GetDateTime(2).ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture)));
+
+        return AsociarFechasGastos(gastos, origen);
+    }
+    private static List<Movimiento> AsociarFechasGastos(List<Movimiento> gastos, List<Movimiento> origen)
+    {
+        static (string, decimal) Clave(Movimiento m) => (WebUtility.HtmlDecode(m.Descripcion), m.Importe);
+        var fechas = origen.GroupBy(Clave).Where(g => g.Count() == 1).ToDictionary(g => g.Key, g => g.First().FechaMovimiento);
+        var duplicados = gastos.GroupBy(Clave).Where(g => g.Count() > 1).Select(g => g.Key).ToHashSet();
+        return gastos.Select(g => !duplicados.Contains(Clave(g)) && fechas.TryGetValue(Clave(g), out var valor)
+            ? g with { FechaMovimiento = valor } : g).ToList();
+    }
     private static async Task<string> Scalar(SqlConnection con, string sp, string? name, string? value, CancellationToken ct, DateOnly? inicio = null, DateOnly? fin = null) { await using var cmd = new SqlCommand(sp, con) { CommandType = CommandType.StoredProcedure }; if (inicio.HasValue) { cmd.Parameters.Add("@fechainicio", SqlDbType.Date).Value = inicio.Value.ToDateTime(TimeOnly.MinValue); cmd.Parameters.Add("@fechafin", SqlDbType.Date).Value = fin!.Value.ToDateTime(TimeOnly.MinValue); } else if (name is not null) cmd.Parameters.AddWithValue(name, value ?? ""); return (await cmd.ExecuteScalarAsync(ct))?.ToString() ?? ""; }
-    private static List<Movimiento> Rows(string? raw) => string.IsNullOrWhiteSpace(raw) || raw == "~" ? new List<Movimiento>() : raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Select(x => x.Split('|')).Where(x => x.Length > 1).Select(x => new Movimiento(x[0], Money(x[1]))).ToList();
+    private static List<Movimiento> Rows(string? raw) => string.IsNullOrWhiteSpace(raw) || raw == "~" ? new List<Movimiento>() : raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Split('|')).Where(x => x.Length > 1).Select(x => new Movimiento(x[0], Money(x[1]))).ToList();
     private static List<ProductoVendido> ProductosVendidos(string? raw) => string.IsNullOrWhiteSpace(raw) || raw == "~" ? new List<ProductoVendido>() : raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Skip(3).Select(x => x.Split('|')).Where(x => x.Length >= 4 && x[0] != "~").Select(x => new ProductoVendido(x[0], x[1], Money(x[2]), Money(x[3]))).ToList();
     private static List<Movimiento> DetalleRows(string? raw) => string.IsNullOrWhiteSpace(raw) || raw == "~" ? new List<Movimiento>() : raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Split('|')).Where(x => x.Length > 1).Select(x => new Movimiento(x[0], Money(x[1]), Number(x.ElementAtOrDefault(3)), x.ElementAtOrDefault(2) ?? "T")).ToList();
     private static List<Moneda> Monedas(string raw) => string.IsNullOrWhiteSpace(raw) || raw == "~" ? new List<Moneda>() : raw.Split('¬', StringSplitOptions.RemoveEmptyEntries).Select(x => x.Split('|')).Where(x => x.Length > 2).Select(x => new Moneda(Money(x[2]), (int)Number(x[1]), Number(x[0]))).ToList();
@@ -118,7 +145,7 @@ public sealed class CierreCajaFinalController : ControllerBase
     private static string Limpio(string? value) => (value ?? "").Replace("|", " ").Replace(";", " ").Replace("[", " ").Replace("¬", " ");
 }
 
-public sealed record Movimiento(string Descripcion, decimal Importe, long Id = 0, string? Estado = "T");
+public sealed record Movimiento(string Descripcion, decimal Importe, long Id = 0, string? Estado = "T", string? FechaMovimiento = null);
 public sealed record ProductoVendido(string Codigo, string Descripcion, decimal Cantidad, decimal Importe);
 public sealed record Moneda(decimal Denominacion, int Cantidad, long Id = 0);
 public sealed record GuardarCierre(DateOnly Fecha, string? ClaveAdministrador, int UsuarioId, string Usuario, string? Cajeros, decimal? TotalObs, string? Observaciones, List<Movimiento> Ingresos, List<Movimiento> Gastos, List<Moneda> Monedas);
