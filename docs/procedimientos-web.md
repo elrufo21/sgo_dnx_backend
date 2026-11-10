@@ -1,5 +1,13 @@
 # Procedimientos usados por la web
 
+## Propuesta para desactivar movimientos de Kardex
+
+En `scripts/sql/propuestas-kardex-20261109/` se conservan los borradores iniciales de los ocho procedimientos identificados. Son referencias históricas y no deben instalarse directamente.
+
+El 09/11/2026 se aplicaron en la base local `DXNCOMAS0611` los seis procedimientos existentes: `anularDocumentoWEB`, `editarProductoWEB`, `ingresarProductoWEB`, `uspGuardarListaPreciosPdfWEB`, `uspinsertarNC` y `uspinsertarNotaBweb`. Se comentaron las inserciones, eliminaciones y actualización directas sobre Kardex, conservando el resto de la lógica, incluida la actualización de stock. `uspIngresarProducto` y `uspEliminarProducto` no existían en esa base y no se crearon. La versión instalada de `uspinsertarNC`, compartida potencialmente con escritorio, incluye una actualización de Kardex que también se desactivó.
+
+Las definiciones instaladas están en `scripts/sql/kardex-dxncomas0611-20261109/aplicacion/` y sus versiones anteriores en `originales/`. Los seis cambios se aplicaron juntos en una transacción y se verificó el texto instalado; no se probaron operaciones de negocio. Antes de reutilizarlos en otra sede, comparar cada definición instalada y trasladar los cambios sin sobrescribir correcciones locales; revisar procedimientos ausentes, dependencias, disparadores y operaciones indirectas. Los respaldos son definiciones `CREATE` tal como las devuelve SQL Server; para restaurar sobre objetos existentes se requiere adaptarlas a `ALTER`.
+
 El script `scripts/sql/20260922_procedimientos_web_produccion.sql` contiene las definiciones estáticas requeridas por la migración web. Es el archivo para producción. `scripts/sql/20260922_procedimientos_solo_web.sql` queda como alternativa que toma las definiciones desde `DXN_ICA`.
 
 `listaNotaPedidoWEB` es exclusivo de la API y conserva intacto `dbo.listaNotaPedido` para el escritorio. El script estático y el paquete `scripts/sql/dxncomas-20261019/03_procedimientos_dxncomas.sql` ya lo definen con `ConceptoOBS`. Si se usa el script dinámico `20260922_procedimientos_solo_web.sql`, aplicar después `scripts/sql/20261026_listaNotaPedido_web.sql` para agregar ese campo. El paquete completo de despliegue incluye este SQL separado y señala la base destino en su README; el responsable SQL debe verificar además que el usuario de la API tenga permiso `EXECUTE` antes de actualizar la API. El generador solo copia el archivo y no ejecuta SQL.

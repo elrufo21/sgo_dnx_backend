@@ -336,3 +336,8 @@ Estos paquetes reemplazan los builds `20261026-final-final` anteriores e incluye
 - Incluyen el árbol de trabajo actual, frontend, API .NET 7 win-x64, extensión y agente; el remitente de comprobantes usa la sede recibida y POS la envía. Sin sede usa el nombre configurado en el servidor. Si el cliente de correo o SMTP modifica el nombre visible, verificarlo con un envío real después de instalar.
 - Se conservan los SQL informativos del paquete completo del 2026-11-04; el cambio de correo no requiere SQL. El responsable debe comprobar las dependencias instaladas antes de actualizar. No se ejecutó SQL ni se desplegó en las sedes.
 - Ambos paquetes pasaron `verify-package.ps1`, la prueba de integridad y la comparación SHA-256 de sus 129 archivos contra las carpetas de origen. Compilación Vite y publicación .NET exitosas con advertencias; el typecheck completo registra errores existentes. No se realizó un envío real de correo. Conservar appsettings, medios y llaves de cada servidor; los ZIP contienen el token del agente y deben compartirse solo con personal autorizado.
+
+## Kardex en base local DXNCOMAS0611 — 2026-11-09
+
+- A solicitud del usuario, se comentaron las escrituras directas sobre Kardex en seis procedimientos de la base local `DXNCOMAS0611` configurada en el backend. Los SQL aplicados y las definiciones anteriores se guardaron en `scripts/sql/kardex-dxncomas0611-20261109/`; el detalle está en `docs/procedimientos-web.md`.
+- Se aplicaron y verificaron en una sola transacción. No se realizaron pruebas funcionales de ventas o productos, ni se aplicaron cambios en las bases de las sedes. Antes de reutilizar los SQL, comparar las definiciones instaladas y revisar dependencias y diferencias locales.

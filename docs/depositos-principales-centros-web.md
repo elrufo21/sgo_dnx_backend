@@ -16,6 +16,8 @@ La pantalla también muestra la validación histórica del escritorio: cuenta to
 4. Seleccionar una fila para consultar sus datos o adjuntar/reemplazar su comprobante. Los datos financieros existentes no se editan desde esta pantalla.
 5. Eliminar requiere el permiso de gestión y la contraseña del usuario autenticado; el servidor verifica esa clave contra la misma cuenta antes de borrar el registro y su imagen local.
 
+El selector de entidad bancaria muestra **(SELECCIONE)** mientras no se haya elegido una entidad. Para depósito y tarjeta, se debe seleccionar una antes de guardar.
+
 ## API y acceso
 
 - `GET /api/v1/DepositosCentro?desde=YYYY-MM-DD&hasta=YYYY-MM-DD`: lista registros y acepta `buscar` opcional.

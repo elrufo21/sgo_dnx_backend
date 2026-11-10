@@ -1,0 +1,22 @@
+-- BORRADOR DE REFERENCIA: NO EJECUTAR SIN COMPARAR CON LA DEFINICIÓN INSTALADA.
+-- Origen: bdactual.sql; procedimiento: dbo.uspEliminarProducto.
+-- Conserva solo la definición local, que puede carecer de correcciones posteriores.
+ALTER PROCEDURE [dbo].[uspEliminarProducto] @Id int as BEGIN TRY
+DELETE FROM Producto
+WHERE
+    IdProducto = @Id
+    /* KARDEX DESHABILITADO PARA REVISIÓN
+    DELETE FROM Kardex   WHERE IdProducto = @Id
+    */;
+
+DELETE FROM UnidadMedida
+WHERE
+    IdProducto = @Id END TRY BEGIN CATCH DECLARE @ErrorNum INT = ERROR_NUMBER();
+
+DECLARE @ErrorSeverity INT = ERROR_SEVERITY();
+
+if (
+    @ErrorNum = 547
+    and @ErrorSeverity = 16
+) begin PRINT 'No se pudo eliminar, ya que tiene relacion con otros modulos' end END CATCH
+GO

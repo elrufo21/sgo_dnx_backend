@@ -10,6 +10,8 @@ El formulario incluye los ingresos adicionales de la preparación, incluidas las
 
 Para mostrar la fecha y hora original de cada gasto en una preparación nueva, la API consulta `CajaDetalle` con los filtros del procedimiento y asocia la fecha únicamente cuando descripción e importe identifican una fila única en ambas listas. Las coincidencias ambiguas no reciben fecha. Los detalles de informes guardados no conservan una referencia al movimiento original y no reciben una fecha inventada. No cambia la estructura ni los datos SQL.
 
+En la pantalla del informe final, la columna **Fecha y hora** se muestra en la pestaña Gastos y se oculta en Ingresos.
+
 La preparación del informe usa `usptraerCajerosWEB`: el primer bloque proporciona los cajeros y el tercer bloque contiene el resumen general de productos vendidos de la fecha, agregado por código y descripción, sin filtrar por cajero ni por caja. Ese resumen se muestra en la pantalla de `/cash-final-report` con búsqueda, paginación y total, y también se incluye en una página del PDF. Al abrir un informe guardado, la pantalla vuelve a consultar los productos de su fecha. `uspTraeTodasMonedasWEB` se interpreta como filas de monedas (sin cabeceras). El cierre individual de caja conserva su reporte de productos filtrado por `CajaId`.
 
 `GET /api/v1/CierreCajaFinal/{id}` usa `usplistaDetalleConteo` para recuperar un informe registrado. Es solo lectura y no modifica procedimientos ni datos existentes.
