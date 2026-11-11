@@ -45,7 +45,13 @@ public sealed class CierreCajaFinalController : ControllerBase
     public async Task<IActionResult> Detalle(long id, CancellationToken ct)
     {
         await using var con = await Abrir(ct); var raw = await Scalar(con, "usplistaDetalleConteoWEB", "@ConteoId", id.ToString(CultureInfo.InvariantCulture), ct); var secciones = raw.Split('[');
-        return Ok(new { monedas = Monedas(secciones.ElementAtOrDefault(0) ?? ""), ingresos = DetalleRows(secciones.ElementAtOrDefault(1)), gastos = DetalleRows(secciones.ElementAtOrDefault(2)) });
+        var gastos = DetalleRows(secciones.ElementAtOrDefault(2));
+        await using var fechaCmd = new SqlCommand("SELECT FechaConteo FROM dbo.ConteoMonedas WHERE ConteoId = @Id", con);
+        fechaCmd.Parameters.Add("@Id", SqlDbType.Decimal).Value = id;
+        var fecha = await fechaCmd.ExecuteScalarAsync(ct);
+        if (fecha is DateTime fechaConteo && gastos.Count > 0)
+            gastos = await AgregarFechasGastos(con, DateOnly.FromDateTime(fechaConteo), gastos, ct);
+        return Ok(new { monedas = Monedas(secciones.ElementAtOrDefault(0) ?? ""), ingresos = DetalleRows(secciones.ElementAtOrDefault(1)), gastos });
     }
 
     [HttpPost]

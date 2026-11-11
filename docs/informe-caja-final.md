@@ -8,7 +8,7 @@ La preparación interpreta los bloques de ingresos y gastos de `uspTraerGastosWE
 
 El formulario incluye los ingresos adicionales de la preparación, incluidas las ventas libres, en el total esperado y el detalle guardado. Los conceptos base no se duplican; las salidas digitales siguen descontándose de Sistema OBS. Esto no modifica informes ya registrados.
 
-Para mostrar la fecha y hora original de cada gasto en una preparación nueva, la API consulta `CajaDetalle` con los filtros del procedimiento y asocia la fecha únicamente cuando descripción e importe identifican una fila única en ambas listas. Las coincidencias ambiguas no reciben fecha. Los detalles de informes guardados no conservan una referencia al movimiento original y no reciben una fecha inventada. No cambia la estructura ni los datos SQL.
+Para mostrar la fecha y hora original de cada gasto, tanto en una preparación nueva como al abrir un informe guardado, la API consulta `CajaDetalle` para la fecha del informe y asocia la fecha únicamente cuando descripción e importe identifican una fila única en ambas listas. Los informes guardados no conservan una referencia al movimiento original, por lo que los gastos sin coincidencia única quedan sin fecha. No cambia la estructura ni los datos SQL.
 
 En la pantalla del informe final, la columna **Fecha y hora** se muestra en la pestaña Gastos y se oculta en Ingresos.
 
