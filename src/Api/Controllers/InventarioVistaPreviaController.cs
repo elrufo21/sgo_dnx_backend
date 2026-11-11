@@ -1,5 +1,6 @@
 using System.Data;
 using System.Globalization;
+using System.Xml.Linq;
 using Ecommerce.Api.Security;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
@@ -47,18 +48,87 @@ public sealed class InventarioVistaPreviaController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> Consultar([FromQuery] string? codigo, [FromQuery] DateTime? fechaInicio, [FromQuery] DateTime? fechaFin, CancellationToken ct)
+        => await ConsultarCodigos(new[] { codigo ?? "" }, fechaInicio, fechaFin, ct);
+
+    public sealed record ConsultaLoteRequest(string[]? Codigos, DateTime? FechaInicio, DateTime? FechaFin);
+
+    [HttpPost("lote")]
+    public async Task<IActionResult> ConsultarLote([FromBody] ConsultaLoteRequest request, CancellationToken ct)
+        => await ConsultarCodigos(request.Codigos ?? Array.Empty<string>(), request.FechaInicio, request.FechaFin, ct);
+
+    [HttpPost("kardex/lote")]
+    public async Task<IActionResult> ConsultarKardexLote([FromBody] ConsultaLoteRequest request, CancellationToken ct)
+        => await ConsultarReporte(request, "InventarioKardexLote.sql", ct);
+
+    [HttpPost("reprocesar-reporte")]
+    public async Task<IActionResult> ReprocesarReporte([FromBody] ConsultaLoteRequest request, CancellationToken ct)
+        => await ConsultarReporte(request, "InventarioReprocesarReporte.sql", ct);
+
+    private async Task<IActionResult> ConsultarReporte(ConsultaLoteRequest request, string sqlResource, CancellationToken ct)
+    {
+        var codes = (request.Codigos ?? Array.Empty<string>()).Select(code => code?.Trim() ?? "")
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (codes.Length is 0 or > 2000 || codes.Any(code => code.Length is 0 or > 297)
+            || request.FechaInicio is not DateTime from || request.FechaFin is not DateTime to
+            || from.Date > to.Date || to.Date == DateTime.MaxValue.Date)
+            return BadRequest(new { mensaje = "Seleccione productos y un rango de fechas válido." });
+        if (!TrySources(out var sources))
+            return StatusCode(503, new { mensaje = "Las bases de ICA y COMAS no están configuradas." });
+
+        using var sql = new StreamReader(typeof(InventarioVistaPreviaController).Assembly
+            .GetManifestResourceStream(sqlResource)!);
+        var query = await sql.ReadToEndAsync();
+        var xml = new XElement("codigos", codes.Select(code => new XElement("codigo", code))).ToString(SaveOptions.DisableFormatting);
+        var movements = new List<KardexMovement>();
+        var coverage = new List<object>();
+        foreach (var source in sources)
+        {
+            await using var connection = new SqlConnection(source.ConnectionString);
+            await using var command = new SqlCommand(query, connection) { CommandTimeout = 120 };
+            command.Parameters.Add("@Codigos", SqlDbType.Xml).Value = xml;
+            command.Parameters.Add("@Desde", SqlDbType.Date).Value = from.Date;
+            command.Parameters.Add("@Hasta", SqlDbType.Date).Value = to.Date;
+            await connection.OpenAsync(ct);
+            await using var reader = await command.ExecuteReaderAsync(ct);
+            while (await reader.ReadAsync(ct))
+            {
+                movements.Add(new KardexMovement(
+                    Text(reader, "CodigoBase"), Text(reader, "Codigo"), source.Name == "COMAS" ? "0000" : "0001",
+                    ((DateTime)reader["Fecha"]).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                    Text(reader, "Tipo"), Text(reader, "Serie"), Text(reader, "Numero"), Text(reader, "Operacion"),
+                    Text(reader, "Descripcion"), (decimal)reader["Entrada"], (decimal)reader["CostoEntrada"],
+                    (decimal)reader["TotalEntrada"], (decimal)reader["Salida"], (decimal)reader["CostoSalida"],
+                    (decimal)reader["TotalSalida"], (decimal)reader["CostoSaldo"]));
+            }
+            await reader.NextResultAsync(ct);
+            await reader.ReadAsync(ct);
+            coverage.Add(new { sede = source.Name, desde = Day(reader["Desde"]), hasta = Day(reader["Hasta"]) });
+        }
+        // InformeKardex insertaba COMAS antes de ICA y ordenaba por día e ID.
+        return Ok(new {
+            movimientos = movements.OrderBy(row => row.Fecha, StringComparer.Ordinal),
+            cobertura = coverage,
+            origen = sqlResource == "InventarioReprocesarReporte.sql" ? "reprocesado" : "registrado"
+        });
+    }
+
+    private async Task<IActionResult> ConsultarCodigos(string[] input, DateTime? fechaInicio, DateTime? fechaFin, CancellationToken ct)
     {
         if (!TrySources(out var sources)) return StatusCode(503, new { mensaje = "Las bases de ICA y COMAS no están configuradas para la vista previa." });
-        codigo = codigo?.Trim();
-        if (string.IsNullOrEmpty(codigo) || codigo.Length > 297 || !fechaInicio.HasValue || !fechaFin.HasValue || fechaInicio.Value.Date > fechaFin.Value.Date || fechaFin.Value.Date == DateTime.MaxValue.Date)
+        var codes = input.Select(code => code?.Trim() ?? "").Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (codes.Length == 0 || codes.Length > 2000 || codes.Any(code => string.IsNullOrEmpty(code) || code.Length > 297) || !fechaInicio.HasValue || !fechaFin.HasValue || fechaInicio.Value.Date > fechaFin.Value.Date || fechaFin.Value.Date == DateTime.MaxValue.Date)
             return BadRequest(new { mensaje = "Seleccione un producto y un rango de fechas válido." });
-
-        var codes = new[] { codigo }.Concat(Prefijos.Select(prefix => prefix + codigo)).ToArray();
+        var xml = new XDocument(new XElement("codigos", codes.Select(code => new XElement("codigo", code)))).ToString(SaveOptions.DisableFormatting);
         var rows = new List<PreviewMovement>();
         foreach (var source in sources)
         {
             await using var connection = new SqlConnection(source.ConnectionString);
             await using var command = new SqlCommand("""
+                DECLARE @CodigosTabla TABLE (Codigo varchar(300) PRIMARY KEY);
+                INSERT INTO @CodigosTabla (Codigo)
+                SELECT DISTINCT p.Prefijo + x.n.value('(./text())[1]', 'varchar(297)')
+                  FROM @Codigos.nodes('/codigos/codigo') AS x(n)
+                  CROSS JOIN (VALUES (''), ('191'), ('201'), ('211'), ('221'), ('231'), ('241'), ('251')) AS p(Prefijo);
                 SELECT 'DOCUMENTO' AS Origen, d.DocuId AS DocumentoId, dd.DetalleId,
                        d.DocuEmision AS Fecha, d.TipoCodigo, d.DocuSerie AS Serie, d.DocuNumero AS Numero,
                        d.DocuEstado AS Estado, d.EstadoSunat, d.DocuTotal AS TotalDocumento,
@@ -71,7 +141,7 @@ public sealed class InventarioVistaPreviaController : ControllerBase
                   INNER JOIN dbo.Producto p ON p.IdProducto = dd.IdProducto
                   LEFT JOIN dbo.Cliente cli ON cli.ClienteId = d.ClienteId
                   LEFT JOIN dbo.Sublinea sub ON sub.IdSubLinea = p.IdSubLinea
-                 WHERE p.ProductoCodigo IN (@c0,@c1,@c2,@c3,@c4,@c5,@c6,@c7)
+                 WHERE p.ProductoCodigo IN (SELECT Codigo FROM @CodigosTabla)
                    AND d.DocuEmision >= @Desde AND d.DocuEmision < DATEADD(day, 1, @Hasta)
                 UNION ALL
                 SELECT 'COMPRA', c.CompraId, dc.DetalleId, c.CompraEmision, c.TipoCodigo,
@@ -84,10 +154,10 @@ public sealed class InventarioVistaPreviaController : ControllerBase
                   INNER JOIN dbo.Producto p ON p.IdProducto = dc.IdProducto
                   LEFT JOIN dbo.Proveedor prov ON prov.ProveedorId = c.ProveedorId
                   LEFT JOIN dbo.Sublinea sub ON sub.IdSubLinea = p.IdSubLinea
-                 WHERE p.ProductoCodigo IN (@c0,@c1,@c2,@c3,@c4,@c5,@c6,@c7)
+                 WHERE p.ProductoCodigo IN (SELECT Codigo FROM @CodigosTabla)
                    AND c.CompraEmision >= @Desde AND c.CompraEmision < DATEADD(day, 1, @Hasta)
                 """, connection) { CommandTimeout = 120 };
-            for (var i = 0; i < codes.Length; i++) command.Parameters.Add($"@c{i}", SqlDbType.VarChar, 300).Value = codes[i];
+            command.Parameters.Add("@Codigos", SqlDbType.Xml).Value = xml;
             command.Parameters.Add("@Desde", SqlDbType.DateTime).Value = fechaInicio.Value.Date;
             command.Parameters.Add("@Hasta", SqlDbType.DateTime).Value = fechaFin.Value.Date;
             await connection.OpenAsync(ct);
@@ -134,7 +204,11 @@ public sealed class InventarioVistaPreviaController : ControllerBase
     private static string BaseCode(string code) => Prefijos.Any(prefix => code.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) && code.Length > 3 ? code[3..] : code;
     private static string Text(SqlDataReader reader, string name) => reader[name] == DBNull.Value ? "" : Convert.ToString(reader[name], CultureInfo.InvariantCulture)?.Trim() ?? "";
     private static decimal? Amount(SqlDataReader reader, string name) => reader[name] == DBNull.Value ? null : Convert.ToDecimal(reader[name], CultureInfo.InvariantCulture);
+    private static string? Day(object value) => value is DateTime date ? date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) : null;
     private sealed record Source(string Name, string ConnectionString);
     private sealed record PreviewProduct(string Codigo, string Descripcion, List<string> Codigos);
     private sealed record PreviewMovement(string Sede, string Anexo, string Origen, string TipoCodigo, string Operacion, long DocumentoId, long DetalleId, string Fecha, string FechaHora, string Serie, string Numero, string Codigo, string Descripcion, decimal? Cantidad, decimal? Precio, string Estado, string EstadoSunat, bool IncluidoScript, bool IncluidoConsolidado);
+    private sealed record KardexMovement(string CodigoBase, string Codigo, string Anexo, string Fecha, string Tipo,
+        string Serie, string Numero, string Operacion, string Descripcion, decimal Entrada, decimal CostoEntrada,
+        decimal TotalEntrada, decimal Salida, decimal CostoSalida, decimal TotalSalida, decimal CostoSaldo);
 }

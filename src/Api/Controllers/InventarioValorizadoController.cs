@@ -14,22 +14,86 @@ public sealed class InventarioValorizadoController : ControllerBase
     private readonly IConfiguration _configuration;
     public InventarioValorizadoController(IConfiguration configuration) => _configuration = configuration;
 
+    public sealed record SaldoGrupoRequest(string? Codigo, DateTime? FechaInicio, decimal? Cantidad);
+
+    [HttpGet("saldos-iniciales")]
+    public async Task<IActionResult> SaldosIniciales([FromQuery] DateTime? fechaInicio, CancellationToken ct)
+    {
+        if (!fechaInicio.HasValue)
+            return BadRequest(new { mensaje = "Seleccione una fecha inicial válida." });
+        await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await using var cmd = new SqlCommand("SELECT Codigo, Cantidad FROM dbo.InventarioSaldoInicial WHERE FechaInicio = @Inicio", con);
+        cmd.Parameters.Add("@Inicio", SqlDbType.Date).Value = fechaInicio.Value.Date;
+        await con.OpenAsync(ct);
+        await using var reader = await cmd.ExecuteReaderAsync(ct);
+        var saldos = new List<object>();
+        while (await reader.ReadAsync(ct)) saldos.Add(new { codigo = Text(reader, "Codigo"), cantidad = Convert.ToDecimal(reader["Cantidad"], CultureInfo.InvariantCulture) });
+        return Ok(saldos);
+    }
+
+    [HttpPut("saldos-iniciales")]
+    [RequirePermission("MANTENIMIENTO.PRODUCTOS")]
+    public async Task<IActionResult> GuardarSaldoGrupo([FromBody] SaldoGrupoRequest request, CancellationToken ct)
+    {
+        var code = request.Codigo?.Trim().ToUpperInvariant();
+        if (string.IsNullOrEmpty(code) || code.Length > 297 || !request.FechaInicio.HasValue || !request.Cantidad.HasValue || request.Cantidad.Value > 90000000000000m || request.Cantidad.Value < -90000000000000m || decimal.Round(request.Cantidad.Value, 2) != request.Cantidad.Value)
+            return BadRequest(new { mensaje = "Ingrese un producto, fecha inicial y cantidad válidos." });
+        await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await using var cmd = new SqlCommand("""
+            SET XACT_ABORT ON;
+            BEGIN TRANSACTION;
+            UPDATE dbo.InventarioSaldoInicial WITH (UPDLOCK, SERIALIZABLE) SET Cantidad = @Cantidad
+             WHERE Codigo = @Codigo AND FechaInicio = @Inicio;
+            IF @@ROWCOUNT = 0
+                INSERT INTO dbo.InventarioSaldoInicial (Codigo, FechaInicio, Cantidad) VALUES (@Codigo, @Inicio, @Cantidad);
+            COMMIT;
+            """, con);
+        cmd.Parameters.Add("@Codigo", SqlDbType.VarChar, 297).Value = code;
+        cmd.Parameters.Add("@Inicio", SqlDbType.Date).Value = request.FechaInicio.Value.Date;
+        var amount = cmd.Parameters.Add("@Cantidad", SqlDbType.Decimal);
+        amount.Precision = 18;
+        amount.Scale = 2;
+        amount.Value = request.Cantidad.Value;
+        await con.OpenAsync(ct);
+        await cmd.ExecuteNonQueryAsync(ct);
+        return Ok(new { codigo = code, cantidad = request.Cantidad.Value });
+    }
+
     [HttpGet("productos")]
     public async Task<IActionResult> Productos(CancellationToken ct)
     {
         await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
         await using var cmd = new SqlCommand("""
-            SELECT IdProducto, ProductoCodigo, ProductoNombre
+            SELECT IdProducto, ProductoCodigo, ProductoNombre, ProductoCantidad, UltimoINV
               FROM dbo.Producto
-             WHERE ProductoEstado = 'BUENO' AND ProductoINV = 'S'
              ORDER BY ProductoCodigo, IdProducto
             """, con);
         await con.OpenAsync(ct);
         await using var reader = await cmd.ExecuteReaderAsync(ct);
         var productos = new List<object>();
         while (await reader.ReadAsync(ct))
-            productos.Add(new { id = Convert.ToInt64(reader["IdProducto"], CultureInfo.InvariantCulture), codigo = Text(reader, "ProductoCodigo"), descripcion = Text(reader, "ProductoNombre") });
+            productos.Add(new { id = Convert.ToInt64(reader["IdProducto"], CultureInfo.InvariantCulture), codigo = Text(reader, "ProductoCodigo"), descripcion = Text(reader, "ProductoNombre"), stockActual = reader["ProductoCantidad"] == DBNull.Value ? (decimal?)null : Convert.ToDecimal(reader["ProductoCantidad"], CultureInfo.InvariantCulture), ultimoInv = reader["UltimoINV"] == DBNull.Value ? (decimal?)null : Convert.ToDecimal(reader["UltimoINV"], CultureInfo.InvariantCulture) });
         return Ok(productos);
+    }
+
+    public sealed record SaldoInicialRequest(decimal? Cantidad);
+
+    [HttpPut("productos/{id:long}/saldo-inicial")]
+    [RequirePermission("MANTENIMIENTO.PRODUCTOS")]
+    public async Task<IActionResult> GuardarSaldoInicial(long id, [FromBody] SaldoInicialRequest request, CancellationToken ct)
+    {
+        if (id <= 0 || (request.Cantidad.HasValue && (request.Cantidad.Value > 90000000000000m || request.Cantidad.Value < -90000000000000m || decimal.Round(request.Cantidad.Value, 2) != request.Cantidad.Value)))
+            return BadRequest(new { mensaje = "Ingrese una cantidad con hasta dos decimales." });
+        await using var con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+        await using var cmd = new SqlCommand("UPDATE dbo.Producto SET UltimoINV = @Cantidad WHERE IdProducto = @IdProducto", con);
+        cmd.Parameters.Add("@IdProducto", SqlDbType.BigInt).Value = id;
+        var cantidad = cmd.Parameters.Add("@Cantidad", SqlDbType.Decimal);
+        cantidad.Precision = 18;
+        cantidad.Scale = 2;
+        cantidad.Value = (object?)request.Cantidad ?? DBNull.Value;
+        await con.OpenAsync(ct);
+        if (await cmd.ExecuteNonQueryAsync(ct) == 0) return NotFound(new { mensaje = "Producto no encontrado." });
+        return Ok(new { id, cantidad = request.Cantidad });
     }
 
     [HttpGet]
@@ -42,7 +106,7 @@ public sealed class InventarioValorizadoController : ControllerBase
         await using var cmd = new SqlCommand("""
             DECLARE @Codigo varchar(80);
             SELECT @Codigo = LTRIM(RTRIM(REPLACE(REPLACE(ProductoCodigo, '191', ''), '201', '')))
-              FROM dbo.Producto WHERE IdProducto = @ProductoId AND ProductoEstado = 'BUENO' AND ProductoINV = 'S';
+              FROM dbo.Producto WHERE IdProducto = @ProductoId;
             SELECT k.KardexId, k.KardexFecha, k.TipoCodigo, k.Serie, k.KardexDocumento,
                    k.TipoOperacion, p.ProductoNombre, k.CantidadIngreso, k.CantidadSalida,
                    k.PrecioCosto, k.StockFinal, k.KadexConcepto

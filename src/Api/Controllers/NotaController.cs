@@ -2638,7 +2638,12 @@ public class NotaController : ControllerBase
                   );
             """;
 
-        const string sqlDetalle = """
+        await using var descripcionColumnCommand = new SqlCommand("SELECT COL_LENGTH('dbo.DetalleDocumento', 'DetalleDescripcion')", con);
+        var tieneDescripcion = await descripcionColumnCommand.ExecuteScalarAsync(cancellationToken) is not DBNull;
+        var descripcionDetalle = tieneDescripcion
+            ? "COALESCE(NULLIF(LTRIM(RTRIM(dd.DetalleDescripcion)), ''), p.ProductoNombre, '')"
+            : "COALESCE(p.ProductoNombre, '')";
+        var sqlDetalle = $"""
             SELECT
                 dd.DetalleId,
                 dd.DocuId,
@@ -2654,7 +2659,7 @@ public class NotaController : ControllerBase
                 dd.DetalleNotaId,
                 dd.DetalleUM,
                 dd.ValorUM,
-                COALESCE(NULLIF(LTRIM(RTRIM(dd.DetalleDescripcion)), ''), p.ProductoNombre, '') AS DetalleDescripcion
+                {descripcionDetalle} AS DetalleDescripcion
             FROM DetalleDocumento dd
             LEFT JOIN Producto p ON p.IdProducto = dd.IdProducto
             LEFT JOIN Sublinea s ON s.IdSubLinea = p.IdSubLinea
