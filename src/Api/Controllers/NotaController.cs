@@ -1749,10 +1749,6 @@ public class NotaController : ControllerBase
         await con.OpenAsync(cancellationToken);
         var raw = (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString() ?? string.Empty;
         var items = ParsePagoVariosItems(raw);
-        if (items.Count == 0)
-        {
-            items = await ListarPagoVariosPendientesDirectoAsync(con, usuario, cancellationToken);
-        }
 
         return Ok(new { ok = true, count = items.Count, items });
     }
@@ -1778,10 +1774,6 @@ public class NotaController : ControllerBase
         await con.OpenAsync(cancellationToken);
         var raw = (await cmd.ExecuteScalarAsync(cancellationToken))?.ToString() ?? string.Empty;
         var items = ParsePagoVariosItems(raw);
-        if (items.Count == 0)
-        {
-            items = await ListarPagoVariosPendientesDirectoAsync(con, usuario, cancellationToken);
-        }
 
         return Ok(new { ok = true, count = items.Count });
     }
@@ -11285,54 +11277,6 @@ public async Task<IActionResult> EnviarNotaCreditoFacturaServicioOse(
                 RazonSocial = Get(values, 4),
                 Monto = monto,
                 ConceptoOBS = Get(values, 7)
-            });
-        }
-
-        return items;
-    }
-
-    private static async Task<IReadOnlyList<PagoVariosItemResponse>> ListarPagoVariosPendientesDirectoAsync(
-        SqlConnection con,
-        string? usuario,
-        CancellationToken cancellationToken)
-    {
-        var user = (usuario ?? string.Empty).Trim();
-        if (string.IsNullOrWhiteSpace(user))
-            return Array.Empty<PagoVariosItemResponse>();
-
-        await using var cmd = new SqlCommand("""
-            SELECT
-                d.DocuId,
-                n.NotaId,
-                LTRIM(RTRIM(ISNULL(d.DocuSerie, ''))) + '-' + LTRIM(RTRIM(ISNULL(d.DocuNumero, ''))) AS Documento,
-                ISNULL(c.ClienteCodigo, '') AS Codigo,
-                ISNULL(c.ClienteRazon, '') AS RazonSocial,
-                ISNULL(n.NotaPagar, n.NotaTotal) AS Monto,
-                ISNULL(n.ConceptoOBS, '') AS ConceptoOBS
-            FROM NotaPedido n
-            INNER JOIN DocumentoVenta d ON d.NotaId = n.NotaId
-            INNER JOIN Cliente c ON c.ClienteId = n.ClienteId
-            WHERE LTRIM(RTRIM(ISNULL(n.NotaCondicion, ''))) = 'PAGO/VARIOS'
-              AND LTRIM(RTRIM(ISNULL(n.NotaEstado, ''))) NOT IN ('CANCELADO', 'ANULADO')
-              AND LTRIM(RTRIM(ISNULL(n.NotaUsuario, ''))) = @Usuario
-              AND NOT EXISTS (SELECT 1 FROM DetallePVarios dp WHERE dp.NotaId = n.NotaId)
-            ORDER BY n.NotaId DESC;
-            """, con);
-        cmd.Parameters.AddWithValue("@Usuario", user);
-
-        var items = new List<PagoVariosItemResponse>();
-        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
-        while (await reader.ReadAsync(cancellationToken))
-        {
-            items.Add(new PagoVariosItemResponse
-            {
-                DocuId = Convert.ToInt64(reader["DocuId"], CultureInfo.InvariantCulture),
-                NotaId = Convert.ToInt64(reader["NotaId"], CultureInfo.InvariantCulture),
-                Documento = reader["Documento"]?.ToString()?.Trim() ?? string.Empty,
-                Codigo = reader["Codigo"]?.ToString()?.Trim() ?? string.Empty,
-                RazonSocial = reader["RazonSocial"]?.ToString()?.Trim() ?? string.Empty,
-                Monto = Convert.ToDecimal(reader["Monto"], CultureInfo.InvariantCulture),
-                ConceptoOBS = reader["ConceptoOBS"]?.ToString()?.Trim() ?? string.Empty
             });
         }
 

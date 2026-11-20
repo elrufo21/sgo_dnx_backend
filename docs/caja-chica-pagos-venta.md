@@ -19,6 +19,7 @@ Los pagos de venta se registran en `CajaDetalle` de la caja activa del usuario y
 - Una venta OBS (`ConceptoOBS = VENTA`) no se suma como ingreso en el listado ni en el cierre de caja. Su importe se obtiene desde OBS para formar `TOTAL EFECTIVO`, descontando todas las salidas, igual que el escritorio. `VENTA LIBRE` y los ingresos manuales sí permanecen como ingresos de caja.
 - En el listado, un pago en efectivo se muestra solo como `EFECTIVO`; el valor técnico `-` de entidad no se presenta.
 - Los pagos de documentos pendientes se conservan en `uspInsertarPagoVarios`, que ya usa la lógica del escritorio.
+- El listado de pendientes y su contador consultan únicamente `usplistarPagoVariosWEB` con el ID del usuario. Si el procedimiento no devuelve documentos, ambos muestran cero; no se buscan pendientes por nombre ni en otras cajas mediante una consulta alternativa. El procedimiento instalado determina la caja y las condiciones del listado.
 - En **Pago Varios**, `YAPE`, `YAPE/EFECTIVO` y `TARJETA` asignan automáticamente la entidad `BCP`. La API fuerza `BCP` para esos medios aunque la solicitud enviada incluya otra entidad.
 - Una venta con condición `PAGO/VARIOS` se crea pendiente con depósito cero y no exige número de operación. La operación se registra posteriormente en `uspInsertarPagoVarios` cuando se realiza el pago.
 - Al consultar una venta registrada sin forma de pago, el formulario muestra `-` y conserva los importes de pago registrados. Al crear una venta, el selector mantiene sus validaciones habituales.
