@@ -1,0 +1,22 @@
+
+> sgo@0.0.0 build:vercel
+> vite build --outDir ..\sgo_dnx_backend\artifacts\front-COMAS-20261124-almacen
+
+vite v7.2.6 building client environment for production...
+transforming...
+✓ 4227 modules transformed.
+
+(!) outDir C:\Users\User\Desktop\desarrollo_dnx\sgo_dnx_backend\artifacts\front-COMAS-20261124-almacen is not inside project root and will not be emptied.
+Use --emptyOutDir to override.
+
+rendering chunks...
+computing gzip size...
+../sgo_dnx_backend/artifacts/front-COMAS-20261124-almacen/index.html                     0.61 kB │ gzip:     0.35 kB
+../sgo_dnx_backend/artifacts/front-COMAS-20261124-almacen/assets/index-XFGN0q9D.css     96.42 kB │ gzip:    17.00 kB
+../sgo_dnx_backend/artifacts/front-COMAS-20261124-almacen/assets/index-CLMEINP1.js   4,952.14 kB │ gzip: 1,521.22 kB
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 23.54s

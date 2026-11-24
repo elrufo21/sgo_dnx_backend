@@ -190,15 +190,41 @@ public sealed class InventarioVistaPreviaController : ControllerBase
     private bool TrySources(out Source[] sources)
     {
         sources = Array.Empty<Source>();
-        var comas = _config["InventarioVistaPrevia:BaseComas"]?.Trim();
-        var ica = _config["InventarioVistaPrevia:BaseIca"]?.Trim();
-        var connection = _config.GetConnectionString("DefaultConnection");
-        if (string.IsNullOrWhiteSpace(connection) || string.IsNullOrWhiteSpace(comas) || string.IsNullOrWhiteSpace(ica) || comas.Equals(ica, StringComparison.OrdinalIgnoreCase)) return false;
-        sources = new[] {
-            new Source("COMAS", new SqlConnectionStringBuilder(connection) { InitialCatalog = comas }.ConnectionString),
-            new Source("ICA", new SqlConnectionStringBuilder(connection) { InitialCatalog = ica }.ConnectionString)
-        };
-        return true;
+        var mode = _config["InventarioVistaPrevia:Modo"]?.Trim();
+        try
+        {
+            SqlConnectionStringBuilder comas;
+            SqlConnectionStringBuilder ica;
+            if (string.IsNullOrEmpty(mode) || mode.Equals("Local", StringComparison.OrdinalIgnoreCase))
+            {
+                var baseComas = _config["InventarioVistaPrevia:BaseComas"]?.Trim();
+                var baseIca = _config["InventarioVistaPrevia:BaseIca"]?.Trim();
+                var connection = _config.GetConnectionString("DefaultConnection");
+                if (string.IsNullOrWhiteSpace(connection) || string.IsNullOrWhiteSpace(baseComas) || string.IsNullOrWhiteSpace(baseIca)) return false;
+                comas = new SqlConnectionStringBuilder(connection) { InitialCatalog = baseComas };
+                ica = new SqlConnectionStringBuilder(connection) { InitialCatalog = baseIca };
+            }
+            else if (mode.Equals("Conexion", StringComparison.OrdinalIgnoreCase))
+            {
+                var comasConnection = _config.GetConnectionString("InventarioComas");
+                var icaConnection = _config.GetConnectionString("InventarioIca");
+                if (string.IsNullOrWhiteSpace(comasConnection) || string.IsNullOrWhiteSpace(icaConnection)) return false;
+                comas = new SqlConnectionStringBuilder(comasConnection);
+                ica = new SqlConnectionStringBuilder(icaConnection);
+            }
+            else return false;
+
+            if (string.IsNullOrWhiteSpace(comas.DataSource) || string.IsNullOrWhiteSpace(ica.DataSource) ||
+                string.IsNullOrWhiteSpace(comas.InitialCatalog) || string.IsNullOrWhiteSpace(ica.InitialCatalog) ||
+                (comas.DataSource.Trim().Equals(ica.DataSource.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                 comas.InitialCatalog.Trim().Equals(ica.InitialCatalog.Trim(), StringComparison.OrdinalIgnoreCase))) return false;
+            sources = new[] { new Source("COMAS", comas.ConnectionString), new Source("ICA", ica.ConnectionString) };
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
     }
 
     private static string BaseCode(string code) => Prefijos.Any(prefix => code.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) && code.Length > 3 ? code[3..] : code;

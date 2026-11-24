@@ -1,0 +1,91 @@
+{
+  "servidor": "localhost\\SQLEXPRESS01",
+  "base": "DXNCOMAS2411",
+  "modo": "Cada script en transacción revertida al cerrar",
+  "resultados": [
+    {
+      "script": "sql/historicos/20261020_optimizacion_listados/01_indices_listados.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": ""
+    },
+    {
+      "script": "sql/historicos/20261020_optimizacion_listados/02_procedimiento_caja.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": ""
+    },
+    {
+      "script": "sql/historicos/20261020_optimizacion_listados/03_procedimiento_facturas_servicio.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": ""
+    },
+    {
+      "script": "sql/historicos/20261026_listaNotaPedido_web.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": ""
+    },
+    {
+      "script": "sql/historicos/20261104/20261104_instalar_reporte_venta_compania_si_falta.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": ""
+    },
+    {
+      "script": "sql/historicos/20261104/20261104_permisos_herencia.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": ""
+    },
+    {
+      "script": "sql/historicos/dependencias-20261102/post-build/20261031_obs_listado_indices.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": ""
+    },
+    {
+      "script": "sql/historicos/dependencias-20261102/post-build/20261101_instalar_usp_insertar_categoria_web.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": "dbo.uspInsertarCategoriaWeb ya existe; no se modific+¦."
+    },
+    {
+      "script": "sql/historicos/dependencias-20261102/post-build/20261102_corregir_identidad_facturas_servicio.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": ""
+    },
+    {
+      "script": "sql/historicos/dependencias-20261102/post-build/20261102_instalar_usp_eliminar_categoria.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": "dbo.uspEliminarCategoria ya existe; no se modific+¦."
+    },
+    {
+      "script": "sql/historicos/dependencias-20261102/post-build/20261102_instalar_usp_eliminar_proveedor.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": "dbo.uspEliminarProveedor ya existe; no se modific+¦."
+    },
+    {
+      "script": "sql/historicos/dependencias-20261102/otros/20261028_instalar_usp_insertar_proveedor.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": "dbo.uspInsertarProveedor ya existe; no se realizaron cambios."
+    },
+    {
+      "script": "sql/kardex/01_seis_procedimientos_kardex.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": ""
+    },
+    {
+      "script": "sql/kardex/02_tabla_saldos_iniciales.sql",
+      "estado": "OK",
+      "codigo": 0,
+      "detalle": ""
+    }
+  ]
+}

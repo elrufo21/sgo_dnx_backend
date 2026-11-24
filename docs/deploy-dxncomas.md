@@ -341,3 +341,48 @@ Estos paquetes reemplazan los builds `20261026-final-final` anteriores e incluye
 
 - A solicitud del usuario, se comentaron las escrituras directas sobre Kardex en seis procedimientos de la base local `DXNCOMAS0611` configurada en el backend. Los SQL aplicados y las definiciones anteriores se guardaron en `scripts/sql/kardex-dxncomas0611-20261109/`; el detalle está en `docs/procedimientos-web.md`.
 - Se aplicaron y verificaron en una sola transacción. No se realizaron pruebas funcionales de ventas o productos, ni se aplicaron cambios en las bases de las sedes. Antes de reutilizar los SQL, comparar las definiciones instaladas y revisar dependencias y diferencias locales.
+
+## Backend Pago Varios para ICA y COMAS — 2026-11-20
+
+- ICA: `artifacts/backend-ICA-20261120-pago-varios.zip`, SHA-256 `C49EB1B88B3812E1AA1409C2DDF6942E9EC4E05170EAE05AC1D49F581E257EBD`.
+- COMAS: `artifacts/backend-COMAS-20261120-pago-varios.zip`, SHA-256 `621D5E3097F5CF99FE72BA7CADA146ECC42B2207F2017ABE299EA578A39B1DC4`.
+- API completa del workspace con listado y contador de Pago Varios que usan únicamente `usplistarPagoVariosWEB`. Publicada con SDK 7.0.410 para .NET 7, win-x64 y framework-dependent; compilación exitosa con advertencias. No incluye frontend ni SQL.
+- Se verificó integridad y SHA-256 de cada archivo de ambos ZIP contra la publicación, y que no incluyan `appsettings`. Cada sede debe respaldar su API y conservar sus configuraciones, medios y llaves. Verificar compatibilidad con los procedimientos instalados antes de actualizar; no se probaron las bases ni se desplegaron los paquetes.
+- La carpeta intermedia local `artifacts/pago-varios-20261120-publish/` incluye los appsettings del entorno de desarrollo: no distribuirla. Solo entregar los ZIP verificados.
+
+## Frontend para ICA y COMAS — 2026-11-20
+
+- ICA: `artifacts/frontend-ICA-20261120-pago-varios.zip`, SHA-256 `3C024DA78A3FC82D289FA23B4B3A5EC2C923902EECABE425F26703CB2F971A76`; API `http://192.168.1.38:8081/api/v1`.
+- COMAS: `artifacts/frontend-COMAS-20261120-pago-varios.zip`, SHA-256 `C6164DEA5CEBB9C636A4698A74B26E0E6194BD46468399FBA8CF1083DD3527F4`; API `http://192.168.18.47:8081/api/v1`.
+- Incluyen el frontend completo del workspace y un instructivo por sede. Compilación `build:vercel` exitosa con advertencia de tamaño; no se ejecutó el typecheck completo. Se verificaron archivos, integridad, URL de API, token compartido del agente e inclusión de `web.config`. Contienen el token de impresión: distribuir solo a personal autorizado.
+- Respaldar la web existente y comprobar compatibilidad con API y SQL instalados antes de publicar. No se desplegó ni se probó en las sedes; la corrección de Pago V requiere el backend correspondiente de la sección anterior.
+
+## Builds completos de ICA y COMAS — 2026-11-20
+
+- ICA: `artifacts/deploy-ICA-20261120-completo-pago-varios.zip`, SHA-256 `359E1504B40C6EEFE0A16F399E59C7D62D42C5BA5646ACF8AFC7275B19926597`.
+- COMAS: `artifacts/deploy-COMAS-20261120-completo-pago-varios.zip`, SHA-256 `131712CCF78A4AA0B643BEBCB530646EBE8215D4A5801936DBE71BB59CBAB260`.
+- Cada ZIP reúne los builds de frontend y API anteriores, extensión, agente, plantilla de configuración por sede y SQL históricos para revisión. `verify-package.ps1` y la prueba de integridad pasaron en ambos; se verificaron destinos, CORS, .NET 7, IIS, token, SQL incluido y ausencia de appsettings de API. Incluyen token de impresión; transferir solo a personal autorizado.
+- Antes de actualizar, respaldar web y API y conservar configuración, medios y llaves de cada servidor. El responsable SQL debe verificar dependencias y versiones instaladas; los scripts históricos no se ejecutan automáticamente. No se ejecutó SQL ni se desplegó ni probó en las sedes. Los builds Vite se hicieron sin typecheck completo y dejaron advertencias de tamaño.
+
+## Build completo COMAS con scripts — 2026-11-24
+
+- `artifacts/deploy-COMAS-20261124-completo-final.zip`, SHA-256 `67B76BADB3F74367963C2F631A04CE8FB926606553213891BDF40D8FF0D6804C`.
+- Reúne frontend, API, extensión y agente ya compilados el 20/11 con los SQL históricos de los builds y los dos SQL preparados para Kardex y saldos. No incluye scripts adicionales de comprobación ni ejecuta SQL. Los archivos históricos se entregan para que el responsable aplique únicamente los necesarios; el procedimiento de nota de crédito puede afectar al escritorio.
+- Mantener la configuración, medios y llaves de la sede; el ZIP incluye el token de impresión. No se desplegó ni se probaron las bases o flujos de negocio con este paquete.
+
+## Prueba de scripts en DXNCOMAS2411 — 2026-11-24
+
+- A solicitud del usuario se probaron los 14 archivos SQL de `deploy-COMAS-20261124-completo-final.zip` en la base local `DXNCOMAS2411` de `localhost\SQLEXPRESS01`. Cada archivo se ejecutó en una transacción independiente que se revirtió; los 14 terminaron sin errores SQL. Resultado: `artifacts/resultado-sql-dxncomas2411-20261124.json`.
+- Se confirmó después que `InventarioSaldoInicial` sigue sin existir y las fechas de modificación de los seis procedimientos de Kardex permanecen sin cambios. Algunos scripts condicionales no ejecutan su rama de creación cuando el objeto ya existe; no se ejecutaron procedimientos de negocio ni se probó el servidor de producción. La prueba no aplica los cambios permanentemente ni certifica el funcionamiento de ventas, stock, Kardex o el escritorio.
+
+## Builds completos ICA y COMAS: almacén y SQL ordenado — 2026-11-24
+
+- ICA: `artifacts/deploy-ICA-20261124-almacen-sql-ordenado.zip`, SHA-256 `0D9493FB69DAD7F81CA536A204BE9ADE1DBA9310E4D6CD3F4EC402348997F387`.
+- COMAS: `artifacts/deploy-COMAS-20261124-almacen-sql-ordenado.zip`, SHA-256 `9AE57CCF4626D5B8CBF2B1F315AE88872A9DFC3FFBB255157F8B4B823694F5A2`.
+- Incluyen frontend y API actuales compilados, extensión, agente y SQL con `sql/ORDEN.md`. No incluyen appsettings de API; conservar configuración, medios y llaves del destino. El token del agente es confidencial. La apertura/cierre de almacén usa procedimientos existentes y no se ha probado mediante escrituras de negocio.
+- `20261124_inventario_saldo_inicial_sql2008.sql` reemplaza THROW por RAISERROR y RETURN para soportar SQL Server 2008; la sintaxis de los SQL del paquete COMAS pasó el parser TSql100. Los scripts históricos son condicionales: aplicar únicamente los que correspondan y no usar juntos las alternativas de facturas por rutina. El script de seis procedimientos Kardex solo se incluye para COMAS; falta adaptarlo y validarlo para ICA.
+- Se verificaron integridad, archivos compilados, destino, token y .NET 7. No se ejecutaron estos paquetes en SQL ni se desplegaron en las sedes. La publicación compiló con advertencias; el typecheck general mantiene errores fuera de almacén y la función de apertura/cierre no tuvo una prueba de escritura.
+
+## Inventario en servidores independientes — configuración
+
+La API admite `InventarioVistaPrevia:Modo` con `Local` (predeterminado, dos nombres de base en el servidor principal) o `Conexion` (dos cadenas separadas `ConnectionStrings:InventarioComas` e `InventarioIca`). La plantilla de despliegue incluye los campos vacíos; no reemplazar los appsettings ni guardar credenciales en los ZIP. El cambio requiere publicar esta versión de la API, configurar conexiones y acceso de red entre sedes; no requiere cambios SQL. Ver [inventario valorizado](inventario-permanente-valorizado.md).
