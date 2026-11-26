@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const backend = path.resolve(__dirname, '../..');
 const front = path.resolve(backend, '../sgo_dnx_frontend');
+const entry = 'src/app/main.tsx';
 const ts = require(path.join(front, 'node_modules/typescript'));
 const config = ts.readConfigFile(path.join(front, 'tsconfig.app.json'), ts.sys.readFile);
 const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, front);
@@ -26,7 +27,7 @@ function visitImports(filename) {
   }
   walk(sources.get(filename));
 }
-visitImports(path.join(front, 'src/main.tsx'));
+visitImports(path.join(front, entry));
 const files = [...reachable].map(f => sources.get(f));
 const reads = new Map();
 function nameOf(n) { return n && (ts.isIdentifier(n) || ts.isStringLiteral(n)) ? n.text : ''; }
@@ -129,5 +130,5 @@ for(const sf of files) {
   walk(sf);
 }
 const output=path.join(process.argv[2] ? path.resolve(process.argv[2]) : path.join(backend,'artifacts/analisis-dxncomas-20261018'),'frontend_llamadas.json');
-fs.writeFileSync(output,JSON.stringify({entry:'src/main.tsx',reachable_files:files.map(f=>path.relative(front,f.fileName).replaceAll('\\','/')).sort(),unreachable_files:[...sources.keys()].filter(f=>!reachable.has(f)).map(f=>path.relative(front,f).replaceAll('\\','/')).sort(),calls},null,2));
+fs.writeFileSync(output,JSON.stringify({entry,reachable_files:files.map(f=>path.relative(front,f.fileName).replaceAll('\\','/')).sort(),unreachable_files:[...sources.keys()].filter(f=>!reachable.has(f)).map(f=>path.relative(front,f).replaceAll('\\','/')).sort(),calls},null,2));
 console.log(JSON.stringify({reachable:files.length,unreachable:sources.size-files.length,calls:calls.length,output}));

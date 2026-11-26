@@ -40,4 +40,4 @@ Las imágenes nuevas se guardan bajo `/media/depositos-centro/` en el almacenami
 
 ## Componentes web
 
-La página está en `sgo_dnx_frontend/src/features/cashFlow/pages/DepositosCentroPage.tsx`; las rutas se agregan en `cashFlow/routes.tsx` y al menú Caja. Reutiliza `DataTable`, `HookFormInput`, `HookFormSelect`, `apiRequest`, el diálogo de confirmación y los permisos existentes.
+La página está en `sgo_dnx_frontend/src/app/cashFlow/pages/DepositosCentroPage.tsx`. Las rutas se registran en `src/app/cashFlow/routes.tsx` y el acceso aparece en el menú Caja. Reutiliza `DataTable`, `HookFormInput`, `HookFormSelect`, `apiRequest`, el diálogo de confirmación y los permisos existentes.
